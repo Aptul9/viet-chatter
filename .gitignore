@@ -1,0 +1,39 @@
+node_modules/
+dist/
+build/
+
+# Runtime data
+logs/
+*.log
+
+# SQLite
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# WhatsApp Web session
+.wwebjs_auth/
+.wwebjs_cache/
+
+# Transformers cache (embedding model ~80MB)
+.cache/
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Drizzle generated meta (keep migrations sql, ignore journal)
+drizzle/meta/_journal.json
+
+# tsx / build artifacts
+*.tsbuildinfo

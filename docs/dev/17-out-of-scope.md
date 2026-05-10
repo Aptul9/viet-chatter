@@ -1,0 +1,100 @@
+# Out of scope
+
+Lista esplicita di cosa NON viene fatto. Il bot v1 non gestisce niente di seguito, e niente entra in roadmap salvo riapertura esplicita con discussione.
+
+## Esclusioni hard (mai, salvo cambio di scope drastico)
+
+### Chat di gruppo
+
+Gruppi sempre ignorati, anche al boot. Il `MessageDispatcher` filtra `chat.isGroup === true` prima di qualunque altra logica. Niente KB, niente scheduler, niente manual_jobs su chat di gruppo.
+
+Motivo: contesto sociale multi-persona è un problema di scope completamente diverso (KB per partecipante, sentiment incrociato, decisione "rispondere a chi"). Non vale la complessità per casi d'uso atipici.
+
+### Account multipli WhatsApp
+
+Una sola sessione `whatsapp-web.js`, un solo numero. Niente astrazione `accountId`, niente isolation per account, niente switching.
+
+Motivo: complessità trasversale (ogni tabella avrebbe `account_id`, ogni query filter, ogni flow lookup). Beneficio marginale (chi ha bisogno di multi-account può girare due istanze separate del bot in directory diverse).
+
+### Approval flow / draft / preview
+
+Il bot manda direttamente. Non c'è step di review umano sulle reply.
+
+Motivo: contraddice il design "fully autonomous". Se vuoi controllo, riscrivi tu il messaggio (il bot rileva l'`out_manual` e annulla il suo schedule).
+
+### CLI per KB / job management
+
+Niente comandi `npm run kb:*`, `npm run jobs:*`, ecc.
+
+Motivo: fora il principio "tutto via conversazione naturale". Se serve manipolare il KB, lo si fa via DB diretto (intervento raro) o lasciando che l'AI emetta `supersedes_id`.
+
+### Self-chat command channel strutturato
+
+Niente parsing di prefissi tipo `/!` o comandi naturali in self-chat.
+
+Motivo: complessità per beneficio marginale. Casi rari di gestione manuale si risolvono con edit DB diretto.
+
+### Web UI / dashboard di gestione (in v1)
+
+Niente HTTP server, niente front-end attivo.
+
+Motivo: aggiunge superficie di attacco e complessità non motivata in v1. Future enhancement #7 prevede una dashboard read-only Next.js.
+
+### Multi-backend AI (in v1)
+
+Solo OpenCode con config `opencode.json` 1:1 da `linkedin-autoapply`. Niente Groq/Gemini/Claude-CLI/Codex-CLI/Playwright UI in v1.
+
+Motivo: limitare la superficie di test e validazione. Ogni backend ha quirks diversi sull'output JSON. Future enhancement #4 reintroduce multi-backend.
+
+### Backup automatico DB
+
+Niente cron di copia, niente snapshot ricorrenti, niente export.
+
+Motivo: fuori scope. L'utente può copiare il file `.db` manualmente quando vuole.
+
+### Sync multi-machine del DB
+
+Single-machine. Il file `.db` non va in OneDrive, Dropbox, Syncthing, git, durante l'esecuzione.
+
+Motivo: SQLite con WAL mode su filesystem sync produce conflitti e potenziale corruzione. Se serve portabilità, copiare `.db` a bot fermo.
+
+### Cifratura at-rest applicativa
+
+Il file `.db` è in chiaro. Niente SQLCipher, niente encryption layer.
+
+Motivo: si delega al filesystem (BitLocker/FileVault/LUKS). La cifratura applicativa aggiunge complessità chiave-management senza benefici significativi nel modello di minaccia tipico (PC personale dell'utente).
+
+### Detection avanzata sticker/audio/video
+
+Il body di messaggi non testuali resta come marker (`[sticker]`, `[audio]`, `[image]`, `[video]`). Niente OCR, niente speech-to-text, niente analisi video.
+
+Motivo: scope creep enorme. Eventualmente in futuro come feature isolata, mai in v1.
+
+### Persistenza sentiment classification (in v1)
+
+Il sentiment è inline nel prompt. Niente colonna dedicata, niente storia per messaggio.
+
+Motivo: aggiungere colonne a `processed_messages` solo per tracking implica chiamate sentiment in più. Future enhancement #1 lo aggiunge se serve analytics longitudinale.
+
+## Esclusioni di v1 ma riconsiderabili
+
+(Tutti questi sono coperti da future enhancements. Vedi `16-future-enhancements.md`.)
+
+- Sentiment con modello locale persistito.
+- Dynamic delay livelli 3 e 4.
+- Postgres + pgvector.
+- Engagement state lifecycle granulare.
+- Dashboard Next.js read-only.
+- Daily digest in self-chat.
+- Multi-backend AI rotation (incluso UI Playwright).
+
+## Comportamento davanti a richieste fuori scope
+
+Se durante l'uso emerge una necessita non coperta:
+
+1. Verificare se è in future-enhancements.
+2. Se sì, decidere se accelerare l'implementazione di quel punto.
+3. Se no, valutare se aggiungerlo a future-enhancements o se è davvero out-of-scope.
+4. Documentare la decisione (questo file o `16-future-enhancements.md`).
+
+Niente patch ad hoc fuori da questo processo. Il design v1 è coerente: aggiungere logica non documentata rompe la coerenza.
