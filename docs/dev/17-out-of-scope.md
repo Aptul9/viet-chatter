@@ -1,5 +1,7 @@
 # Out of scope
 
+> Status: speculative / forward-looking. Not implemented in v1.
+
 Lista esplicita di cosa NON viene fatto. Il bot v1 non gestisce niente di seguito, e niente entra in roadmap salvo riapertura esplicita con discussione.
 
 ## Esclusioni hard (mai, salvo cambio di scope drastico)

@@ -1,5 +1,7 @@
 # Manual jobs
 
+> Status: design; behavior implemented. See `19-implementation-notes.md` for shipped deltas.
+
 Tre tipi di job non-reattivi che il bot fa partire da solo:
 
 - `date_anchored`: messaggi su date specifiche/ricorrenti (compleanni, anniversari).

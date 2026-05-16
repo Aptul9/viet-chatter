@@ -1,5 +1,7 @@
 # Escalation a umano
 
+> Status: design; behavior implemented. `TELEGRAM_USER_CHAT_ID` supporta comma-separated per broadcast multi-recipient. See `19-implementation-notes.md` §6.
+
 Quando il bot riceve un messaggio che richiede informazioni o decisioni che l'AI non può conoscere o sostituire (impegni futuri, decisioni delicate, scelte personali, autorizzazioni), invece di inventare una risposta o tirare a indovinare, segnala l'utente su un canale fuori-banda. L'utente risponde a mano da WhatsApp.
 
 Questa funzionalità non contraddice il design "fully autonomous" (vedi `17-out-of-scope.md`): il bot resta autonomo nel 95% dei turn, e ammette esplicitamente quando non sa nel 5% restante. Differente da un approval flow (dove ogni reply è in revisione umana): qui solo i turn dove l'AI dichiara `escalate_to_human` saltano l'invio automatico.

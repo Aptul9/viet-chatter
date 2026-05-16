@@ -2,7 +2,7 @@
 
 ## L'idea base
 
-Tu definisci una "regola" che decide, per ogni chat, se il bot deve gestirla o ignorarla. La regola è una funzione semplice scritta in un file di configurazione.
+Tu definisci delle "regole" che decidono, per ogni chat, se il bot deve gestirla o ignorarla. Le regole sono dichiarative: liste di prefissi numerici ammessi, numeri bloccati, flag "solo contatti salvati", flag "solo chat con messaggi non letti". Si editano via web UI (`http://localhost:3000`, tab Filter) oppure a mano nel file `config/user-config.yaml` (blocco `filter`).
 
 ## Esempio tipico
 
@@ -14,41 +14,43 @@ Espresso a parole:
 
 ## Tipi di regole possibili
 
-La regola può combinare condizioni con `E`, `O`, `NON`. Esempi di criteri:
+Le regole sono 4 (combinabili: passa solo se TUTTI i check applicabili passano):
 
-- Numero che inizia con un certo prefisso.
-- Numero presente in una whitelist (lista di numeri ammessi).
-- Numero presente in una blacklist (lista di numeri da escludere).
-- Contatto salvato in rubrica (sì/no).
-- Nome contatto contiene una certa parola.
-- Combinazioni delle precedenti.
+- **Prefissi ammessi** (`allowedPrefixes`): lista di prefissi E.164 (es. `+84`, `+39`). Vuota = nessun filtro per prefisso. Logica OR tra prefissi.
+- **Numeri bloccati** (`blockedNumbers`): lista di numeri E.164 specifici da escludere. Vince sempre sulla allow list.
+- **Solo contatti salvati** (`savedContactsOnly`, on/off): se attivo, risponde solo a chi è in rubrica sul telefono paired.
+- **Solo non letti** (`unreadOnly`, on/off): se attivo, risponde solo se la chat ha messaggi non letti.
 
-## Modifica della regola
+Per filtri più complessi (su contenuto messaggio, su nome contatto, ecc.) non c'è supporto in v1: rules sono solo metadata della chat.
 
-La regola sta in un file dentro la cartella `config/`. Si modifica con un editor di testo qualunque. Non serve riavviare il bot: alla salvataggio del file, il bot ricarica la regola da solo.
+## Modifica delle regole
 
-Se la modifica contiene un errore, il bot lo segnala nei log e tiene la versione precedente attiva. Niente downtime.
+Due vie equivalenti:
+
+- **Web UI**: `http://localhost:3000`, tab "Filter", modifica e Save.
+- **A mano**: edita `config/user-config.yaml`, blocco `filter`, salva.
+
+Non serve riavviare il bot: hot-reload automatico al salvataggio. Se la modifica contiene un errore (YAML invalido, valore fuori schema), il bot lo segnala nei log e tiene la versione precedente attiva. Niente downtime.
 
 ## Cosa succede a chi NON è nella regola
 
 Niente. Il bot vede arrivare il messaggio, controlla, decide "non in lista", lo lascia stare. Tu lo vedrai normalmente sul telefono come sempre.
 
-## Aggiungere una persona alla lista
+## Aggiungere o rimuovere una persona
 
-Modifichi il file di configurazione, salvi. Funziona.
+Aggiungi/togli il numero da "Allowed prefixes" o "Blocked numbers" via web UI, oppure edita la lista corrispondente nel YAML. Salva. Funziona.
 
-## Rimuovere una persona
+## Esempio di regola scritta (YAML)
 
-Stessa cosa.
-
-## Esempio di regola scritta
-
-Non serve essere programmatori per leggerla, ma per modificarla bisogna conoscere un minimo di sintassi. Esempio:
-
-```
-risponde-a:
-  numero inizia con +84
-  e numero NON in [+84111111111, +84222222222]
+```yaml
+filter:
+  allowedPrefixes:
+    - '+84'
+  blockedNumbers:
+    - '+84111111111'
+    - '+84222222222'
+  savedContactsOnly: false
+  unreadOnly: false
 ```
 
 Tradotto: solo numeri vietnamiti, escluse due eccezioni.

@@ -1,5 +1,7 @@
 # Future enhancements
 
+> Status: speculative / forward-looking. Not implemented in v1.
+
 Lista finita. Tutto fuori da questa lista è automaticamente out-of-scope.
 
 | #   | Enhancement                                                                                                                                                                                                                                                                                                                                                         | Trigger di valutazione                                                                                                                                                                                                                                                          |

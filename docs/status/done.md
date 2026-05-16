@@ -1,6 +1,6 @@
 ---
 created: 2026-05-16
-updated: 2026-05-16T16:45:00+02:00
+updated: 2026-05-16T20:00:00+02:00
 tags: [project/viet-chatter, status]
 ---
 
@@ -36,6 +36,40 @@ Per problemi NON banali che impattano la docs o il design futuro:
 ---
 
 ## 2026-05-16
+
+### Evento: runtime hardening — wweb lid + race fixes
+
+- Cosa fatto: wave di hardening post-implementazione per stabilizzare l'esperienza utente. Coperti: wweb upgrade, lid resolution, isBotSent race, delayed reconciler, pre-launch cleanup, free-port helper, Telegram multi-recipient, dotenv autoload, OpenCode model swap, OPENCODE_DISABLE_DEFAULT_PLUGINS bug, shutdown hardening, dispatcher log level promotion, npm run test:e2e, wweb diagnostics. Dettaglio in [docs/dev/19-implementation-notes.md](../dev/19-implementation-notes.md).
+- Decisioni:
+  - **`OPENCODE_DISABLE_DEFAULT_PLUGINS=false` di default**. Settarlo a `1` unloada anche i provider plugin bundled (github-copilot, openai, anthropic) → qualunque `opencode:*` model ritorna HTTP 500 `ProviderModelNotFoundError`. Tool isolation gia' garantita dal blocco `permission` deny-all sull'agent `direct-reply` in `opencode.json` + da `OPENCODE_DISABLE_CLAUDE_CODE=1` (che blocca `CLAUDE.md` / `AGENTS.md` auto-injection). Stesso bug presente in `linkedin-autoapply` config.yaml.
+  - **OpenCode model default → `opencode:github-copilot/gpt-5-mini`** (da `opencode:anthropic/claude-sonnet-4-6`). Override via YAML / web UI.
+  - **whatsapp-web.js 1.34.7** (da `^1.26.0`). Sessione `LocalAuth` blob da 1.26 NON compatibile → re-paire QR richiesto. `.wwebjs_auth/` wipato durante testing.
+  - **`@lid` resolution**: wweb 1.34.x espone `client.getContactLidAndPhone([id])`. Risolve solo contatti SALVATI sul telefono paired (privacy by design). Workaround user-side: salvare i numeri da whitelistare.
+  - **`isBotSent` race fix**: sotto @lid wweb rewrita msgId dell'echo `message_create` o fira l'evento PRIMA che `sendMessage` risolva. Tracker ora ha 2 path: strict id match + fuzzy (chatId + body + ts window ≤3s/15s). Previene il classify dell'echo come `out_manual` con conseguente abort della pipeline mid-send.
+  - **Delayed reconciler passes 15s / 45s / 120s** dopo `ready`. wweb 1.34 multi-device sync trickle-in delle chat nei primi 30-90s. Ogni pass e' idempotente via `processed_messages.whatsapp_msg_id` PK.
+  - **Pre-launch Chromium cleanup** in `initWhatsApp` PRIMA di `client.initialize()`. Kill mirato dei processi Chromium la cui command line referenzia il NOSTRO `.wwebjs_auth/` (mai chrome.exe generici → chiuderebbe il browser dell'utente). Rimozione file lock (`SingletonLock`, `SingletonCookie`, `SingletonSocket`, `lockfile`). Cross-platform (PS Win / pgrep POSIX).
+  - **`TELEGRAM_USER_CHAT_ID` comma-separated → broadcast**. Promise.allSettled, any success counts. Partial failures loggati.
+  - **`dotenv/config` autoload** in cima a `src/index.ts`, `src/scripts/health.ts`, `src/scripts/test-e2e.ts`. Niente piu' export manuale.
+  - **`scripts/free-port.mjs`** wrappato come `predev:web` step. Cross-platform kill di chi holdi port 3000. Risolve EADDRINUSE dopo Ctrl+C consecutivi.
+  - **Shutdown hardening**: `SIGINT` / `SIGTERM` / `SIGHUP` / `uncaughtException` / `unhandledRejection` tutti convergono in `shutdown(reason)` idempotente che chiude ticker / cron / opencode / sqlite / wa pulito.
+  - **Dispatcher log promotion**: `msg received` / `msg passed filter` / `msg filtered out` / `msg skipped (group)` / state transitions promossi a `info`. Testing manuale non richiede piu' `LOG_LEVEL=debug`.
+  - **`npm run test:e2e`**: smoke pipeline completa senza wweb (fake `WhatsAppHandle` con `sendMessage` che logga). Permette validazione AI + state machine + orchestrator senza scan QR.
+- Problemi incontrati:
+  - **`@lid` privacy**: WhatsApp 2024+ mostra `179xxx@lid` per contatti unsaved al peer. Il bot lato sender vede questa identifier opaca al posto del +39/+84 atteso → filter rejecta tutti. Mitigato con `getContactLidAndPhone` per contatti saved. Contatti unsaved restano opachi by design (privacy).
+  - **`isBotSent` race**: sotto @lid wweb 1.34 rewrita il msgId dell'echo OR fira `message_create` PRIMA che `sendMessage` risolva. Senza fuzzy match il dispatcher classificava l'echo come `out_manual` → abortiva la propria pipeline mid-send → no reply visibile.
+  - **`OPENCODE_DISABLE_DEFAULT_PLUGINS=1`**: scoperto che disabilita anche i provider bundled (non solo plugin "auxiliary"). Sintomo: tutti i model `opencode:*` ritornano 500 ProviderModelNotFoundError. Workaround: `false` di default. Documentato in `19-implementation-notes.md` §8.
+  - **Chromium lock left over**: Ctrl+C / kill -9 / crash silenzioso lasciano processi Chromium orfani + `SingletonLock` file. Nuovo run → "The browser is already running for /path/to/.wwebjs_auth/". Mitigato con pre-launch cleanup.
+- Verifica:
+  - `npm run test:e2e` PASS (exit code 0, reply mock generata in 26s).
+  - `npm run health` PASS.
+  - `npm run dev` PASS (entrambi `[bot]` e `[web]` partono).
+  - Smoke test #61 (base reply) verificato manualmente con +39 → +31 paired account.
+- Follow-up:
+  - **Wave 11 #62 (escalation Telegram)** ancora non live-testato. Implementation completa (multi-recipient + retry).
+  - **Wave 11 #63 (birthday job)** ancora non live-testato. Implementation completa.
+  - **Wave 11 #64 (reconnect / boot reconciler)** ancora non live-testato. Delayed reconciler shipped.
+  - Future enhancement opzionale: `filter.allowUnknownLid: true` (~5 righe in `filter.ts`) per accettare unsaved `@lid` con pushname non vuoto. Apre superficie privacy (unsaved random con tuo nome potrebbe triggerare).
+  - Plan B se wweb diventa instabile: migrazione a `@whiskeysockets/Baileys`. Non in roadmap attiva.
 
 ### Evento: collapse a single-project + YAML config
 

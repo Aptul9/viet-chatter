@@ -1,5 +1,7 @@
 # Data flow
 
+> Status: design; behavior implemented. See `19-implementation-notes.md` for shipped deltas.
+
 ## Flow A: messaggio entrante (incoming)
 
 1. `whatsapp-web.js` emette `message` (incoming).

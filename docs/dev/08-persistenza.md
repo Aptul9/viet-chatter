@@ -1,5 +1,7 @@
 # Persistenza
 
+> Status: design; behavior implemented. See `19-implementation-notes.md` for shipped deltas.
+
 ## Stack
 
 - Driver: `better-sqlite3` (sincrono, embedded, nativo).

@@ -1,5 +1,7 @@
 # Portabilità a Postgres
 
+> Status: speculative / forward-looking. Not implemented in v1.
+
 In v1 lo stack DB è SQLite + `sqlite-vec`. La progettazione lascia aperta la porta a una migrazione futura a Postgres + `pgvector`. Questo documento elenca le astrazioni che la rendono fattibile e i punti che vanno toccati.
 
 ## Quando ha senso migrare

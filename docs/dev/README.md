@@ -1,5 +1,7 @@
 # Documentazione tecnica
 
+> **Implementation status**: v1 shipped (single-project, YAML config, web UI). I file `01-18` riflettono il design originale (pre-implementazione); il comportamento corrente puo' differire. Vedi `19-implementation-notes.md` per i delta shippati e per quello che e' canonico oggi.
+
 ## Indice
 
 1. [Stack](01-stack.md)
@@ -20,14 +22,15 @@
 16. [Future enhancements](16-future-enhancements.md)
 17. [Out of scope](17-out-of-scope.md)
 18. [Escalation a umano](18-escalation.md)
+19. [Implementation notes (shipped v1)](19-implementation-notes.md)
 
 Spec di design originale: [specs/2026-05-10-viet-chatter-design.md](specs/2026-05-10-viet-chatter-design.md).
 
 ## Ordine di lettura suggerito
 
-- Per onboarding: 01 -> 02 -> 03 -> 13.
-- Per implementazione di una feature specifica: leggi prima il file dedicato (es. scheduler -> 04, KB -> 06).
-- Per debug operativo: 15 (runbook) e 12 (log).
+- Per onboarding: 01 → 02 → 03 → 13 → 19.
+- Per implementazione di una feature specifica: file dedicato (es. scheduler → 04, KB → 06), poi verifica delta in 19.
+- Per debug operativo: 15 (runbook) + 12 (log) + 19.
 
 ## Convenzioni interne
 

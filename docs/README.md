@@ -4,20 +4,18 @@ Bot WhatsApp che risponde in modo autonomo a un sottoinsieme filtrato di chat 1:
 
 ## Tre rami della documentazione
 
-- `utente/`: documentazione non tecnica. Spiega cosa fa il bot, come usarlo, cosa aspettarsi. Pensata per un lettore non sviluppatore.
-- `dev/`: documentazione tecnica. Architettura, schema DB, scheduler, prompt, edge case. Per chi mette mano al codice.
-- `status/`: tracking operativo dello sviluppo. Kanban board (Obsidian), done log, plan di parallelizzazione subagent.
+- `utente/`: documentazione non tecnica. Spiega cosa fa il bot, come usarlo, cosa aspettarsi. Per un lettore non sviluppatore.
+- `dev/`: documentazione tecnica. Architettura, schema DB, scheduler, prompt, edge case. Per chi mette mano al codice. I file `01-18` descrivono il design pre-implementazione; il file `19-implementation-notes.md` descrive il comportamento effettivo dopo lo ship di v1.
+- `status/`: tracking storico dello sviluppo (board, done log, parallel plan). Implementazione completata, materiale mantenuto per riferimento.
 
-Lo spec di design completo (frutto del brainstorming iniziale) si trova in `dev/specs/`.
+Lo spec di design completo (brainstorm iniziale, ora storico) e' in `dev/specs/2026-05-10-viet-chatter-design.md`.
 
 ## Come leggerla
 
-- Se vuoi capire cosa fa: parti da `utente/README.md`.
-- Se vuoi mettere mano al progetto: parti da `dev/README.md`.
-- Se vuoi vedere lo stato dello sviluppo (cosa fatto, cosa in corso): parti da `status/README.md`.
+- Per capire cosa fa: parti da `utente/README.md`.
+- Per mettere mano al progetto: parti da `dev/README.md`, poi `dev/19-implementation-notes.md` per lo stato corrente.
+- Per la storia di come e' stato costruito: `status/README.md`.
 
 ## Stato
 
-v1, in definizione. Nessun codice scritto ancora. La documentazione precede l'implementazione.
-
-Il tracking implementativo (kanban + done log + parallel plan) vive in `status/`.
+v1 shipped (2026-05-16). Single Node project con YAML config + web UI. Vedi `dev/19-implementation-notes.md` per il dettaglio di cosa diverge dalla spec originale.

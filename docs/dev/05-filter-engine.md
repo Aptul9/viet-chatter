@@ -1,5 +1,7 @@
 # Filter engine
 
+> Status: design; behavior implemented. The TypeScript predicate `shouldReply` shown below is REPLACED in v1 by a declarative `filter:` block in YAML. See `19-implementation-notes.md` §2 for the shipped form.
+
 ## Modello
 
 Il filtro è una predicate function TypeScript user-defined in `config/index.ts`:

@@ -1,5 +1,7 @@
 # viet-chatter — Design Spec
 
+> Status: HISTORICAL — original brainstorm preceded implementation. Kept for archival. See `docs/dev/19-implementation-notes.md` for current state.
+
 Data: 2026-05-10.
 Status: approved.
 Lingua: italiano.

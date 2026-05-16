@@ -1,5 +1,7 @@
 # Progetto layout
 
+> Status: design; behavior implemented. Il layout corrente include anche `config/defaults.ts`, `config/user-config.yaml`, `scripts/free-port.mjs`, `src/whatsapp/pre-launch.ts`, `src/scripts/test-e2e.ts`, e l'intera cartella `web/` (Next 15). See `19-implementation-notes.md` §1.
+
 ```
 viet-chatter/
 ├── package.json

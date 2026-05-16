@@ -133,7 +133,7 @@ Niente di speciale: i tuoi messaggi proattivi entrano nello storico, tutto il re
 
 **Cronologia**:
 
-- 16:00 apri `config/index.ts`, aggiungi `+84LinhNumber` alla blacklist, salvi.
+- 16:00 apri la web UI (`http://localhost:3000`, tab Filter) e aggiungi `+84LinhNumber` a "Blocked numbers", Save. Oppure equivalentemente edit `config/user-config.yaml` blocco `filter.blockedNumbers` e salva.
 - 16:00 il bot rileva il file modificato, ricarica la regola, valida con zod, swap atomico.
 - 16:01 Linh ti scrive. Il bot legge, controlla la NUOVA regola: numero in blacklist -> non passa. Ignora.
 

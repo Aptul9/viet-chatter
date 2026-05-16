@@ -1,5 +1,7 @@
 # AI integration
 
+> Status: design; behavior implemented. Default model is now `opencode:github-copilot/gpt-5-mini` (was `claude-sonnet-4-6`). `OPENCODE_DISABLE_DEFAULT_PLUGINS` must stay `false`. See `19-implementation-notes.md` §7-8 for shipped deltas.
+
 ## Filosofia
 
 Single-call per turn: una sola invocazione AI produce reply, extracted_facts, tone_update, languages_update. Niente chiamate separate per estrazione (raddoppierebbe costi e latenza).

@@ -1,5 +1,7 @@
 # Runbook
 
+> Status: design; behavior implemented. Quick-start canonico in `README.md` root. `.env` ora autoload via `dotenv`; non serve piu' export manuale prima di `npm start`. `TELEGRAM_USER_CHAT_ID` supporta comma-separated per broadcast. See `19-implementation-notes.md` §5-6.
+
 ## Setup iniziale
 
 ```bash

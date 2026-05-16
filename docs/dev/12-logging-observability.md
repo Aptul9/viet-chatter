@@ -1,5 +1,7 @@
 # Logging e observability
 
+> Status: design; behavior implemented. Eventi aggiuntivi `wweb event`, `whatsapp paired account`, `whatsapp heartbeat` shippati. Diversi eventi dispatcher promossi da `debug` a `info`. See `19-implementation-notes.md` §16 + §18.
+
 ## Logger: pino
 
 ```ts

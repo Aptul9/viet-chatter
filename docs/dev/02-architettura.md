@@ -1,5 +1,7 @@
 # Architettura
 
+> Status: design; behavior implemented. See `19-implementation-notes.md` for shipped deltas.
+
 ## Diagramma componenti
 
 ```

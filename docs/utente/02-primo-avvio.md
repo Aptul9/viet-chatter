@@ -10,11 +10,20 @@
 ## Procedura
 
 1. Apri il terminale nella cartella del progetto.
-2. Lanci il comando di avvio (`npm start`).
+2. Lanci il comando di avvio (`npm run dev` per partire con bot + web UI insieme, oppure `npm start` per solo bot).
 3. Compare un QR code nel terminale.
 4. Apri WhatsApp sul telefono, vai in `Impostazioni > Dispositivi collegati > Collega un dispositivo`.
 5. Inquadra il QR code.
 6. Il bot si collega alla tua sessione WhatsApp Web e inizia a osservare i messaggi.
+
+## Configurazione (chi gestire, tempi, lingua, ecc.)
+
+Due vie equivalenti per configurare il bot:
+
+- **Web UI** (più semplice): se hai lanciato `npm run dev`, apri `http://localhost:3000`. Trovi 8 tab (Scheduler, KB, AI, Logging, Escalation, Filter, Manual jobs, Boot) con tooltip che spiegano ogni campo. Salva → il bot ricarica automaticamente.
+- **A mano**: edita il file `config/user-config.yaml` con un editor di testo. Commenti inline spiegano ogni campo. Salva → stesso hot-reload automatico.
+
+Alcuni campi richiedono restart del bot per avere effetto (sono marcati `RESTART REQUIRED` sia nella UI che nel YAML): path del DB, modello AI, sessione WhatsApp.
 
 ## Dopo il primo avvio
 

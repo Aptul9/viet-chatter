@@ -53,6 +53,8 @@ Puoi scegliere uno o entrambi:
 
 Setup una tantum: crei un Telegram bot personale (gratis, via @BotFather), copi il token, lo metti nel file `.env` del bot. Ti scrivi col tuo bot Telegram per recuperare il tuo `chat_id` e lo metti nello stesso `.env`.
 
+Multi-destinatario supportato: `TELEGRAM_USER_CHAT_ID` accetta più chat id separati da virgola (es. `123456,789012`). Il bot manda a tutti in parallelo. Utile se vuoi le notifiche su più dispositivi o più bot Telegram diversi.
+
 Pro: notifiche affidabili, separate da WhatsApp. Se WhatsApp Web smette di funzionare, Telegram continua.
 
 Contro: 5 minuti di setup iniziale.
@@ -83,16 +85,16 @@ Se ignori la notifica e non rispondi mai a Hoa, il bot non insisterà. Hoa ha vi
 
 ## Posso disabilitarlo
 
-Sì. Nel file di configurazione `config/index.ts`:
+Sì. Tre vie equivalenti:
 
-```ts
-escalation: {
-  enabled: false,
-  ...
-}
-```
+- Web UI: `npm run dev` → `http://localhost:3000`, tab Escalation, toggle "Enabled" off, Save.
+- A mano nel file `config/user-config.yaml`:
+  ```yaml
+  escalation:
+    enabled: false
+  ```
 
-Salvi, hot-reload, dal turn successivo il bot riprende a generare risposte autonome anche sui casi delicati. Sconsigliato: il bot inventerà appuntamenti che non hai. Meglio tenerlo on.
+Hot-reload automatico, dal turn successivo il bot riprende a generare risposte autonome anche sui casi delicati. Sconsigliato: il bot inventerà appuntamenti che non hai. Meglio tenerlo on.
 
 ## Posso configurare per chat specifica
 

@@ -1,5 +1,7 @@
 # Boot reconciler
 
+> Status: design; behavior implemented. The reconciler runs at boot AND on a delayed schedule (15s / 45s / 120s) to catch wweb's late-loading chats. `@lid` resolution applied before filter. See `19-implementation-notes.md` §13 + §15.
+
 ## Scopo
 
 Catch-up dei messaggi WhatsApp che sono arrivati mentre il bot era offline o non connesso. Idempotente, deterministico, scalabile su account con molte chat.

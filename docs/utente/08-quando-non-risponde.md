@@ -68,4 +68,4 @@ Se il bot aveva pianificato un messaggio automatico (auguri, revive, re-engage) 
 
 ## Cosa fare se vedi il bot rispondere quando NON volevi
 
-Modifica la regola di filtro (`config/index.ts`) per escludere quella persona, salva, e da quel momento il bot la ignora.
+Aggiungi quella persona alla blacklist nelle regole filtro: o via web UI (`npm run dev` → `http://localhost:3000`, tab Filter, campo "Blocked numbers"), oppure a mano editando `config/user-config.yaml` (blocco `filter.blockedNumbers`). Da quel momento il bot la ignora (hot-reload automatico).

@@ -1,5 +1,7 @@
 # Config e hot reload
 
+> **Source of truth**: `config/user-config.example.yaml` (committato) e `config/defaults.ts` (defaults TS tipati). Comportamento canonico in `19-implementation-notes.md` §2.
+
 ## Source of truth
 
 Lo stato runtime e' definito da due file:
@@ -69,7 +71,7 @@ filter:
 
 ## Schema zod (`src/config/schema.ts`)
 
-Validazione runtime di tutto il config, incluso il nuovo blocco `filter`:
+Validazione runtime di tutto il config, incluso il blocco `filter`:
 
 ```ts
 filter: z.object({
@@ -80,7 +82,7 @@ filter: z.object({
 }),
 ```
 
-Lo schema completo include tutti gli altri campi (scheduler, KB, AI, logging, escalation, ecc.) come prima della migration YAML.
+Lo schema completo include tutti gli altri campi (scheduler, KB, AI, logging, escalation, ecc.).
 
 ## Loader con hot reload (`src/config/index.ts`)
 
@@ -100,7 +102,7 @@ function loadFromYaml() {
   const merged = deepMerge(defaults, overrides)
   ConfigSchema.parse(merged)
   const pred = (chat) => {
-    /* genera dal blocco filter */
+    /* generato dal blocco filter */
   }
   return { config: merged, shouldReply: pred }
 }
@@ -145,7 +147,7 @@ function tick() {
 | Cambio di `embeddingModel`                                        | NON ha effetto runtime se il modello e' gia' caricato. Restart richiesto.                                                                                                                                         |
 | Cambio di `tickIntervalMs`                                        | Effetto al prossimo tick (legge live).                                                                                                                                                                            |
 | Cambio di `nightWindow`                                           | Effetto immediato sui calcoli successivi.                                                                                                                                                                         |
-| Cambio di `escalation.enabled` (true -> false)                    | Effetto immediato: escalations gia' pendenti restano in DB ma non vengono piu' rinotificate. Nuovi turn non emettono escalation (l'AI riceve hint nel context per disattivare).                                   |
+| Cambio di `escalation.enabled` (true → false)                     | Effetto immediato: escalations gia' pendenti restano in DB ma non vengono piu' rinotificate. Nuovi turn non emettono escalation (l'AI riceve hint nel context per disattivare).                                   |
 | Cambio di `escalation.channels`                                   | Effetto immediato sul prossimo notify. Escalations gia' notificate non si rinotificano automaticamente sul nuovo canale.                                                                                          |
 | Cambio di `escalation.telegramBotTokenEnv`                        | NON ha effetto: la ENV var viene letta a ogni notify dal nome configurato, ma il nome stesso cambia solo a hot-reload, e poi viene letto live. Funziona se aggiungi una nuova ENV var prima di salvare il config. |
 | Salvataggio del file `user-config.yaml` da parte della UI Next.js | chokidar vede il change, re-parse + re-validate + swap. La UI mostra toast "Bot will hot-reload from YAML.".                                                                                                      |
@@ -166,12 +168,13 @@ Niente `.env` per la config principale (tutto in `config/defaults.ts` + `config/
 Le ENV vars sono usate per:
 
 - **OpenCode**:
-  - `OPENCODE_DISABLE_CLAUDE_CODE=1`
-  - `OPENCODE_DISABLE_DEFAULT_PLUGINS=1`
+  - `OPENCODE_DISABLE_CLAUDE_CODE=1` (default true: blocca CLAUDE.md / AGENTS.md auto-injection).
+  - `OPENCODE_DISABLE_DEFAULT_PLUGINS=false` (NON flippare a `1`: rompe i provider plugin. Vedi `19-implementation-notes.md` §8).
+  - `OPENCODE_DISABLE_AUTOUPDATE`, `OPENCODE_DISABLE_LSP`.
   - Settate dal modulo `src/ai/opencode.ts` automaticamente prima di lanciare il server.
 - **Escalation (Telegram)**:
-  - `TELEGRAM_BOT_TOKEN`: token del bot Telegram, ottenuto da @BotFather.
-  - `TELEGRAM_USER_CHAT_ID`: chat_id Telegram dell'utente (numerico). Richiesto solo se `escalation.channels` include `'telegram'`.
+  - `TELEGRAM_BOT_TOKEN`: token del bot Telegram.
+  - `TELEGRAM_USER_CHAT_ID`: chat_id Telegram dell'utente. Supporta comma-separated per broadcast multi-recipient (vedi `19-implementation-notes.md` §6).
   - Lette a ogni notify (live, non cached).
 
 `.env` (gitignored) di esempio:
@@ -179,14 +182,9 @@ Le ENV vars sono usate per:
 ```
 TELEGRAM_BOT_TOKEN=123456789:AAA-bbb-ccc-ddd-eee
 TELEGRAM_USER_CHAT_ID=987654321
+# Oppure broadcast: TELEGRAM_USER_CHAT_ID=987654321,123456,789012
 ```
 
-Caricamento `.env`: in v1 il bot non usa `dotenv` per scelta. Le ENV vars vanno settate nell'ambiente dove parte il bot:
-
-- Linux/macOS: `export $(grep -v '^#' .env | xargs)` prima di `npm start`, oppure tramite shell rc.
-- Windows: `set TELEGRAM_BOT_TOKEN=...` (cmd) o `$env:TELEGRAM_BOT_TOKEN = "..."` (PowerShell).
-- Process manager (futuro): inietta tramite il manager (PM2, systemd EnvironmentFile, ecc.).
-
-Se serve `.env` autoload, aggiungere `dotenv` come dependency e `import 'dotenv/config'` in cima a `src/index.ts`. Considerato future enhancement, in v1 setting manuale.
+`.env` viene caricato automaticamente via `import 'dotenv/config'` in cima a `src/index.ts` e `src/scripts/{health,test-e2e}.ts`.
 
 Vedi anche `15-runbook.md` per setup Telegram step-by-step.
