@@ -43,3 +43,11 @@ drizzle/meta/_journal.json
 
 # User-edited YAML config (example is committed, real one is local)
 config/user-config.yaml
+config/user-config.yaml.backup
+
+# e2e (Spec B): runtime artefacts. Code under e2e/{driver,validator,config}/src
+# IS committed, but per-run data and the second WhatsApp session are not.
+e2e/driver/.wwebjs_auth/
+e2e/driver/.wwebjs_cache/
+e2e/logs/
+e2e/db/

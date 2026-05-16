@@ -153,4 +153,19 @@ export function shouldReply(c: ChatContext): boolean {
   return _shouldReply(c)
 }
 
+/**
+ * Test-only escape hatch (Spec B). Replaces fields on the live `_config`
+ * object so the `config` Proxy reflects them immediately. Gated by
+ * `BOT_E2E_MODE=1` env to prevent accidental production use.
+ */
+export function __overrideConfigForTest(partial: Partial<ConfigRuntime>): void {
+  if (process.env['BOT_E2E_MODE'] !== '1' && process.env['NODE_ENV'] !== 'test') {
+    throw new Error('__overrideConfigForTest only allowed when BOT_E2E_MODE=1 or NODE_ENV=test')
+  }
+  if (!_config) {
+    throw new Error('config not initialized')
+  }
+  _config = { ..._config, ...partial } as ConfigRuntime
+}
+
 export type { Config } from '../../config/index.js'

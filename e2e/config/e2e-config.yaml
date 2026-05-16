@@ -1,0 +1,90 @@
+# viet-chatter test config used by e2e/run.ts. Mirrors user-config.example.yaml
+# shape (same zod schema) but with short timers and permissive filters so a
+# single scenario completes in ~30s rather than minutes/hours.
+
+# -- WhatsApp --
+sessionDir: './.wwebjs_auth'
+timezone: 'Europe/Rome'
+
+# -- Scheduler (compressed for tests) --
+debounceMs: 2000
+hardCapMs: 10000
+minDelayMs: 5000
+maxDelayMs: 15000
+jitterPct: 0.2
+nightWindow:
+  startHour: 4
+  endHour: 4                                  # start==end disables night window
+rollingLatencyWindow: 5
+fallbackDelayMs: 10000
+postReconnectSpreadMs:
+  min: 1000
+  max: 5000
+
+# -- Boot --
+bootMaxChatsToFetch: 50
+fetchConcurrency: 5
+
+# -- Tick --
+tickIntervalMs: 1000
+manualJobsTickIntervalMs: 2000
+
+# -- KB --
+ephemeralTtlDays: 7
+ragTopK: 8
+embeddingModel: 'Xenova/bge-small-en-v1.5'
+
+# -- AI --
+aiModel: 'opencode:github-copilot/gpt-5-mini'
+aiHistoryLimit: 30
+aiMaxRetryParseFail: 1
+
+# -- Logging --
+# logFile is overridden at boot via BOT_E2E_LOG_PATH env var; this is the
+# fallback when running the bot manually with this config.
+logLevel: 'debug'
+logFile: './e2e/logs/default.log'
+logRotation: 'daily'
+logMaxSize: '50m'
+
+# -- Manual jobs / re-engage --
+reEngageDefaultThresholdDays: 14
+reEngageColdAfterDays: 7
+reEngageMinOutgoingHistory: 3
+
+# -- Escalation --
+escalation:
+  enabled: true
+  channels:
+    - 'telegram'
+  whatsappSelfChatId: 'me'
+  telegramBotTokenEnv: 'TELEGRAM_BOT_TOKEN'
+  telegramChatIdEnv: 'TELEGRAM_USER_CHAT_ID'
+  rateLimitPerHour: 12
+  highUrgencyBypassRateLimit: true
+  retryIntervalMs: 5000
+  retryMaxAttempts: 3
+
+# -- DB --
+# Overridden at boot via BOT_E2E_DB_PATH env var.
+dbPath: './e2e/db/default.db'
+
+# -- Filter (allow all for testing) --
+filter:
+  allowedPrefixes: []
+  blockedNumbers: []
+  savedContactsOnly: false
+  unreadOnly: false
+
+# -- Media handling (Spec A) --
+media:
+  image:         { strategy: 'vision' }
+  sticker:       { strategy: 'skip' }
+  audio:         { strategy: 'escalate' }
+  ptt:           { strategy: 'escalate' }
+  video:         { strategy: 'escalate' }
+  document:      { strategy: 'escalate' }
+  location:      { strategy: 'escalate' }
+  live_location: { strategy: 'escalate' }
+  vcard:         { strategy: 'escalate' }
+  visionFallback: 'escalate'

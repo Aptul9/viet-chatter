@@ -5,7 +5,7 @@
 // and TELEGRAM_USER_CHAT_ID). Silently no-ops if .env is missing.
 import 'dotenv/config'
 
-import { initConfig, config } from './config/index.js'
+import { initConfig, config, __overrideConfigForTest } from './config/index.js'
 import { log, setLogLevel } from './log.js'
 import { openDb } from './db/client.js'
 import { initWhatsApp } from './whatsapp/client.js'
@@ -34,6 +34,17 @@ async function main(): Promise<void> {
   log.info({ pid: process.pid, nodeVersion: process.version }, 'boot start')
 
   await initConfig()
+  // Spec B: e2e harness can redirect logs and DB to per-scenario paths via
+  // env vars, so multiple scenarios don't trample each other's state.
+  // `BOT_E2E_MODE=1` gates the override helper; the harness sets it too.
+  if (process.env['BOT_E2E_MODE'] === '1') {
+    const overrides: Partial<typeof config> = {}
+    const logPath = process.env['BOT_E2E_LOG_PATH']
+    const dbPath = process.env['BOT_E2E_DB_PATH']
+    if (logPath) overrides.logFile = logPath
+    if (dbPath) overrides.dbPath = dbPath
+    if (Object.keys(overrides).length > 0) __overrideConfigForTest(overrides)
+  }
   // Honor the YAML/UI-driven log level (overrides the env-default in src/log.ts).
   setLogLevel(config.logLevel)
   const { sqlite } = openDb(config.dbPath)

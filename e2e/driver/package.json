@@ -1,0 +1,21 @@
+{
+  "name": "viet-chatter-e2e-driver",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Second-account whatsapp-web.js driver for viet-chatter e2e scenarios.",
+  "scripts": {
+    "pair": "tsx src/session.ts --pair",
+    "scenario": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "whatsapp-web.js": "^1.34.7",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "@types/node": "^22.10.5",
+    "@types/qrcode-terminal": "^0.12.2"
+  }
+}
