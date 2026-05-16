@@ -1,11 +1,15 @@
 // ReplyOrchestrator: the per-turn pipeline that owns AI invocation, sending,
 // fact persistence, escalation branch, and turn_log audit. See
 // docs/dev/03-data-flow.md Flow C (reactive) + Flow G (manual job).
+//
+// Spec A: drains the MediaQueue at turn-fire time and passes the bytes as
+// multimodal parts to `generateTurn` (vision path) when present.
 
 import type { Sqlite } from '../db/client.js'
 import type { WhatsAppHandle } from '../whatsapp/client.js'
 import type { ChatStateMachine } from '../scheduler/state.js'
 import type { InflightRegistry } from './inflight.js'
+import type { MediaQueue } from './media-queue.js'
 import type { EmbeddingService } from '../kb/embedding.js'
 import type { VecStore } from '../kb/vec.js'
 import type { EscalationNotifier } from '../escalation/notifier.js'
@@ -20,6 +24,7 @@ import { buildTurnContext } from './context.js'
 import { persistExtractedFacts } from '../kb/store.js'
 import { updateLanguages, updateTone } from '../persona/profile.js'
 import { generateTurn, type TurnOutput } from '../ai/turn.js'
+import type { OpenCodeFilePart } from '../ai/opencode.js'
 import { config } from '../config/index.js'
 import { log } from '../log.js'
 import type {
@@ -35,6 +40,7 @@ export interface OrchestratorDeps {
   wa: WhatsAppHandle
   state: ChatStateMachine
   inflight: InflightRegistry
+  mediaQueue: MediaQueue
   embedding: EmbeddingService
   vecStore: VecStore
   escalationNotifier: EscalationNotifier
@@ -69,6 +75,14 @@ export class ReplyOrchestrator {
     try {
       if (signal.aborted) return this.finishAborted(chatId, startedAt, triggeredBy)
 
+      const pendingMedia = this.deps.mediaQueue.drain(chatId)
+      const mediaParts: OpenCodeFilePart[] = pendingMedia.map((m) => ({
+        type: 'file',
+        mime: m.mime,
+        url: `data:${m.mime};base64,${m.base64}`,
+        ...(m.filename ? { filename: m.filename } : {}),
+      }))
+
       const turnCtx = await buildTurnContext(
         {
           sqlite: this.deps.sqlite,
@@ -78,11 +92,16 @@ export class ReplyOrchestrator {
         },
         chatId,
         startedAt,
-        manualJobContext
+        manualJobContext,
+        pendingMedia
       )
       if (signal.aborted) return this.finishAborted(chatId, startedAt, triggeredBy)
 
-      const out = await generateTurn(turnCtx, signal)
+      const out = await generateTurn(
+        turnCtx,
+        signal,
+        mediaParts.length > 0 ? mediaParts : undefined
+      )
       if (signal.aborted) return this.finishAborted(chatId, startedAt, triggeredBy)
 
       if (!out) {

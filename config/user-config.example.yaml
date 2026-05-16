@@ -75,3 +75,22 @@ filter:
   blockedNumbers: []                          # exact E.164 numbers to always deny
   savedContactsOnly: false                    # if true, only reply to saved address-book contacts
   unreadOnly: false                           # if true, only reply when chat unreadCount > 0
+
+# -- Media handling (Spec A) --
+# Per-type policy. Strategies:
+#   vision   - download bytes, send to vision-capable AI as multimodal input.
+#              Only valid when aiModel is in VISION_CAPABLE_MODELS allowlist;
+#              otherwise falls back to `visionFallback`.
+#   escalate - skip AI, create an escalation row + notify Telegram/self-chat.
+#   skip     - persist marker only, no reply, no escalation.
+media:
+  image:         { strategy: 'vision' }       # picture; vision-capable models reply about content
+  sticker:       { strategy: 'skip' }         # emoji-like, no semantic content
+  audio:         { strategy: 'escalate' }     # voice clip; STT out of scope
+  ptt:           { strategy: 'escalate' }     # push-to-talk voice; STT out of scope
+  video:         { strategy: 'escalate' }     # video analysis out of scope
+  document:      { strategy: 'escalate' }     # PDF/Word/Excel etc.
+  location:      { strategy: 'escalate' }     # static GPS pin
+  live_location: { strategy: 'escalate' }     # live-tracking
+  vcard:         { strategy: 'escalate' }     # shared contact
+  visionFallback: 'escalate'                  # used when image.strategy='vision' but aiModel not vision-capable

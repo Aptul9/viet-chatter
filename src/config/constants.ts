@@ -38,3 +38,26 @@ export const ONE_YEAR_MS = 365 * ONE_DAY_MS
 
 export const DATE_ANCHORED_FIRE_HOUR = 9
 export const DATE_ANCHORED_JITTER_MAX_MIN = 60
+
+/**
+ * OpenCode model ids known to support image input. The media-policy resolver
+ * uses this list at boot to decide whether `media.image.strategy = 'vision'`
+ * can actually run with the configured `aiModel`, or whether it must fall
+ * back to `media.visionFallback`. Keep aligned with provider capabilities;
+ * see Spec A (`docs/dev/specs/2026-05-16-spec-a-media.md`).
+ */
+export const VISION_CAPABLE_MODELS: readonly string[] = [
+  'opencode:github-copilot/gpt-5-mini',
+  'opencode:github-copilot/gpt-5',
+  'opencode:github-copilot/gpt-4o',
+  'opencode:github-copilot/gpt-4o-mini',
+  'opencode:openai/gpt-5',
+  'opencode:openai/gpt-5-mini',
+  'opencode:openai/gpt-4o',
+  'opencode:openai/gpt-4o-mini',
+  'opencode:anthropic/claude-sonnet-4-6',
+  'opencode:anthropic/claude-opus-4-7',
+  'opencode:anthropic/claude-haiku-4-5',
+  'opencode:google/gemini-2.5-pro',
+  'opencode:google/gemini-2.5-flash',
+]

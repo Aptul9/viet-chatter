@@ -70,6 +70,22 @@ export const defaults = {
     savedContactsOnly: false,
     unreadOnly: false,
   },
+
+  // Media handling (Spec A). Per-type policy; bot uses `visionFallback`
+  // when `image.strategy = 'vision'` but the configured `aiModel` is not in
+  // `VISION_CAPABLE_MODELS`.
+  media: {
+    image: { strategy: 'vision' as 'vision' | 'escalate' | 'skip' },
+    sticker: { strategy: 'skip' as 'vision' | 'escalate' | 'skip' },
+    audio: { strategy: 'escalate' as 'vision' | 'escalate' | 'skip' },
+    ptt: { strategy: 'escalate' as 'vision' | 'escalate' | 'skip' },
+    video: { strategy: 'escalate' as 'vision' | 'escalate' | 'skip' },
+    document: { strategy: 'escalate' as 'vision' | 'escalate' | 'skip' },
+    location: { strategy: 'escalate' as 'vision' | 'escalate' | 'skip' },
+    live_location: { strategy: 'escalate' as 'vision' | 'escalate' | 'skip' },
+    vcard: { strategy: 'escalate' as 'vision' | 'escalate' | 'skip' },
+    visionFallback: 'escalate' as 'escalate' | 'skip',
+  },
 }
 
 export type Defaults = typeof defaults

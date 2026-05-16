@@ -53,6 +53,13 @@ const { Client, LocalAuth } = pkg
 export type IncomingHandler = (msg: WAMessage) => void | Promise<void>
 export type MessageCreateHandler = (msg: WAMessage) => void | Promise<void>
 
+/** Downloaded media payload returned by `WhatsAppHandle.downloadMedia`. */
+export interface DownloadedMedia {
+  mime: string
+  base64: string
+  filename: string | null
+}
+
 export interface WhatsAppHandle {
   /** Raw whatsapp-web.js Client. Use only for APIs not surfaced here. */
   readonly client: WAClient
@@ -85,6 +92,14 @@ export interface WhatsAppHandle {
    * Uses wweb 1.34.x `client.getContactLidAndPhone([id])`.
    */
   resolveLidPhone(serializedId: string): Promise<string | null>
+  /**
+   * Download the media attached to an incoming message (image / audio / video
+   * / document / sticker). Returns `null` if the media is missing, expired,
+   * or the download fails. Bytes are returned in memory; the caller is
+   * responsible for routing them to the AI pipeline or discarding them. The
+   * bytes MUST NOT be persisted to DB or disk (Spec A privacy stance).
+   */
+  downloadMedia(msg: WAMessage): Promise<DownloadedMedia | null>
   /** Subscribe to `message` (incoming only). */
   onIncoming(handler: IncomingHandler): () => void
   /** Subscribe to `message_create` (every created message, incl. fromMe). */
@@ -324,6 +339,39 @@ export async function initWhatsApp(sessionDir: string): Promise<WhatsAppHandle> 
         log.warn(
           { err: (err as Error).message, id: serializedId },
           'resolveLidPhone failed'
+        )
+        return null
+      }
+    },
+
+    async downloadMedia(msg) {
+      try {
+        const m = msg as unknown as {
+          downloadMedia?: () => Promise<
+            { mimetype?: string; data?: string; filename?: string | null } | undefined | null
+          >
+          hasMedia?: boolean
+          type?: string
+          id?: { _serialized?: string }
+        }
+        if (typeof m.downloadMedia !== 'function') return null
+        const media = await m.downloadMedia()
+        if (!media || !media.data || !media.mimetype) {
+          log.warn(
+            { msgId: m.id?._serialized, type: m.type },
+            'downloadMedia returned empty payload'
+          )
+          return null
+        }
+        return {
+          mime: media.mimetype,
+          base64: media.data,
+          filename: media.filename ?? null,
+        }
+      } catch (err) {
+        log.warn(
+          { err: (err as Error).message, msgId: msg.id?._serialized },
+          'downloadMedia failed'
         )
         return null
       }

@@ -1,22 +1,32 @@
 // MessageDispatcher: route every WhatsApp message event through filter,
 // dedup, classification, state machine, and inflight cancellation.
 // See docs/dev/03-data-flow.md (Flows A, D, E) and docs/dev/05-filter-engine.md.
+//
+// Spec A extension: branch on `msg.type` after filter. Image → queue bytes for
+// the next AI turn (vision pipeline). Audio / video / document / location /
+// live_location / vcard / unknown → escalate directly to human, no AI call.
+// Sticker → skip (persist marker only).
 
 import type { Sqlite } from '../db/client.js'
 import type { WhatsAppHandle } from '../whatsapp/client.js'
 import type { ChatStateMachine } from '../scheduler/state.js'
 import type { InflightRegistry } from '../orchestrator/inflight.js'
+import type { MediaQueue } from '../orchestrator/media-queue.js'
+import type { EscalationNotifier } from '../escalation/notifier.js'
 import {
   cancelPendingManualJobsForChat,
   insertProcessedMessage,
   markEscalationsResolved,
 } from '../db/repo.js'
 import { applyFilter } from './filter.js'
+import { classifyMediaType, resolveMediaPolicy } from './media-policy.js'
+import { escalateMedia } from '../escalation/from-media.js'
 import { log } from '../log.js'
 import type {
   ChatContext,
   ChatId,
   Direction,
+  MediaType,
   ProcessedMessageRow,
   WhatsappMsgId,
 } from '../types.js'
@@ -53,6 +63,10 @@ export interface DispatcherDeps {
   wa: WhatsAppHandle
   state: ChatStateMachine
   inflight: InflightRegistry
+  /** In-memory queue of pending non-text media to be folded into next AI turn. */
+  mediaQueue: MediaQueue
+  /** Used by the `escalate` media strategy to raise escalation rows directly. */
+  escalationNotifier: EscalationNotifier
 }
 
 export interface DispatchOptions {
@@ -143,7 +157,92 @@ export class MessageDispatcher {
       )
       return
     }
+
+    const mediaType: MediaType = classifyMediaType(msg.type)
+    if (mediaType !== 'chat') {
+      await this.handleNonTextMedia(msg, ctx, chatId, msgTs, mediaType)
+      return
+    }
+
     log.info({ chatId, phone: ctx.phone }, 'msg passed filter, enqueuing')
+    cancelPendingManualJobsForChat(this.deps.sqlite, chatId)
+    this.deps.state.handleIncoming(chatId, msgTs)
+  }
+
+  private async handleNonTextMedia(
+    msg: MessageLike,
+    ctx: ChatContext,
+    chatId: ChatId,
+    msgTs: number,
+    mediaType: MediaType
+  ): Promise<void> {
+    const policy = resolveMediaPolicy(mediaType)
+    const msgId = msg.id?._serialized ?? '<no-id>'
+    const caption = typeof msg.body === 'string' ? msg.body : ''
+    log.info(
+      {
+        chatId,
+        mediaType,
+        strategy: policy.strategy,
+        requestedStrategy: policy.requested,
+        downgraded: policy.downgraded,
+        captionLen: caption.length,
+      },
+      'media classified'
+    )
+
+    if (policy.strategy === 'skip') {
+      // Marker already in processed_messages via the caller. Nothing else to do.
+      return
+    }
+
+    const displayName = ctx.name ?? null
+
+    if (policy.strategy === 'escalate') {
+      escalateMedia({
+        sqlite: this.deps.sqlite,
+        notifier: this.deps.escalationNotifier,
+        chatId,
+        triggerMsgId: msgId,
+        mediaType,
+        caption,
+        displayName,
+      })
+      return
+    }
+
+    // strategy === 'vision'
+    const downloaded = await this.deps.wa.downloadMedia(msg as never)
+    if (!downloaded) {
+      log.warn(
+        { chatId, mediaType, msgId },
+        'media download failed, falling back to escalate'
+      )
+      escalateMedia({
+        sqlite: this.deps.sqlite,
+        notifier: this.deps.escalationNotifier,
+        chatId,
+        triggerMsgId: msgId,
+        mediaType,
+        caption,
+        displayName,
+      })
+      return
+    }
+
+    this.deps.mediaQueue.push(chatId, {
+      type: mediaType,
+      mime: downloaded.mime,
+      base64: downloaded.base64,
+      caption,
+      timestampMs: msgTs,
+      filename: downloaded.filename,
+    })
+    log.info(
+      { chatId, mediaType, mime: downloaded.mime, queueSize: this.deps.mediaQueue.size(chatId) },
+      'media queued for vision turn'
+    )
+
     cancelPendingManualJobsForChat(this.deps.sqlite, chatId)
     this.deps.state.handleIncoming(chatId, msgTs)
   }
@@ -151,16 +250,17 @@ export class MessageDispatcher {
   private handleOutManual(chatId: ChatId): void {
     cancelPendingManualJobsForChat(this.deps.sqlite, chatId)
     markEscalationsResolved(this.deps.sqlite, chatId, 'user_replied')
+    const droppedMedia = this.deps.mediaQueue.clear(chatId)
     const transition = this.deps.state.handleOutgoingManual(chatId)
     if (transition.aborted) {
       const aborted = this.deps.inflight.abort(chatId, 'user_replied')
       log.info(
-        { chatId, stateWas: transition.previous, abortedInflight: aborted },
+        { chatId, stateWas: transition.previous, abortedInflight: aborted, droppedMedia },
         'manual reply detected'
       )
     } else {
       log.info(
-        { chatId, stateWas: transition.previous, abortedInflight: false },
+        { chatId, stateWas: transition.previous, abortedInflight: false, droppedMedia },
         'manual reply detected'
       )
     }

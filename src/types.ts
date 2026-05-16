@@ -270,6 +270,19 @@ export interface TurnKB {
   secondary: string[]
 }
 
+/**
+ * Metadata about a media item attached to this turn. Bytes are NOT included
+ * here (they go as multimodal parts to OpenCode) — only enough metadata for
+ * the AI to know what was attached and how to react in text form.
+ */
+export interface PendingMediaContextItem {
+  type: MediaType
+  mime: string
+  caption: string
+  tsIso: string
+  filename: string | null
+}
+
 export interface TurnContext {
   personId: ChatId
   personLanguages: string[]
@@ -281,6 +294,8 @@ export interface TurnContext {
   nowIso: string
   /** Present only when invoked by a manual_job fire. */
   manualJobContext?: ManualJobContext
+  /** Spec A: non-text media accompanying this turn (image bytes sent separately as multimodal parts). */
+  pendingMedia?: PendingMediaContextItem[]
 }
 
 // ---------------------------------------------------------------------------
@@ -365,4 +380,47 @@ export interface NightWindow {
 export interface SpreadRange {
   min: number
   max: number
+}
+
+// ---------------------------------------------------------------------------
+// Media (Spec A)
+// ---------------------------------------------------------------------------
+
+/**
+ * Classified WhatsApp message type, derived from `WAMessage.type`.
+ * `chat` is the text-only baseline (no media branch). `unknown` is the
+ * fallback when wweb reports a type we have not modeled explicitly.
+ */
+export type MediaType =
+  | 'chat'
+  | 'image'
+  | 'sticker'
+  | 'audio'
+  | 'ptt'
+  | 'video'
+  | 'document'
+  | 'location'
+  | 'live_location'
+  | 'vcard'
+  | 'unknown'
+
+/** Policy verb the dispatcher applies to non-text media. */
+export type MediaStrategy = 'vision' | 'escalate' | 'skip'
+
+/** Per-type policy block in user config. */
+export interface MediaPolicy {
+  strategy: MediaStrategy
+}
+
+/**
+ * In-memory media payload waiting for the next turn to fire.
+ * Bytes are kept here only — never persisted to DB or disk.
+ */
+export interface PendingMedia {
+  type: MediaType
+  mime: string
+  base64: string
+  caption: string
+  timestampMs: TimestampMs
+  filename: string | null
 }

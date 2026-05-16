@@ -11,6 +11,31 @@ import { delay } from '../utils/utils.js'
 
 export type OpencodeAiModel = `opencode:${string}` | `opencode/${string}`
 
+/**
+ * Message parts accepted by the OpenCode session message API.
+ *
+ * - text: ordinary prompt text
+ * - file: base64 data URL with an explicit mime, used for image input on
+ *   vision-capable models (gpt-5-mini, gpt-4o, claude-sonnet-4-6, ...). The
+ *   `url` field is expected to be a `data:<mime>;base64,<payload>` string.
+ *
+ * Extensions like `tool` parts exist in OpenCode but are not used by the bot
+ * (the `direct-reply` agent denies tool use). Adding more types here is safe.
+ */
+export interface OpenCodeTextPart {
+  type: 'text'
+  text: string
+}
+
+export interface OpenCodeFilePart {
+  type: 'file'
+  mime: string
+  url: string
+  filename?: string
+}
+
+export type OpenCodePart = OpenCodeTextPart | OpenCodeFilePart
+
 interface OpenCodeModelConfig {
   providerID: string
   modelID: string
@@ -21,7 +46,7 @@ interface OpenCodeSession {
   id: string
 }
 
-interface OpenCodeMessagePart {
+interface OpenCodeResponsePart {
   type: string
   text?: string
 }
@@ -35,7 +60,7 @@ interface OpenCodeMessageResponse {
       }
     }
   }
-  parts?: OpenCodeMessagePart[]
+  parts?: OpenCodeResponsePart[]
 }
 
 const OPENCODE_AGENT_NAME = 'direct-reply'
@@ -322,8 +347,30 @@ export async function stopOpencodeServer(): Promise<void> {
   })
 }
 
-export async function callOpencodeCli(
+/**
+ * Convenience for text-only calls. Wraps the prompt in a single text part and
+ * delegates to `callOpencodeCli`. Existing callers (router → turn) can keep
+ * using a plain string.
+ */
+export async function callOpencodeCliText(
   prompt: string,
+  logPrefix: string,
+  model: OpencodeAiModel,
+  signal?: AbortSignal
+): Promise<string | undefined> {
+  return callOpencodeCli([{ type: 'text', text: prompt }], logPrefix, model, signal)
+}
+
+/**
+ * Call the OpenCode `direct-reply` agent with an ordered list of message parts.
+ * Returns the concatenated text reply, or `undefined` on error / empty
+ * response.
+ *
+ * Multimodal: include `OpenCodeFilePart` entries alongside the text part to
+ * send images. The model must support image input (see VISION_CAPABLE_MODELS).
+ */
+export async function callOpencodeCli(
+  parts: OpenCodePart[],
   logPrefix: string,
   model: OpencodeAiModel,
   signal?: AbortSignal
@@ -335,12 +382,18 @@ export async function callOpencodeCli(
     return undefined
   }
 
+  if (parts.length === 0) {
+    console.error(`${logPrefix} - callOpencodeCli requires at least one part`)
+    return undefined
+  }
+
   try {
     await ensureOpencodeServer(logPrefix)
 
     const variantLabel = parsedModel.variant ? ` (variant: ${parsedModel.variant})` : ''
+    const fileCount = parts.filter((p) => p.type === 'file').length
     console.log(
-      `${logPrefix} - Calling OpenCode with model: ${parsedModel.providerID}/${parsedModel.modelID}${variantLabel}...`
+      `${logPrefix} - Calling OpenCode with model: ${parsedModel.providerID}/${parsedModel.modelID}${variantLabel} (${parts.length} parts, ${fileCount} file)...`
     )
 
     const session = await requestJson<OpenCodeSession>(
@@ -376,7 +429,7 @@ export async function callOpencodeCli(
               modelID: parsedModel.modelID,
               ...(parsedModel.variant ? { variant: parsedModel.variant } : {}),
             },
-            parts: [{ type: 'text', text: prompt }],
+            parts,
           }),
         },
         signal,

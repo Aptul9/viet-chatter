@@ -63,6 +63,19 @@ export const ConfigSchema = z.object({
     savedContactsOnly: z.boolean(),
     unreadOnly: z.boolean(),
   }),
+
+  media: z.object({
+    image: z.object({ strategy: z.enum(['vision', 'escalate', 'skip']) }),
+    sticker: z.object({ strategy: z.enum(['vision', 'escalate', 'skip']) }),
+    audio: z.object({ strategy: z.enum(['vision', 'escalate', 'skip']) }),
+    ptt: z.object({ strategy: z.enum(['vision', 'escalate', 'skip']) }),
+    video: z.object({ strategy: z.enum(['vision', 'escalate', 'skip']) }),
+    document: z.object({ strategy: z.enum(['vision', 'escalate', 'skip']) }),
+    location: z.object({ strategy: z.enum(['vision', 'escalate', 'skip']) }),
+    live_location: z.object({ strategy: z.enum(['vision', 'escalate', 'skip']) }),
+    vcard: z.object({ strategy: z.enum(['vision', 'escalate', 'skip']) }),
+    visionFallback: z.enum(['escalate', 'skip']),
+  }),
 })
 
 export type ConfigShape = z.infer<typeof ConfigSchema>

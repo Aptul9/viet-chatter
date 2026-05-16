@@ -1,5 +1,10 @@
 // Build the per-turn `TurnContext` consumed by `generateTurn`.
 // See docs/dev/03-data-flow.md (Flow C, steps 2-8) + docs/dev/07-ai-integration.md.
+//
+// Spec A: optionally accepts a list of `PendingMedia` items drained from the
+// MediaQueue. The metadata (type, mime, caption, ts, filename) is included in
+// the serialized TurnContext so the AI knows there is media attached. Bytes
+// themselves are passed separately as multimodal parts (see orchestrator).
 
 import type { Sqlite } from '../db/client.js'
 import type { WhatsAppHandle } from '../whatsapp/client.js'
@@ -13,6 +18,8 @@ import type {
   ChatId,
   Direction,
   ManualJobContext,
+  PendingMedia,
+  PendingMediaContextItem,
   RecentMessage,
   TurnContext,
   TurnKB,
@@ -29,7 +36,8 @@ export async function buildTurnContext(
   deps: ContextDeps,
   chatId: ChatId,
   now: number,
-  manualJobContext?: ManualJobContext
+  manualJobContext?: ManualJobContext,
+  pendingMedia: PendingMedia[] = []
 ): Promise<TurnContext> {
   const profile = getOrInitProfile(deps.sqlite, chatId, now)
 
@@ -68,6 +76,15 @@ export async function buildTurnContext(
     nowIso,
   }
   if (manualJobContext) ctx.manualJobContext = manualJobContext
+  if (pendingMedia.length > 0) {
+    ctx.pendingMedia = pendingMedia.map<PendingMediaContextItem>((m) => ({
+      type: m.type,
+      mime: m.mime,
+      caption: m.caption,
+      tsIso: new Date(m.timestampMs).toISOString(),
+      filename: m.filename,
+    }))
+  }
   return ctx
 }
 

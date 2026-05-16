@@ -1,11 +1,15 @@
 // Per-turn AI invocation: load prompt template, inject context, call AI,
 // extract JSON, zod-validate, retry on parse fail.
 // See docs/dev/07-ai-integration.md.
+//
+// Spec A extension: accepts optional `mediaParts` (typically image bytes
+// from MediaQueue); when present, sends as multimodal OpenCode parts.
 
 import { promises as fs } from 'node:fs'
 import { resolve as resolvePath } from 'node:path'
 import { z } from 'zod'
-import { callAiApi } from './router.js'
+import { callAiApi, callAiApiWithParts } from './router.js'
+import type { OpenCodeFilePart, OpenCodePart } from './opencode.js'
 import { config } from '../config/index.js'
 import { log } from '../log.js'
 import { PROMPT_DIR } from '../config/constants.js'
@@ -51,10 +55,13 @@ export const TurnOutputSchema = z.object({
 
 export type TurnOutput = z.infer<typeof TurnOutputSchema>
 
-let cachedTemplate: string | null = null
+// Per-dir template cache. Each prompt directory (turn, summary, agent) gets
+// its own cached concatenation. See docs/dev/specs/2026-05-16-spec-c-dashboard.md.
+const templateCache = new Map<string, string>()
 
-async function loadAndCombinePrompts(dir: string): Promise<string> {
-  if (cachedTemplate) return cachedTemplate
+export async function loadAndCombinePrompts(dir: string): Promise<string> {
+  const cached = templateCache.get(dir)
+  if (cached) return cached
   const abs = resolvePath(process.cwd(), dir)
   const entries = await fs.readdir(abs)
   const files = entries.filter((f) => f.endsWith('.txt')).sort()
@@ -63,8 +70,9 @@ async function loadAndCombinePrompts(dir: string): Promise<string> {
     const body = await fs.readFile(resolvePath(abs, f), 'utf8')
     parts.push(body)
   }
-  cachedTemplate = parts.join('\n\n---\n\n')
-  return cachedTemplate
+  const combined = parts.join('\n\n---\n\n')
+  templateCache.set(dir, combined)
+  return combined
 }
 
 function extractJson(s: string): string {
@@ -75,7 +83,8 @@ function extractJson(s: string): string {
 
 export async function generateTurn<TCtx>(
   ctx: TCtx,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  mediaParts?: OpenCodeFilePart[]
 ): Promise<TurnOutput | null> {
   const template = await loadAndCombinePrompts(PROMPT_DIR)
   const serialized = JSON.stringify(ctx, null, 2)
@@ -84,9 +93,17 @@ export async function generateTurn<TCtx>(
     : `${template}\n\n${serialized}`
 
   const maxAttempts = 1 + config.aiMaxRetryParseFail
+  const hasMedia = !!mediaParts && mediaParts.length > 0
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     if (signal?.aborted) return null
-    const raw = await callAiApi(finalPrompt, 'turn', signal)
+
+    let raw: string | undefined
+    if (hasMedia) {
+      const parts: OpenCodePart[] = [{ type: 'text', text: finalPrompt }, ...mediaParts!]
+      raw = await callAiApiWithParts(parts, 'turn', signal)
+    } else {
+      raw = await callAiApi(finalPrompt, 'turn', signal)
+    }
     if (!raw) continue
 
     let parsed: unknown

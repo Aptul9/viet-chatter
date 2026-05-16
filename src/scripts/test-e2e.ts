@@ -22,6 +22,7 @@ import { openDb } from '../db/client.js'
 import { MessageDispatcher } from '../dispatcher/index.js'
 import { ChatStateMachine } from '../scheduler/state.js'
 import { InflightRegistry } from '../orchestrator/inflight.js'
+import { MediaQueue } from '../orchestrator/media-queue.js'
 import { ReplyOrchestrator } from '../orchestrator/index.js'
 import { EmbeddingService } from '../kb/embedding.js'
 import { SqliteVecStore } from '../kb/vec.js'
@@ -87,6 +88,10 @@ function makeFakeWa(): WhatsAppHandle {
       return false
     },
     async resolveLidPhone(_id: string) {
+      return null
+    },
+    async downloadMedia(_msg: unknown) {
+      // The default basic-reply scenario only sends text; no media to download.
       return null
     },
     onIncoming(_h) {
@@ -157,6 +162,7 @@ async function main(): Promise<void> {
 
   const inflight = new InflightRegistry()
   const state = new ChatStateMachine(sqlite)
+  const mediaQueue = new MediaQueue()
   const embedding = new EmbeddingService(config.embeddingModel)
   const vecStore = new SqliteVecStore(sqlite)
   // Stub escalation notifier — never used in this happy path, but the
@@ -168,12 +174,20 @@ async function main(): Promise<void> {
     wa,
     state,
     inflight,
+    mediaQueue,
     embedding,
     vecStore,
     escalationNotifier,
   })
 
-  const dispatcher = new MessageDispatcher({ sqlite, wa, state, inflight })
+  const dispatcher = new MessageDispatcher({
+    sqlite,
+    wa,
+    state,
+    inflight,
+    mediaQueue,
+    escalationNotifier,
+  })
 
   const registerInflight = (chatId: string): AbortSignal => inflight.register(chatId).signal
   const isConnected = (): boolean => true
