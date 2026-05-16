@@ -6,8 +6,7 @@ Il filtro è una predicate function TypeScript user-defined in `config/index.ts`
 
 ```ts
 export const shouldReply = (chat: ChatContext): boolean => {
-  return chat.phone.startsWith('+84')
-      && !['+84111111111', '+84222222222'].includes(chat.phone)
+  return chat.phone.startsWith('+84') && !['+84111111111', '+84222222222'].includes(chat.phone)
 }
 ```
 
@@ -15,10 +14,10 @@ Tipo del parametro:
 
 ```ts
 export type ChatContext = {
-  phone: string                   // E.164 con +
-  name: string | undefined        // nome saved-contact
+  phone: string // E.164 con +
+  name: string | undefined // nome saved-contact
   isSavedContact: boolean
-  lastMessageTs: number           // unix ms
+  lastMessageTs: number // unix ms
   unreadCount: number
 }
 ```
@@ -57,13 +56,20 @@ Nota: `whatsapp-web.js` espone i timestamp in secondi, internamente li convertia
 ```ts
 // src/config/index.ts (loader)
 let currentConfig: Config = await loadInitial()
-let currentShouldReply: (c: ChatContext) => boolean = (await import('../../config/index.ts')).shouldReply
+let currentShouldReply: (c: ChatContext) => boolean = (await import('../../config/index.ts'))
+  .shouldReply
 
 chokidar.watch('config/index.ts').on('change', async () => {
   try {
     const fresh = await import('../../config/index.ts?v=' + Date.now())
     Schema.parse(fresh.config)
-    fresh.shouldReply({ phone: '+0', name: undefined, isSavedContact: false, lastMessageTs: 0, unreadCount: 0 })
+    fresh.shouldReply({
+      phone: '+0',
+      name: undefined,
+      isSavedContact: false,
+      lastMessageTs: 0,
+      unreadCount: 0,
+    })
     currentConfig = fresh.config
     currentShouldReply = fresh.shouldReply
     log.info('config reloaded')
@@ -84,18 +90,22 @@ chokidar.watch('config/index.ts').on('change', async () => {
 
 ```ts
 // Solo numeri vietnamiti, escluso blocklist
-chat.phone.startsWith('+84')
-  && !['+84a', '+84b'].includes(chat.phone)
+chat.phone.startsWith('+84') &&
+  !['+84a', '+84b']
+    .includes(chat.phone)
 
-// Whitelist esplicita
-['+84111', '+84222', '+84333'].includes(chat.phone)
+    [
+      // Whitelist esplicita
+      ('+84111', '+84222', '+84333')
+    ].includes(chat.phone)
 
 // Contatti saved con nome che matcha pattern
-chat.isSavedContact && /viet/i.test(chat.name ?? '')
-
-// Multi-prefisso con esclusioni
-(chat.phone.startsWith('+84') || chat.phone.startsWith('+39'))
-  && !chat.phone.endsWith('00')
+chat.isSavedContact &&
+  /viet/i.test(chat.name ?? '')(
+    // Multi-prefisso con esclusioni
+    chat.phone.startsWith('+84') || chat.phone.startsWith('+39')
+  ) &&
+  !chat.phone.endsWith('00')
 
 // Solo se ha unread (utile in scenari particolari di triage)
 chat.unreadCount > 0 && chat.phone.startsWith('+84')
@@ -110,7 +120,7 @@ const ctx = await buildChatContext(chat)
 const allowed = currentShouldReply(ctx)
 if (!allowed) {
   log.debug({ chat_id, phone: ctx.phone, passed_filter: false }, 'msg filtered out')
-  return  // niente state machine, niente accumulo
+  return // niente state machine, niente accumulo
 }
 ```
 

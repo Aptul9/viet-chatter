@@ -1,0 +1,166 @@
+// Entry point. Wires all modules in the order required by docs/dev/13-progetto-layout.md.
+
+// Load .env at the very top so process.env is populated before any module that
+// reads from it (e.g. escalation/channels/telegram.ts reads TELEGRAM_BOT_TOKEN
+// and TELEGRAM_USER_CHAT_ID). Silently no-ops if .env is missing.
+import 'dotenv/config'
+
+import { initConfig, config } from './config/index.js'
+import { log, setLogLevel } from './log.js'
+import { openDb } from './db/client.js'
+import { initWhatsApp } from './whatsapp/client.js'
+import { ConnectionStateMachine } from './whatsapp/connection.js'
+import { MessageDispatcher } from './dispatcher/index.js'
+import { ChatStateMachine } from './scheduler/state.js'
+import { InflightRegistry } from './orchestrator/inflight.js'
+import { ReplyOrchestrator } from './orchestrator/index.js'
+import { EmbeddingService } from './kb/embedding.js'
+import { SqliteVecStore } from './kb/vec.js'
+import { startTicker, stopTicker, type TurnRunner } from './scheduler/ticker.js'
+import {
+  startManualJobsCron,
+  stopManualJobsCron,
+  type ManualJobRunner,
+} from './scheduler/manual-jobs-cron.js'
+import { startEphemeralPruner, stopEphemeralPruner } from './kb/pruner.js'
+import { runReconciler } from './boot/reconciler.js'
+import { ensureOpencodeServer, stopOpencodeServer } from './ai/opencode.js'
+import { buildEscalationChannels } from './escalation/channels/index.js'
+import { EscalationNotifier } from './escalation/notifier.js'
+import { startEscalationRetry, stopEscalationRetry } from './escalation/retry.js'
+
+async function main(): Promise<void> {
+  log.info({ pid: process.pid, nodeVersion: process.version }, 'boot start')
+
+  await initConfig()
+  // Honor the YAML/UI-driven log level (overrides the env-default in src/log.ts).
+  setLogLevel(config.logLevel)
+  const { sqlite } = openDb(config.dbPath)
+  log.info({ dbPath: config.dbPath }, 'db opened')
+
+  await ensureOpencodeServer('boot')
+
+  const wa = await initWhatsApp(config.sessionDir)
+  log.info('whatsapp ready')
+
+  const connection = new ConnectionStateMachine()
+  connection.start()
+  connection.setState('CONNECTED', 'initial')
+
+  const inflight = new InflightRegistry()
+  const state = new ChatStateMachine(sqlite)
+  const embedding = new EmbeddingService(config.embeddingModel)
+  const vecStore = new SqliteVecStore(sqlite)
+
+  const escalationChannels = buildEscalationChannels({ wa })
+  const escalationNotifier = new EscalationNotifier({ sqlite, channels: escalationChannels })
+
+  const orchestrator = new ReplyOrchestrator({
+    sqlite,
+    wa,
+    state,
+    inflight,
+    embedding,
+    vecStore,
+    escalationNotifier,
+  })
+
+  const dispatcher = new MessageDispatcher({ sqlite, wa, state, inflight })
+  dispatcher.start()
+
+  await runReconciler({ sqlite, wa, dispatcher })
+
+  const registerInflight = (chatId: string): AbortSignal => inflight.register(chatId).signal
+  const isConnected = (): boolean => connection.getState() === 'CONNECTED'
+
+  const turnRunner: TurnRunner = (chatId, signal) => orchestrator.generateAndSend(chatId, signal)
+  const manualJobRunner: ManualJobRunner = (chatId, ctx, signal) =>
+    orchestrator.generateAndSendForManualJob(chatId, ctx, signal)
+
+  startTicker({ sqlite, state, runTurn: turnRunner, registerInflight, isConnected })
+  startManualJobsCron({
+    sqlite,
+    state,
+    runManualJob: manualJobRunner,
+    registerInflight,
+    isConnected,
+  })
+  startEphemeralPruner(sqlite, vecStore)
+  startEscalationRetry({ sqlite, notifier: escalationNotifier })
+
+  log.info('boot done')
+
+  let shuttingDown = false
+  const shutdown = async (reason: string): Promise<void> => {
+    if (shuttingDown) return
+    shuttingDown = true
+    log.info({ reason }, 'shutdown')
+    try {
+      stopTicker()
+    } catch {
+      /* noop */
+    }
+    try {
+      stopManualJobsCron()
+    } catch {
+      /* noop */
+    }
+    try {
+      stopEphemeralPruner()
+    } catch {
+      /* noop */
+    }
+    try {
+      stopEscalationRetry()
+    } catch {
+      /* noop */
+    }
+    try {
+      await stopOpencodeServer()
+    } catch (err) {
+      log.error({ err }, 'stopOpencodeServer error')
+    }
+    try {
+      sqlite.close()
+    } catch (err) {
+      log.error({ err }, 'sqlite close error')
+    }
+    try {
+      await wa.client.destroy()
+    } catch (err) {
+      log.error({ err }, 'wa destroy error')
+    }
+    process.exit(0)
+  }
+  process.on('SIGINT', (s) => {
+    void shutdown(s)
+  })
+  process.on('SIGTERM', (s) => {
+    void shutdown(s)
+  })
+  process.on('SIGHUP', (s) => {
+    void shutdown(s)
+  })
+  process.on('uncaughtException', (err) => {
+    log.error({ err: err.message, stack: err.stack }, 'uncaughtException')
+    void shutdown('uncaughtException')
+  })
+  process.on('unhandledRejection', (reason) => {
+    log.error(
+      { reason: reason instanceof Error ? reason.message : String(reason) },
+      'unhandledRejection'
+    )
+    void shutdown('unhandledRejection')
+  })
+}
+
+main().catch((err) => {
+  log.error(
+    {
+      err: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+    },
+    'fatal boot error'
+  )
+  process.exit(1)
+})

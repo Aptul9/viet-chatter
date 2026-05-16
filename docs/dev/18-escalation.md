@@ -8,14 +8,14 @@ Questa funzionalità non contraddice il design "fully autonomous" (vedi `17-out-
 
 L'AI nel `TurnOutput` produce `escalate_to_human` non-null quando il messaggio in arrivo cade in una delle categorie:
 
-| `reason` | Trigger esempio |
-|---|---|
-| `scheduling` | "ci vediamo alle 16?", "sei libero martedì sera?", "vieni alla cena di sabato?" |
-| `commitment` | "puoi farmi questo favore?", "mi presti X?", "posso passare da te?" |
-| `sensitive` | argomenti emotivamente delicati dove una risposta sbagliata può ferire (lutti, malattie, conflitti recenti documentati nel KB) |
-| `financial` | richieste di soldi, prestiti, contributi a regali, split di conto su cui l'AI non sa la posizione dell'utente |
-| `identity` | richiesta di parlare di un'opinione personale forte (politica, fede, scelte di vita) non documentata nel KB |
-| `other` | qualunque altra cosa che l'AI ha riconosciuto come "starei tirando a indovinare". Bar dell'AI: "se rispondessi io, l'utente potrebbe disapprovare l'esito" |
+| `reason`     | Trigger esempio                                                                                                                                            |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scheduling` | "ci vediamo alle 16?", "sei libero martedì sera?", "vieni alla cena di sabato?"                                                                            |
+| `commitment` | "puoi farmi questo favore?", "mi presti X?", "posso passare da te?"                                                                                        |
+| `sensitive`  | argomenti emotivamente delicati dove una risposta sbagliata può ferire (lutti, malattie, conflitti recenti documentati nel KB)                             |
+| `financial`  | richieste di soldi, prestiti, contributi a regali, split di conto su cui l'AI non sa la posizione dell'utente                                              |
+| `identity`   | richiesta di parlare di un'opinione personale forte (politica, fede, scelte di vita) non documentata nel KB                                                |
+| `other`      | qualunque altra cosa che l'AI ha riconosciuto come "starei tirando a indovinare". Bar dell'AI: "se rispondessi io, l'utente potrebbe disapprovare l'esito" |
 
 Bar generale: l'AI escalla quando una risposta autonoma rischierebbe di impegnare l'utente, ferire la persona, o esporre opinioni che non sono nel KB.
 
@@ -32,10 +32,10 @@ Aggiunta al `TurnOutput` (vedi `07-ai-integration.md` per lo schema completo):
 
 ```ts
 escalate_to_human: z.object({
-  reason: z.enum(['scheduling','commitment','sensitive','financial','identity','other']),
-  urgency: z.enum(['low','normal','high']),
-  summary: z.string().min(1).max(500),                  // 1-3 frasi: cosa chiede, perchè non posso rispondere
-  suggested_holding_reply: z.string().nullable(),       // null = non rispondere, string = stall ("ti faccio sapere")
+  reason: z.enum(['scheduling', 'commitment', 'sensitive', 'financial', 'identity', 'other']),
+  urgency: z.enum(['low', 'normal', 'high']),
+  summary: z.string().min(1).max(500), // 1-3 frasi: cosa chiede, perchè non posso rispondere
+  suggested_holding_reply: z.string().nullable(), // null = non rispondere, string = stall ("ti faccio sapere")
 }).nullable()
 ```
 
@@ -64,22 +64,28 @@ Se `escalate_to_human` è null (caso normale), il flow resta invariato.
 ## Tabella `escalations`
 
 ```ts
-export const escalations = sqliteTable('escalations', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  chatId: text('chat_id').notNull(),
-  triggerMsgId: text('trigger_msg_id').notNull(),       // whatsapp_msg_id che ha fatto scattare l'escalation
-  reason: text('reason').notNull(),                     // scheduling | commitment | ...
-  urgency: text('urgency', { enum: ['low','normal','high'] }).notNull(),
-  summary: text('summary').notNull(),
-  holdingReplySent: integer('holding_reply_sent', { mode: 'boolean' }).notNull().default(false),
-  status: text('status', { enum: ['pending','user_replied','superseded','dismissed'] }).notNull().default('pending'),
-  createdAt: integer('created_at').notNull(),
-  resolvedAt: integer('resolved_at'),
-  notifiedChannels: text('notified_channels').notNull(),  // JSON array: ['whatsapp_self','telegram']
-}, (t) => ({
-  chatStatusIdx: index('idx_esc_chat_status').on(t.chatId, t.status),
-  createdIdx: index('idx_esc_created').on(t.createdAt),
-}))
+export const escalations = sqliteTable(
+  'escalations',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    chatId: text('chat_id').notNull(),
+    triggerMsgId: text('trigger_msg_id').notNull(), // whatsapp_msg_id che ha fatto scattare l'escalation
+    reason: text('reason').notNull(), // scheduling | commitment | ...
+    urgency: text('urgency', { enum: ['low', 'normal', 'high'] }).notNull(),
+    summary: text('summary').notNull(),
+    holdingReplySent: integer('holding_reply_sent', { mode: 'boolean' }).notNull().default(false),
+    status: text('status', { enum: ['pending', 'user_replied', 'superseded', 'dismissed'] })
+      .notNull()
+      .default('pending'),
+    createdAt: integer('created_at').notNull(),
+    resolvedAt: integer('resolved_at'),
+    notifiedChannels: text('notified_channels').notNull(), // JSON array: ['whatsapp_self','telegram']
+  },
+  (t) => ({
+    chatStatusIdx: index('idx_esc_chat_status').on(t.chatId, t.status),
+    createdIdx: index('idx_esc_created').on(t.createdAt),
+  })
+)
 ```
 
 Lifecycle:
@@ -110,7 +116,7 @@ escalation: {
 Il bot manda un messaggio sulla propria chat con se stesso (numero proprio = numero proprio). `whatsapp-web.js` supporta:
 
 ```ts
-const myWid = client.info.wid._serialized          // es. '391234567@c.us'
+const myWid = client.info.wid._serialized // es. '391234567@c.us'
 await client.sendMessage(myWid, formattedNotification)
 ```
 
@@ -175,6 +181,7 @@ Vai a rispondere su WhatsApp.
 Esempi:
 
 WhatsApp self-chat (no Markdown):
+
 ```
 [viet-chatter] !! SCHEDULING
 Da: Hoa (+8412345)
@@ -185,6 +192,7 @@ Vai a rispondere su WhatsApp.
 ```
 
 Telegram (Markdown):
+
 ```
 *[viet-chatter] SCHEDULING* ⚠️
 *Da:* Hoa (+8412345)
@@ -293,11 +301,18 @@ export interface EscalationChannel {
   name: string
 }
 
-export class WhatsAppSelfChannel implements EscalationChannel { /* ... */ }
-export class TelegramChannel implements EscalationChannel { /* ... */ }
+export class WhatsAppSelfChannel implements EscalationChannel {
+  /* ... */
+}
+export class TelegramChannel implements EscalationChannel {
+  /* ... */
+}
 
 export class EscalationNotifier {
-  constructor(private channels: EscalationChannel[], private repo: Repo) {}
+  constructor(
+    private channels: EscalationChannel[],
+    private repo: Repo
+  ) {}
 
   async notify(escId: number): Promise<void> {
     const esc = await this.repo.getEscalation(escId)
@@ -307,11 +322,9 @@ export class EscalationNotifier {
       return
     }
     const text = this.format(esc)
-    const results = await Promise.allSettled(
-      this.channels.map(c => c.send({ esc, text }))
-    )
+    const results = await Promise.allSettled(this.channels.map((c) => c.send({ esc, text })))
     const ok = results
-      .map((r, i) => r.status === 'fulfilled' && r.value ? this.channels[i].name : null)
+      .map((r, i) => (r.status === 'fulfilled' && r.value ? this.channels[i].name : null))
       .filter(Boolean) as string[]
     await this.repo.updateEscalationNotified(escId, ok)
     if (ok.length === 0) log.error({ escId }, 'all channels failed')
@@ -323,14 +336,14 @@ export class EscalationNotifier {
 
 Eventi nuovi (vedi `12-logging-observability.md` per il catalogo aggiornato):
 
-| Evento | Level | Campi |
-|---|---|---|
-| escalation created | `info` | `esc_id`, `chat_id`, `reason`, `urgency` |
-| escalation notified | `info` | `esc_id`, `channels_ok`, `channels_failed` |
-| escalation rate limited | `warn` | `esc_id`, `aggregated` |
-| escalation resolved (user_replied) | `info` | `esc_id`, `chat_id` |
-| escalation superseded | `info` | `esc_id`, `chat_id`, `reason` |
-| holding reply sent | `info` | `esc_id`, `chat_id` |
+| Evento                             | Level  | Campi                                      |
+| ---------------------------------- | ------ | ------------------------------------------ |
+| escalation created                 | `info` | `esc_id`, `chat_id`, `reason`, `urgency`   |
+| escalation notified                | `info` | `esc_id`, `channels_ok`, `channels_failed` |
+| escalation rate limited            | `warn` | `esc_id`, `aggregated`                     |
+| escalation resolved (user_replied) | `info` | `esc_id`, `chat_id`                        |
+| escalation superseded              | `info` | `esc_id`, `chat_id`, `reason`              |
+| holding reply sent                 | `info` | `esc_id`, `chat_id`                        |
 
 ## Health check estensione
 
@@ -357,13 +370,13 @@ Permette di rilevare al volo se ci sono escalations bloccate (notifica fallita, 
 
 ## Differenza esplicita: escalation vs approval flow
 
-| Aspetto | Escalation (questo) | Approval flow (out-of-scope) |
-|---|---|---|
-| Controllo umano | Solo turn dove l'AI dichiara incertezza | Su ogni reply, sempre |
-| Default behavior | Bot risponde autonomamente | Bot mai risponde senza OK |
-| Latency utente | Bot manda holding reply (es. "aspetta") immediato + notifica | Lunga: aspetta che utente approvi ogni turn |
-| Relazione con `fully autonomous` | Compatibile: la scelta di escalare è essa stessa autonoma | Incompatibile: per definizione richiede revisione |
-| User experience | Persona vede risposta o stall, l'utente risponde quando può | Persona non vede nulla finchè l'utente non approva |
+| Aspetto                          | Escalation (questo)                                          | Approval flow (out-of-scope)                       |
+| -------------------------------- | ------------------------------------------------------------ | -------------------------------------------------- |
+| Controllo umano                  | Solo turn dove l'AI dichiara incertezza                      | Su ogni reply, sempre                              |
+| Default behavior                 | Bot risponde autonomamente                                   | Bot mai risponde senza OK                          |
+| Latency utente                   | Bot manda holding reply (es. "aspetta") immediato + notifica | Lunga: aspetta che utente approvi ogni turn        |
+| Relazione con `fully autonomous` | Compatibile: la scelta di escalare è essa stessa autonoma    | Incompatibile: per definizione richiede revisione  |
+| User experience                  | Persona vede risposta o stall, l'utente risponde quando può  | Persona non vede nulla finchè l'utente non approva |
 
 ## Riepilogo flusso completo
 

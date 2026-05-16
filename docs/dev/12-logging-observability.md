@@ -16,8 +16,8 @@ export const log = pino({
         level: config.logLevel,
         options: {
           file: config.logFile,
-          frequency: config.logRotation,           // 'daily'
-          size: config.logMaxSize,                 // '50m'
+          frequency: config.logRotation, // 'daily'
+          size: config.logMaxSize, // '50m'
           mkdir: true,
         },
       },
@@ -27,7 +27,7 @@ export const log = pino({
         options: {
           colorize: true,
           translateTime: 'HH:MM:ss',
-          destination: 1,                          // stdout
+          destination: 1, // stdout
         },
       },
     ],
@@ -54,49 +54,49 @@ Ogni log line è un oggetto JSON. Campi standard:
 
 ## Eventi loggati (catalogo)
 
-| Evento | Level | Campi specifici |
-|---|---|---|
-| boot start | `info` | `pid`, `node_version`, `db_path` |
-| boot done | `info` | `chats_seen`, `chats_processed`, `duration_ms` |
-| connection state change | `info` | `from`, `to`, `reason` |
-| QR pairing required | `warn` | (QR text in stdout, NON in file) |
-| incoming msg processed | `debug` | `chat_id`, `msg_id`, `passed_filter` |
-| state transition | `debug` | `chat_id`, `state_from`, `state_to`, `fire_at?` |
-| reply turn started | `info` | `chat_id`, `history_size`, `kb_facts_total`, `triggered_by` (`reactive` / `manual_job`) |
-| reply turn completed | `info` | `chat_id`, `status`, `duration_ms`, `facts_extracted`, `language_used` |
-| reply turn failed | `error` | `chat_id`, `err`, `attempt` |
-| reply turn aborted | `info` | `chat_id`, `reason` (`user_replied`, `signal`) |
-| manual reply detected | `info` | `chat_id`, `state_was`, `aborted_inflight` |
-| manual job created | `info` | `job_id`, `chat_id`, `kind`, `fire_at` |
-| manual job fired | `info` | `job_id`, `chat_id`, `kind`, `outcome` |
-| manual job superseded | `debug` | `job_id`, `chat_id`, `kind`, `reason` |
-| escalation created | `info` | `esc_id`, `chat_id`, `reason`, `urgency`, `holding_reply_sent` |
-| escalation notified | `info` | `esc_id`, `channels_ok` (array), `channels_failed` (array) |
-| escalation rate limited | `warn` | `esc_id`, `aggregated` |
-| escalation resolved | `info` | `esc_id`, `chat_id`, `resolution` (`user_replied` / `superseded`) |
-| escalation dedup hit | `debug` | `esc_id_existing`, `chat_id`, `urgency_changed` |
-| escalation retry | `info` | `esc_id`, `attempt` |
-| escalation retry exhausted | `error` | `esc_id`, `attempts` |
-| holding reply sent | `info` | `esc_id`, `chat_id` |
-| ephemeral pruner | `info` | `deleted_count`, `duration_ms` |
-| reconnect | `warn` | `outage_duration_ms` |
-| post-reconnect spread | `info` | `chats_redistributed` |
-| config reload | `info` | `valid` (true/false) |
-| AI call | `debug` | `prompt_chars`, `response_chars`, `duration_ms`, `attempt` |
+| Evento                     | Level   | Campi specifici                                                                         |
+| -------------------------- | ------- | --------------------------------------------------------------------------------------- |
+| boot start                 | `info`  | `pid`, `node_version`, `db_path`                                                        |
+| boot done                  | `info`  | `chats_seen`, `chats_processed`, `duration_ms`                                          |
+| connection state change    | `info`  | `from`, `to`, `reason`                                                                  |
+| QR pairing required        | `warn`  | (QR text in stdout, NON in file)                                                        |
+| incoming msg processed     | `debug` | `chat_id`, `msg_id`, `passed_filter`                                                    |
+| state transition           | `debug` | `chat_id`, `state_from`, `state_to`, `fire_at?`                                         |
+| reply turn started         | `info`  | `chat_id`, `history_size`, `kb_facts_total`, `triggered_by` (`reactive` / `manual_job`) |
+| reply turn completed       | `info`  | `chat_id`, `status`, `duration_ms`, `facts_extracted`, `language_used`                  |
+| reply turn failed          | `error` | `chat_id`, `err`, `attempt`                                                             |
+| reply turn aborted         | `info`  | `chat_id`, `reason` (`user_replied`, `signal`)                                          |
+| manual reply detected      | `info`  | `chat_id`, `state_was`, `aborted_inflight`                                              |
+| manual job created         | `info`  | `job_id`, `chat_id`, `kind`, `fire_at`                                                  |
+| manual job fired           | `info`  | `job_id`, `chat_id`, `kind`, `outcome`                                                  |
+| manual job superseded      | `debug` | `job_id`, `chat_id`, `kind`, `reason`                                                   |
+| escalation created         | `info`  | `esc_id`, `chat_id`, `reason`, `urgency`, `holding_reply_sent`                          |
+| escalation notified        | `info`  | `esc_id`, `channels_ok` (array), `channels_failed` (array)                              |
+| escalation rate limited    | `warn`  | `esc_id`, `aggregated`                                                                  |
+| escalation resolved        | `info`  | `esc_id`, `chat_id`, `resolution` (`user_replied` / `superseded`)                       |
+| escalation dedup hit       | `debug` | `esc_id_existing`, `chat_id`, `urgency_changed`                                         |
+| escalation retry           | `info`  | `esc_id`, `attempt`                                                                     |
+| escalation retry exhausted | `error` | `esc_id`, `attempts`                                                                    |
+| holding reply sent         | `info`  | `esc_id`, `chat_id`                                                                     |
+| ephemeral pruner           | `info`  | `deleted_count`, `duration_ms`                                                          |
+| reconnect                  | `warn`  | `outage_duration_ms`                                                                    |
+| post-reconnect spread      | `info`  | `chats_redistributed`                                                                   |
+| config reload              | `info`  | `valid` (true/false)                                                                    |
+| AI call                    | `debug` | `prompt_chars`, `response_chars`, `duration_ms`, `attempt`                              |
 
 ## Privacy nei log
 
-| Dato | Loggato in chiaro? |
-|---|---|
-| `chat_id` (numero serializzato) | Sì (è l'identificatore primario, non sensibile in sé) |
-| `phone` | Sì in messaggi `info` rilevanti, omesso a `debug` se ridondante |
-| `display_name` | Solo a level `debug` |
-| Body messaggio | MAI |
-| Body fact estratto | Solo a level `trace` (off di default), in casi di debug profondo |
-| Reply generata | MAI per intero (solo `chars` count) |
-| Escalation `summary` | Loggata solo come `chars` count a `info`. Body intero solo a `trace`. |
-| Telegram bot token | MAI. Solo presenza/assenza della ENV var. |
-| Telegram chat_id utente | MAI. Solo `chat_id_set: true/false`. |
+| Dato                            | Loggato in chiaro?                                                    |
+| ------------------------------- | --------------------------------------------------------------------- |
+| `chat_id` (numero serializzato) | Sì (è l'identificatore primario, non sensibile in sé)                 |
+| `phone`                         | Sì in messaggi `info` rilevanti, omesso a `debug` se ridondante       |
+| `display_name`                  | Solo a level `debug`                                                  |
+| Body messaggio                  | MAI                                                                   |
+| Body fact estratto              | Solo a level `trace` (off di default), in casi di debug profondo      |
+| Reply generata                  | MAI per intero (solo `chars` count)                                   |
+| Escalation `summary`            | Loggata solo come `chars` count a `info`. Body intero solo a `trace`. |
+| Telegram bot token              | MAI. Solo presenza/assenza della ENV var.                             |
+| Telegram chat_id utente         | MAI. Solo `chat_id_set: true/false`.                                  |
 
 ## `turn_log` come secondo canale di observability
 

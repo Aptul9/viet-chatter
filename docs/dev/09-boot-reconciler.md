@@ -13,29 +13,29 @@ Catch-up dei messaggi WhatsApp che sono arrivati mentre il bot era offline o non
 
 ```ts
 async function reconcile() {
-  const allChats = await client.getChats()                 // lettura locale, gratis
+  const allChats = await client.getChats() // lettura locale, gratis
   const candidates = allChats
-    .filter(c => !c.isGroup)                                // 1. drop gruppi
-    .filter(c => c.lastMessage)                             // 2. drop chat senza alcun messaggio
-    .map(c => ({
+    .filter((c) => !c.isGroup) // 1. drop gruppi
+    .filter((c) => c.lastMessage) // 2. drop chat senza alcun messaggio
+    .map((c) => ({
       chat: c,
-      lastWhatsAppTs: (c.lastMessage!.timestamp) * 1000,
-      lastSeenInDb: null as number | null,                  // riempito sotto
+      lastWhatsAppTs: c.lastMessage!.timestamp * 1000,
+      lastSeenInDb: null as number | null, // riempito sotto
     }))
 
   // 3. resolve last_seen per ogni candidate (single batched query)
-  const chatIds = candidates.map(c => c.chat.id._serialized)
+  const chatIds = candidates.map((c) => c.chat.id._serialized)
   const lastSeenMap = await repo.getLastSeenForChats(chatIds)
   for (const c of candidates) {
     c.lastSeenInDb = lastSeenMap.get(c.chat.id._serialized) ?? null
   }
 
   // 4. filter chat che hanno qualcosa di nuovo
-  const toFetch = candidates.filter(c => {
+  const toFetch = candidates.filter((c) => {
     if (c.lastSeenInDb === null) {
-      return c.chat.unreadCount > 0                          // chat sconosciuta: solo se unread
+      return c.chat.unreadCount > 0 // chat sconosciuta: solo se unread
     }
-    return c.lastWhatsAppTs > c.lastSeenInDb                 // chat nota: nuovo materiale
+    return c.lastWhatsAppTs > c.lastSeenInDb // chat nota: nuovo materiale
   })
 
   // 5. ordina per recency e cap
@@ -55,19 +55,20 @@ async function reconcile() {
   }
 
   // 7. fetch + dispatch con concurrency limit
-  await pAll(filtered.map(c => async () => {
-    const limit = clamp((c.chat.unreadCount || 0) + 5, 10, 50)
-    const messages = await c.chat.fetchMessages({ limit })
-    const newMessages = messages.filter(m => {
-      const tsMs = m.timestamp * 1000
-      return c.lastSeenInDb === null
-        ? c.chat.unreadCount > 0
-        : tsMs > c.lastSeenInDb!
-    })
-    for (const m of newMessages) {
-      await dispatcher.handleMessage(m, { fromBoot: true })
-    }
-  }), { concurrency: config.fetchConcurrency })
+  await pAll(
+    filtered.map((c) => async () => {
+      const limit = clamp((c.chat.unreadCount || 0) + 5, 10, 50)
+      const messages = await c.chat.fetchMessages({ limit })
+      const newMessages = messages.filter((m) => {
+        const tsMs = m.timestamp * 1000
+        return c.lastSeenInDb === null ? c.chat.unreadCount > 0 : tsMs > c.lastSeenInDb!
+      })
+      for (const m of newMessages) {
+        await dispatcher.handleMessage(m, { fromBoot: true })
+      }
+    }),
+    { concurrency: config.fetchConcurrency }
+  )
 
   log.info({ candidates: candidates.length, fetched: filtered.length }, 'reconcile done')
 }
@@ -75,11 +76,11 @@ async function reconcile() {
 
 ## Caps di sicurezza
 
-| Cap | Default | Motivo |
-|---|---|---|
-| `bootMaxChatsToFetch` | 50 | Evita boot patologici se l'utente è stato offline a lungo con molte chat attive. Le chat oltre il cap saranno gestite quando arriverà un evento `message` live su quella chat. |
-| `fetchConcurrency` | 5 | Niente saturazione della sessione WhatsApp Web (Chromium puppeteered). |
-| `unreadCount + 5` clamp `[10, 50]` | - | Margine di sicurezza per timing edge case. Mai oltre 50 messaggi per chat al boot. |
+| Cap                                | Default | Motivo                                                                                                                                                                         |
+| ---------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `bootMaxChatsToFetch`              | 50      | Evita boot patologici se l'utente è stato offline a lungo con molte chat attive. Le chat oltre il cap saranno gestite quando arriverà un evento `message` live su quella chat. |
+| `fetchConcurrency`                 | 5       | Niente saturazione della sessione WhatsApp Web (Chromium puppeteered).                                                                                                         |
+| `unreadCount + 5` clamp `[10, 50]` | -       | Margine di sicurezza per timing edge case. Mai oltre 50 messaggi per chat al boot.                                                                                             |
 
 ## Idempotenza
 

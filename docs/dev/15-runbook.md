@@ -166,8 +166,7 @@ Modifica la funzione `shouldReply` in `config/index.ts`. Salva. Hot reload.
 ```ts
 // esempio: aggiungere un numero alla blacklist
 export const shouldReply = (chat) =>
-  chat.phone.startsWith('+84')
-  && !['+84111', '+84222', '+84NUOVO'].includes(chat.phone)
+  chat.phone.startsWith('+84') && !['+84111', '+84222', '+84NUOVO'].includes(chat.phone)
 ```
 
 ## Rinnovare la sessione WhatsApp
@@ -284,27 +283,33 @@ netstat -an | grep 3456
 ## Troubleshoot: escalation non arriva su Telegram
 
 1. Verifica ENV vars caricate:
+
    ```bash
    echo $TELEGRAM_BOT_TOKEN | head -c 20    # deve mostrare prefisso del token
    echo $TELEGRAM_USER_CHAT_ID              # deve mostrare il numero
    ```
+
    Se sono vuote, le ENV vars non sono visibili al processo. Ricarica `.env` come da sezione "Caricamento ENV vars".
 
 2. Test diretto API Telegram:
+
    ```bash
    curl -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
      -H "Content-Type: application/json" \
      -d "{\"chat_id\": $TELEGRAM_USER_CHAT_ID, \"text\": \"manual test\"}"
    ```
+
    Se la risposta JSON ha `"ok": false`:
    - `"description":"Unauthorized"` -> token sbagliato o revocato.
    - `"description":"chat not found"` -> chat_id sbagliato. Rifai `getUpdates`.
    - `"description":"Forbidden: bot was blocked by the user"` -> hai bloccato il bot, sbloccalo da Telegram.
 
 3. Verifica log del bot:
+
    ```bash
    cat logs/viet-chatter.log | jq 'select(.msg | test("escalation"))'
    ```
+
    Cerca `escalation notified` con `channels_failed` includente `telegram`. Vedi il messaggio errore.
 
 4. Rate limit raggiunto: cerca `escalation rate limited` nei log. Aumenta `config.escalation.rateLimitPerHour`.
@@ -333,6 +338,7 @@ ORDER BY created_at DESC;
 ```
 
 Cause possibili:
+
 - `notified_channels='[]'`: nessun canale ha funzionato. Il retry job (ogni 5 min, max 3 attempts) potrebbe averli esauriti. Riavvia il bot per resettare retry counter (in v1 retry counter è in-memory).
 - `notified_channels=['whatsapp_self']` ma utente non vede: notifica self-chat non recapitata correttamente, vedi sopra.
 - `notified_channels=['telegram']` ma utente non vede: bot Telegram bloccato o muted.

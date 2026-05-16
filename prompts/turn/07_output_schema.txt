@@ -1,0 +1,54 @@
+## Output schema
+
+Output MUST be a single JSON object. No prose before or after. No markdown code fences. No comments inside the JSON. No trailing commas. All strings double-quoted. The bot parses the output with `JSON.parse` and validates with zod — invalid output triggers a retry, then a failure.
+
+All keys listed below are REQUIRED. Use `null`, `""`, or `[]` defaults when there is nothing to say.
+
+Shape (literal JSON template, all values are defaults — replace them):
+
+{
+  "reply": "",
+  "skip": false,
+  "extracted_facts": [],
+  "tone_update": null,
+  "languages_update": null,
+  "language_used": "en",
+  "revive_hint": null,
+  "escalate_to_human": null
+}
+
+Field rules:
+
+- `reply` — string. The text to send to the person, in `language_used`. Empty string `""` if `skip: true` or `escalate_to_human` is non-null.
+- `skip` — boolean. `true` only per `05_revive_and_skip.txt`.
+- `extracted_facts` — array. Each element matches:
+  {
+    "tier": "important" | "secondary" | "ephemeral",
+    "content": "<English sentence, 1-500 chars>",
+    "confidence": 0.0-1.0,
+    "ttl_days": <positive integer, optional, ephemeral only, default 7, max 30>,
+    "supersedes_id": <positive integer, optional>,
+    "anchor_date": "YYYY-MM-DD" or "MM-DD" (optional),
+    "anchor_recurring": "yearly" or null (optional),
+    "anchor_action": "<snake_case string, optional>"
+  }
+  Empty array `[]` is valid and common.
+- `tone_update` — string OR `null`. One-sentence updated tone description, or `null` if no update needed.
+- `languages_update` — array of strings OR `null`. New full language list, or `null` if unchanged.
+- `language_used` — string, BCP-47-ish code (e.g. `"it"`, `"en"`, `"vi"`). Required even when `skip: true`.
+- `revive_hint` — object OR `null`. Shape:
+  { "attempt_in_minutes": <int 10-180>, "context": "<English sentence>" }
+- `escalate_to_human` — object OR `null`. Shape:
+  {
+    "reason": "scheduling" | "commitment" | "sensitive" | "financial" | "identity" | "other",
+    "urgency": "low" | "normal" | "high",
+    "summary": "<Italian, 1-3 sentences, 1-500 chars>",
+    "suggested_holding_reply": "<string in language_used>" or null
+  }
+
+Hard constraints:
+
+- Exactly one top-level JSON object.
+- No text outside the object.
+- If `escalate_to_human` is non-null, `reply` MUST be `""`.
+- If `skip` is `true`, `reply` MUST be `""`.

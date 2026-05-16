@@ -1,0 +1,77 @@
+# viet-chatter user config. Overrides defaults from `config/defaults.ts`.
+# Hot-reloaded by the bot via chokidar. Saved by the web UI (`npm run dev:web`)
+# but safe to edit by hand too. Copy this file to `user-config.yaml` to enable.
+# Arrays REPLACE defaults (no concat); objects merge recursively.
+# Fields marked "RESTART REQUIRED" need a process restart to take effect.
+
+# -- WhatsApp --
+sessionDir: './.wwebjs_auth'                  # directory wweb.js auth state; RESTART REQUIRED
+timezone: 'Europe/Rome'                       # IANA tz for night-window and scheduling math
+
+# -- Scheduler --
+debounceMs: 120000                            # ms; quiet window before considering a burst closed
+hardCapMs: 600000                             # ms; absolute upper bound from first message to send
+minDelayMs: 300000                            # ms; floor on reply delay
+maxDelayMs: 7200000                           # ms; ceiling on reply delay
+jitterPct: 0.2                                # 0..1; random spread applied to computed delay
+nightWindow:
+  startHour: 22                               # 0..23; quiet hours start (local tz)
+  endHour: 6                                  # 0..23; quiet hours end (local tz)
+rollingLatencyWindow: 5                       # samples; size of human-latency moving average
+fallbackDelayMs: 1800000                      # ms; delay used when no latency history exists
+postReconnectSpreadMs:
+  min: 30000                                  # ms; min spread for boot reconciler catch-up
+  max: 180000                                 # ms; max spread for boot reconciler catch-up
+
+# -- Boot --
+bootMaxChatsToFetch: 50                       # chats; cap on boot-time chat scan
+fetchConcurrency: 5                           # parallel fetches during boot reconciliation
+
+# -- Tick --
+tickIntervalMs: 10000                         # ms; main scheduler tick cadence
+manualJobsTickIntervalMs: 30000               # ms; manual-jobs cron cadence
+
+# -- KB --
+ephemeralTtlDays: 7                           # days; TTL for ephemeral facts before pruning
+ragTopK: 8                                    # facts; how many facts the RAG returns per turn
+embeddingModel: 'Xenova/bge-small-en-v1.5'    # transformers model id; RESTART REQUIRED
+
+# -- AI --
+aiModel: 'opencode:github-copilot/gpt-5-mini'  # opencode:<provider>/<model>[@variant]; RESTART REQUIRED
+aiHistoryLimit: 30                            # messages; chat history slice sent to the model
+aiMaxRetryParseFail: 1                        # retries; max re-asks on bad JSON output
+
+# -- Logging --
+logLevel: 'info'                              # trace|debug|info|warn|error
+logFile: './logs/viet-chatter.log'            # log destination; RESTART REQUIRED
+logRotation: 'daily'                          # pino-roll frequency; RESTART REQUIRED
+logMaxSize: '50m'                             # rotation size threshold (suffix k/m/g)
+
+# -- Manual jobs / re-engage --
+reEngageDefaultThresholdDays: 14              # days; default coldness before re-engage offer
+reEngageColdAfterDays: 7                      # days; mark cold when no reply within this window
+reEngageMinOutgoingHistory: 3                 # outgoing msgs required before re-engage eligible
+
+# -- Escalation --
+escalation:
+  enabled: true                               # master switch for human-handoff notifications
+  channels:                                   # ordered list of channels to notify (replaces default)
+    - 'telegram'                              # one of: whatsapp_self, telegram
+  whatsappSelfChatId: 'me'                    # 'me' resolves to own number at runtime
+  telegramBotTokenEnv: 'TELEGRAM_BOT_TOKEN'   # ENV var name (NOT the token itself)
+  telegramChatIdEnv: 'TELEGRAM_USER_CHAT_ID'  # ENV var name (NOT the chat id)
+  rateLimitPerHour: 12                        # max notifications/hour (0 = unlimited)
+  highUrgencyBypassRateLimit: true            # high-urgency escalations skip the per-hour cap
+  retryIntervalMs: 300000                     # ms; backoff between retry attempts
+  retryMaxAttempts: 3                         # max retries for a failed notify
+
+# -- DB --
+dbPath: './viet-chatter.db'                   # sqlite file path; RESTART REQUIRED
+
+# -- Filter (declarative reply gating) --
+filter:
+  allowedPrefixes:                            # E.164 prefix whitelist; empty list = allow all
+    - '+84'
+  blockedNumbers: []                          # exact E.164 numbers to always deny
+  savedContactsOnly: false                    # if true, only reply to saved address-book contacts
+  unreadOnly: false                           # if true, only reply when chat unreadCount > 0

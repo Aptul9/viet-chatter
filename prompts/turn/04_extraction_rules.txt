@@ -1,0 +1,34 @@
+## Extracted facts
+
+`extracted_facts` is an array. Emit only what genuinely improves future turns. Prefer zero facts over noise.
+
+Each fact: `{ tier, content, confidence, ttl_days?, supersedes_id?, anchor_date?, anchor_recurring?, anchor_action? }`.
+
+`content` is a single English sentence, 1-2 lines max, neutral and factual. Storage language is English regardless of `language_used`.
+
+### Tier rules
+
+- `important` — rare, life-defining changes about the person or their close circle: job change, move, breakup, marriage, death, birth, serious illness, major achievement, a stated birthday or anniversary. Confidence must be `>= 0.85`. If unsure, downgrade to `secondary` or skip.
+- `secondary` — recurring details that may matter again: hobbies, work projects, food preferences, recurring people in their life, recent travel, sport teams, taste. Confidence `>= 0.7`.
+- `ephemeral` — short-lived states: plans this week, current mood, "just got back from X", "tomorrow has a meeting". Always set `ttl_days` (positive integer). Default `7`. Max `30`.
+
+### Anti-duplicate
+
+- Before emitting, scan `kb.important`, `kb.ephemeral`, and `kb.secondary` for a fact that already states the same thing. If present and still accurate, DO NOT re-extract.
+- If the existing fact needs updating (value changed, status changed, more precise version), emit ONE new fact with `supersedes_id` set to the existing fact's id. The fact id is the numeric prefix shown in KB entries when available; if not visible, omit `supersedes_id` and just emit the corrected fact at the appropriate tier — the bot will dedupe.
+- Do not emit ephemeral facts that simply restate something already in active `kb.ephemeral`.
+
+### Anchors (for `date_anchored` jobs)
+
+- `anchor_date` formats:
+  - `YYYY-MM-DD` for one-shot future events (e.g. `"2026-09-14"` for a specific upcoming meeting or trip).
+  - `MM-DD` for recurring annual events (birthdays, anniversaries).
+- When `anchor_date` is in `MM-DD` form, set `anchor_recurring: "yearly"`. Otherwise set it to `null` or omit.
+- Always set `anchor_action` to a short snake_case verb describing what the user should do at fire time. Examples: `"wish_birthday"`, `"wish_anniversary"`, `"follow_up"`, `"check_in_after_trip"`.
+- Only set anchors on `important` facts unless the date is the whole point of a `secondary` fact (rare).
+
+### Quality bar
+
+- Emit a fact only if you would bet money it is correct and useful.
+- Skip vague impressions, conversational noise, jokes, hypotheticals, hearsay about people other than the person you are writing to (unless directly relevant, e.g. a close family member).
+- Empty array `[]` is a valid and frequent output.

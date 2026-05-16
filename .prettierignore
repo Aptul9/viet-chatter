@@ -1,0 +1,13 @@
+node_modules/
+dist/
+logs/
+.wwebjs_auth/
+.cache/
+drizzle/0000_init.sql
+drizzle/meta/
+viet-chatter.db*
+package-lock.json
+prompts/turn/
+config/user-config*.yaml
+web/
+

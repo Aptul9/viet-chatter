@@ -24,12 +24,12 @@ Motivo: contraddice il design "fully autonomous". Se vuoi controllo, riscrivi tu
 
 **Nota su escalation a umano**: la feature "escalation a umano" (vedi `18-escalation.md`) NON è un approval flow. Differenza chiave:
 
-| Aspetto | Escalation (in scope) | Approval flow (out of scope) |
-|---|---|---|
-| Frequenza | Solo turn dove l'AI dichiara incertezza esplicita | Ogni reply, sempre |
-| Default | Bot risponde da solo | Bot mai risponde senza OK |
-| Decisione | L'AI stessa decide quando escalare (parte del suo output) | L'utente decide ogni volta |
-| Latenza utente | 0 (l'AI manda holding reply automatica) | Lunga (deve approvare ogni risposta) |
+| Aspetto        | Escalation (in scope)                                     | Approval flow (out of scope)         |
+| -------------- | --------------------------------------------------------- | ------------------------------------ |
+| Frequenza      | Solo turn dove l'AI dichiara incertezza esplicita         | Ogni reply, sempre                   |
+| Default        | Bot risponde da solo                                      | Bot mai risponde senza OK            |
+| Decisione      | L'AI stessa decide quando escalare (parte del suo output) | L'utente decide ogni volta           |
+| Latenza utente | 0 (l'AI manda holding reply automatica)                   | Lunga (deve approvare ogni risposta) |
 
 Escalation è compatibile con `fully autonomous`: la scelta di escalare è autonoma dell'AI, e capita solo nei casi dove non sa. Approval flow puro resta out-of-scope.
 

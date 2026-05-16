@@ -2,29 +2,33 @@
 
 ## Modello a 3 tier
 
-| Tier | Descrizione | Embedding | Caricamento prompt | TTL |
-|---|---|---|---|---|
-| `important` | Eventi che ridefiniscono la persona (lutti, malattie, separazioni, traguardi). Pochi per persona (5-20 stabili). | NO | Sempre tutti | Mai |
-| `secondary` | Dettagli interessanti (lavoro, hobby, gusti, dettagli ricorrenti). Crescono nel tempo (potenzialmente centinaia per persona). | SÌ | Top-K via RAG | Mai (se non superseded) |
-| `ephemeral` | Fatti time-limited (piani, appuntamenti, stati temporanei). | NO | Sempre tutti | 7 giorni default |
+| Tier        | Descrizione                                                                                                                   | Embedding | Caricamento prompt | TTL                     |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------- | --------- | ------------------ | ----------------------- |
+| `important` | Eventi che ridefiniscono la persona (lutti, malattie, separazioni, traguardi). Pochi per persona (5-20 stabili).              | NO        | Sempre tutti       | Mai                     |
+| `secondary` | Dettagli interessanti (lavoro, hobby, gusti, dettagli ricorrenti). Crescono nel tempo (potenzialmente centinaia per persona). | SÌ        | Top-K via RAG      | Mai (se non superseded) |
+| `ephemeral` | Fatti time-limited (piani, appuntamenti, stati temporanei).                                                                   | NO        | Sempre tutti       | 7 giorni default        |
 
 ## Schema (Drizzle)
 
 ```ts
-export const facts = sqliteTable('facts', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  personId: text('person_id').notNull(),
-  tier: text('tier', { enum: ['important','secondary','ephemeral'] }).notNull(),
-  content: text('content').notNull(),
-  sourceMsgId: text('source_msg_id'),
-  confidence: real('confidence').notNull().default(0.8),
-  createdAt: integer('created_at').notNull(),
-  expiresAt: integer('expires_at'),
-  supersededBy: integer('superseded_by'),
-}, (t) => ({
-  personTierIdx: index('idx_facts_person_tier').on(t.personId, t.tier),
-  expiresIdx: index('idx_facts_expires').on(t.expiresAt),
-}))
+export const facts = sqliteTable(
+  'facts',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    personId: text('person_id').notNull(),
+    tier: text('tier', { enum: ['important', 'secondary', 'ephemeral'] }).notNull(),
+    content: text('content').notNull(),
+    sourceMsgId: text('source_msg_id'),
+    confidence: real('confidence').notNull().default(0.8),
+    createdAt: integer('created_at').notNull(),
+    expiresAt: integer('expires_at'),
+    supersededBy: integer('superseded_by'),
+  },
+  (t) => ({
+    personTierIdx: index('idx_facts_person_tier').on(t.personId, t.tier),
+    expiresIdx: index('idx_facts_expires').on(t.expiresAt),
+  })
+)
 ```
 
 Virtual table sqlite-vec (manuale in migration `0000_init.sql`):
@@ -43,11 +47,11 @@ L'AI nel `TurnOutput` produce `extracted_facts: ExtractedFact[]`:
 ```ts
 type ExtractedFact = {
   tier: 'important' | 'secondary' | 'ephemeral'
-  content: string                          // 1-2 frasi inglese
-  confidence: number                        // 0..1
-  ttl_days?: number                         // solo per ephemeral, default 7
-  supersedes_id?: number                    // sostituisce fatto esistente
-  anchor_date?: string                      // YYYY-MM-DD per data fissa, MM-DD per ricorrente annuale
+  content: string // 1-2 frasi inglese
+  confidence: number // 0..1
+  ttl_days?: number // solo per ephemeral, default 7
+  supersedes_id?: number // sostituisce fatto esistente
+  anchor_date?: string // YYYY-MM-DD per data fissa, MM-DD per ricorrente annuale
   anchor_recurring?: 'yearly' | null
   anchor_action?: 'wish_birthday' | 'follow_up' | string
 }
@@ -59,7 +63,10 @@ type ExtractedFact = {
 async function persistExtractedFacts(personId: string, facts: ExtractedFact[]) {
   for (const f of facts) {
     const id = await repo.insertFact({
-      personId, tier: f.tier, content: f.content, confidence: f.confidence,
+      personId,
+      tier: f.tier,
+      content: f.content,
+      confidence: f.confidence,
       createdAt: now,
       expiresAt: f.tier === 'ephemeral' ? now + (f.ttl_days ?? 7) * 86400_000 : null,
     })
@@ -86,8 +93,8 @@ async function persistExtractedFacts(personId: string, facts: ExtractedFact[]) {
 
 ```ts
 async function loadKB(personId: string, recentIncomingBody: string) {
-  const important = await repo.loadImportant(personId)         // tutti
-  const ephemeral = await repo.loadActiveEphemeral(personId)   // tutti non scaduti
+  const important = await repo.loadImportant(personId) // tutti
+  const ephemeral = await repo.loadActiveEphemeral(personId) // tutti non scaduti
   const qEmb = await embedding.embed(recentIncomingBody)
   const secondaryIds = await vecStore.search(personId, qEmb, config.ragTopK)
   const secondary = await repo.loadFactsByIds(secondaryIds)
@@ -112,20 +119,29 @@ export class SqliteVecStore implements VecStore {
   constructor(private db: BetterSqlite3.Database) {}
 
   upsert(factId: number, embedding: Float32Array) {
-    this.db.prepare(`
+    this.db
+      .prepare(
+        `
       INSERT OR REPLACE INTO facts_vec(fact_id, embedding) VALUES (?, ?)
-    `).run(factId, Buffer.from(embedding.buffer))
+    `
+      )
+      .run(factId, Buffer.from(embedding.buffer))
   }
 
   search(personId: string, qEmb: Float32Array, k: number): number[] {
-    return this.db.prepare(`
+    return this.db
+      .prepare(
+        `
       SELECT v.fact_id
       FROM facts_vec v
       JOIN facts f ON f.id = v.fact_id
       WHERE f.person_id = ? AND f.tier = 'secondary' AND f.superseded_by IS NULL
       ORDER BY vec_distance_cosine(v.embedding, ?)
       LIMIT ?
-    `).all(personId, Buffer.from(qEmb.buffer), k).map((r: any) => r.fact_id)
+    `
+      )
+      .all(personId, Buffer.from(qEmb.buffer), k)
+      .map((r: any) => r.fact_id)
   }
 
   delete(factId: number) {
@@ -179,9 +195,9 @@ Cron giornaliero (es. ogni 24h da boot, oppure ogni mattina alle 04:00):
 
 ```ts
 async function pruneEphemeral() {
-  const expiredIds = await repo.expiredEphemeralIds()  // SELECT id FROM facts WHERE expires_at < NOW
+  const expiredIds = await repo.expiredEphemeralIds() // SELECT id FROM facts WHERE expires_at < NOW
   for (const id of expiredIds) {
-    await vecStore.delete(id)  // facts_vec è nullo per ephemeral, ma chiamata idempotente
+    await vecStore.delete(id) // facts_vec è nullo per ephemeral, ma chiamata idempotente
     await repo.deleteFact(id)
   }
   log.info({ deleted: expiredIds.length }, 'ephemeral pruner done')

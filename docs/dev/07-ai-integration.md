@@ -70,7 +70,7 @@ Copia 1:1 di `src/models/cli/opencodeCli.ts` da `linkedin-autoapply`. Espone:
 export async function callOpencodeCli(
   prompt: string,
   logPrefix: string,
-  model: OpencodeAiModel,    // formato: "opencode:provider/modelId" o "opencode/provider/modelId"
+  model: OpencodeAiModel, // formato: "opencode:provider/modelId" o "opencode/provider/modelId"
   signal?: AbortSignal
 ): Promise<string | undefined>
 
@@ -111,7 +111,7 @@ export async function callAiApi(
       log.error({ err, attempt }, 'AI call failed')
     }
     if (signal?.aborted) return undefined
-    await new Promise(r => setTimeout(r, 5000))
+    await new Promise((r) => setTimeout(r, 5000))
   }
   return undefined
 }
@@ -123,7 +123,7 @@ export async function callAiApi(
 
 Layer applicativo: build prompt, call, parse, validate.
 
-```ts
+````ts
 export async function generateTurn(
   ctx: TurnContext,
   signal?: AbortSignal
@@ -137,7 +137,11 @@ export async function generateTurn(
     if (!raw) continue
     const json = extractJson(raw)
     let parsed: unknown
-    try { parsed = JSON.parse(json) } catch { continue }
+    try {
+      parsed = JSON.parse(json)
+    } catch {
+      continue
+    }
     const validated = TurnOutputSchema.safeParse(parsed)
     if (validated.success) return validated.data
     log.warn({ errors: validated.error.errors }, 'AI output schema invalid, retrying')
@@ -150,7 +154,7 @@ function extractJson(s: string): string {
   if (fenced) return fenced[1].trim()
   return s.trim()
 }
-```
+````
 
 ## TurnContext schema
 
@@ -162,8 +166,9 @@ export interface TurnContext {
   toneSummary: string | null
   recentMessages: Array<{ direction: 'in' | 'out_manual' | 'out_bot'; body: string; ts: number }>
   kb: { important: string[]; ephemeral: string[]; secondary: string[] }
-  nowIso: string                                // ISO8601 con tz utente
-  manualJobContext?: {                          // presente solo se invocato da manual_job fire
+  nowIso: string // ISO8601 con tz utente
+  manualJobContext?: {
+    // presente solo se invocato da manual_job fire
     kind: 'date_anchored' | 'revive' | 're_engage'
     hint: string
   }
@@ -176,29 +181,38 @@ export interface TurnContext {
 const TurnOutputSchema = z.object({
   reply: z.string(),
   skip: z.boolean(),
-  extracted_facts: z.array(z.object({
-    tier: z.enum(['important','secondary','ephemeral']),
-    content: z.string().min(1).max(500),
-    confidence: z.number().min(0).max(1),
-    ttl_days: z.number().int().positive().optional(),
-    supersedes_id: z.number().int().positive().optional(),
-    anchor_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$|^\d{2}-\d{2}$/).optional(),
-    anchor_recurring: z.literal('yearly').nullable().optional(),
-    anchor_action: z.string().optional(),
-  })),
+  extracted_facts: z.array(
+    z.object({
+      tier: z.enum(['important', 'secondary', 'ephemeral']),
+      content: z.string().min(1).max(500),
+      confidence: z.number().min(0).max(1),
+      ttl_days: z.number().int().positive().optional(),
+      supersedes_id: z.number().int().positive().optional(),
+      anchor_date: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$|^\d{2}-\d{2}$/)
+        .optional(),
+      anchor_recurring: z.literal('yearly').nullable().optional(),
+      anchor_action: z.string().optional(),
+    })
+  ),
   tone_update: z.string().nullable(),
   languages_update: z.array(z.string()).nullable(),
-  language_used: z.string(),                    // lingua usata in questa reply, per log
-  revive_hint: z.object({
-    attempt_in_minutes: z.number().int().positive(),
-    context: z.string(),
-  }).nullable(),
-  escalate_to_human: z.object({
-    reason: z.enum(['scheduling','commitment','sensitive','financial','identity','other']),
-    urgency: z.enum(['low','normal','high']),
-    summary: z.string().min(1).max(500),
-    suggested_holding_reply: z.string().nullable(),
-  }).nullable(),
+  language_used: z.string(), // lingua usata in questa reply, per log
+  revive_hint: z
+    .object({
+      attempt_in_minutes: z.number().int().positive(),
+      context: z.string(),
+    })
+    .nullable(),
+  escalate_to_human: z
+    .object({
+      reason: z.enum(['scheduling', 'commitment', 'sensitive', 'financial', 'identity', 'other']),
+      urgency: z.enum(['low', 'normal', 'high']),
+      summary: z.string().min(1).max(500),
+      suggested_holding_reply: z.string().nullable(),
+    })
+    .nullable(),
 })
 export type TurnOutput = z.infer<typeof TurnOutputSchema>
 ```
@@ -209,18 +223,18 @@ Vedi `18-escalation.md` per il flusso completo di gestione di `escalate_to_human
 
 Cartella `prompts/turn/`, file `.txt` numerati:
 
-| File | Contenuto |
-|---|---|
-| `00_role.txt` | Ruolo: AI ghostwriter di chat WhatsApp per conto di un utente. Single-shot, no tool. |
-| `01_persona_kb.txt` | Schema KB (3 tier). Come usarlo. |
-| `02_tone_guidance.txt` | Adapt tone basato su `toneSummary` + sentiment del messaggio. Conservativo. |
-| `03_language_rules.txt` | Scegli da `personLanguages`. Adatta per turn. Suggerisci `languages_update` solo se drift consistente. |
-| `04_extraction_rules.txt` | Regole tier (important/secondary/ephemeral). Anti-duplicate. Use `supersedes_id`. Anchor date format. |
-| `05_revive_and_skip.txt` | Quando emettere `revive_hint`. Quando settare `skip: true`. |
+| File                      | Contenuto                                                                                                                                                |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `00_role.txt`             | Ruolo: AI ghostwriter di chat WhatsApp per conto di un utente. Single-shot, no tool.                                                                     |
+| `01_persona_kb.txt`       | Schema KB (3 tier). Come usarlo.                                                                                                                         |
+| `02_tone_guidance.txt`    | Adapt tone basato su `toneSummary` + sentiment del messaggio. Conservativo.                                                                              |
+| `03_language_rules.txt`   | Scegli da `personLanguages`. Adatta per turn. Suggerisci `languages_update` solo se drift consistente.                                                   |
+| `04_extraction_rules.txt` | Regole tier (important/secondary/ephemeral). Anti-duplicate. Use `supersedes_id`. Anchor date format.                                                    |
+| `05_revive_and_skip.txt`  | Quando emettere `revive_hint`. Quando settare `skip: true`.                                                                                              |
 | `06_escalation_rules.txt` | Quando emettere `escalate_to_human` (categorie reason, livelli urgency, criteri di ingaggio, regole su `suggested_holding_reply`, conflict con `reply`). |
-| `07_output_schema.txt` | Schema JSON esatto. Output ONLY JSON. No prose, no fences (ma il bot li striscia comunque). |
-| `08_examples.txt` | Few-shot: 3-4 esempi input/output completi, di cui almeno uno con escalation. |
-| `99_context_template.txt` | `{{CONTEXT}}` placeholder. |
+| `07_output_schema.txt`    | Schema JSON esatto. Output ONLY JSON. No prose, no fences (ma il bot li striscia comunque).                                                              |
+| `08_examples.txt`         | Few-shot: 3-4 esempi input/output completi, di cui almeno uno con escalation.                                                                            |
+| `99_context_template.txt` | `{{CONTEXT}}` placeholder.                                                                                                                               |
 
 Concatenati via `loadAndCombinePrompts` (riusato da linkedin-autoapply).
 
@@ -244,23 +258,25 @@ Contenuto chiave del file:
 - Totale tipico: ~12KB -> ~3-4K token. Sotto qualunque limite ragionevole.
 
 Cap di sicurezza:
+
 - Se context > 6K token, taglia `recentMessages` a 20 e `secondary` a `ragTopK / 2`.
 
 ## Retry e error handling
 
-| Caso | Azione |
-|---|---|
-| OpenCode server non parte | Crash app, intervento manuale. |
-| HTTP error 5xx | Retry up to 3 volte (gestito in `router.ts`). |
-| Output empty | Retry. |
-| JSON parse fail | Strip code fences + retry. Se di nuovo fail dopo aiMaxRetryParseFail, log error, return null. |
-| zod validation fail | Retry una volta con prompt corretto. Se di nuovo fail, return null. |
-| AbortSignal triggered | Return early null, niente persist niente send. |
-| `signal` aborted mid-network | OpenCode supporta abort della session. La fetch viene cancellata. |
+| Caso                                               | Azione                                                                                                                                                                             |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| OpenCode server non parte                          | Crash app, intervento manuale.                                                                                                                                                     |
+| HTTP error 5xx                                     | Retry up to 3 volte (gestito in `router.ts`).                                                                                                                                      |
+| Output empty                                       | Retry.                                                                                                                                                                             |
+| JSON parse fail                                    | Strip code fences + retry. Se di nuovo fail dopo aiMaxRetryParseFail, log error, return null.                                                                                      |
+| zod validation fail                                | Retry una volta con prompt corretto. Se di nuovo fail, return null.                                                                                                                |
+| AbortSignal triggered                              | Return early null, niente persist niente send.                                                                                                                                     |
+| `signal` aborted mid-network                       | OpenCode supporta abort della session. La fetch viene cancellata.                                                                                                                  |
 | `escalate_to_human` con `summary` mancante o vuota | zod fallisce, retry. Se persiste, fallback summary "AI ha richiesto escalation senza fornire dettagli. Vai a controllare la chat." applicata lato bot, escalation creata comunque. |
-| `escalate_to_human` non null + `reply` non vuoto | Conflict resolved: la reply viene scartata, solo `suggested_holding_reply` (se non null) viene inviato. Log warn. |
+| `escalate_to_human` non null + `reply` non vuoto   | Conflict resolved: la reply viene scartata, solo `suggested_holding_reply` (se non null) viene inviato. Log warn.                                                                  |
 
 Quando `generateTurn` ritorna `null`:
+
 - Niente send.
 - Niente persist `extracted_facts`.
 - `turn_log` insert con `status='failed'`.

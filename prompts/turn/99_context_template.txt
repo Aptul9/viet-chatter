@@ -1,0 +1,5 @@
+## Context for this turn
+
+The conversation context for THIS turn is the following JSON object. Read it carefully before producing your output. Your output must be a single JSON object matching the schema in `07_output_schema.txt` — no prose, no code fences.
+
+{{CONTEXT}}

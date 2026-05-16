@@ -37,3 +37,9 @@ drizzle/meta/_journal.json
 
 # tsx / build artifacts
 *.tsbuildinfo
+
+# Next.js build output
+.next/
+
+# User-edited YAML config (example is committed, real one is local)
+config/user-config.yaml

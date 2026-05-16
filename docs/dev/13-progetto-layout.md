@@ -198,14 +198,14 @@ async function main() {
   const { db, sqlite } = openDb(config.dbPath)
   await ensureOpencodeServer('boot')
   const wa = await initWhatsApp(config.sessionDir)
-  const escalationNotifier = initEscalation({ wa })   // setup canali (whatsapp_self, telegram)
+  const escalationNotifier = initEscalation({ wa }) // setup canali (whatsapp_self, telegram)
   initDispatcher({ db, wa, escalationNotifier })
   initOrchestrator({ db, wa, escalationNotifier })
   await runReconciler(wa, db)
   startTicker()
   startManualJobsCron()
   startEphemeralPruner()
-  startEscalationRetry()                              // cron 5min per escalations con notify fallita
+  startEscalationRetry() // cron 5min per escalations con notify fallita
   log.info('boot done')
 
   process.on('SIGINT', async () => {

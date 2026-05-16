@@ -28,19 +28,19 @@ Vedi `17-out-of-scope.md` per dettagli.
 
 ## 3. Stack
 
-| Layer | Scelta |
-|---|---|
-| Runtime | Node 20+ |
-| Lingua | TypeScript |
-| WhatsApp | `whatsapp-web.js` |
-| Storage | SQLite + `sqlite-vec` |
-| ORM | Drizzle |
-| Embedding | `@xenova/transformers` (`bge-small-en-v1.5`, 384 dim, locale) |
-| AI | OpenCode (config 1:1 da `linkedin-autoapply`) |
-| Validazione | zod |
-| Logging | pino + pino-roll |
-| Hot reload config | chokidar |
-| Process | foreground manuale (`npm start`) |
+| Layer             | Scelta                                                        |
+| ----------------- | ------------------------------------------------------------- |
+| Runtime           | Node 20+                                                      |
+| Lingua            | TypeScript                                                    |
+| WhatsApp          | `whatsapp-web.js`                                             |
+| Storage           | SQLite + `sqlite-vec`                                         |
+| ORM               | Drizzle                                                       |
+| Embedding         | `@xenova/transformers` (`bge-small-en-v1.5`, 384 dim, locale) |
+| AI                | OpenCode (config 1:1 da `linkedin-autoapply`)                 |
+| Validazione       | zod                                                           |
+| Logging           | pino + pino-roll                                              |
+| Hot reload config | chokidar                                                      |
+| Process           | foreground manuale (`npm start`)                              |
 
 ## 4. Architettura
 
@@ -70,8 +70,7 @@ Predicate function in `config/index.ts`:
 
 ```ts
 export const shouldReply = (chat: ChatContext): boolean => {
-  return chat.phone.startsWith('+84')
-      && !['+84111111111', '+84222222222'].includes(chat.phone)
+  return chat.phone.startsWith('+84') && !['+84111111111', '+84222222222'].includes(chat.phone)
 }
 ```
 
@@ -138,7 +137,7 @@ Vedi `07-ai-integration.md` e `18-escalation.md`.
 
 3 kind:
 
-- `date_anchored`: creato da `extracted_facts[i].anchor_date`. Fire al `nextOccurrence`. Pre-fire supersede check (out_* nelle ultime 12h -> superseded). Yearly recurring: dopo fired, crea nuovo job +1 anno.
+- `date_anchored`: creato da `extracted_facts[i].anchor_date`. Fire al `nextOccurrence`. Pre-fire supersede check (out\_\* nelle ultime 12h -> superseded). Yearly recurring: dopo fired, crea nuovo job +1 anno.
 - `revive`: creato da `revive_hint` nel TurnOutput. Fire dopo `attempt_in_minutes`. Max 1 pending per chat, max 1 fired per giornata di conversazione.
 - `re_engage`: creato da cron giornaliero quando silenzio > soglia (default 14 giorni, override per persona). Solo per chat con storia (>=3 outgoing). Niente re_engage notturni. Dopo fired senza risposta in 7 giorni -> `cold`.
 

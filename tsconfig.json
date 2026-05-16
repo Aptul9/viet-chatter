@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
+    "outDir": "dist",
+    "rootDir": ".",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "declaration": false,
+    "sourceMap": true
+  },
+  "include": ["src/**/*", "config/**/*", "drizzle.config.ts"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "logs",
+    ".wwebjs_auth",
+    ".cache",
+    "web",
+    "tailwind.config.ts",
+    "postcss.config.mjs",
+    ".next"
+  ]
+}

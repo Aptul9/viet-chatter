@@ -51,30 +51,30 @@
 
 ## Moduli
 
-| Modulo | File principale | Responsabilità |
-|---|---|---|
-| `WhatsAppClient` | `src/whatsapp/client.ts` | Init `whatsapp-web.js`, gestione QR, eventi, `sendMessage`, `fetchMessages`. |
-| `ConnectionStateMachine` | `src/whatsapp/connection.ts` | Stati `BOOTING`/`CONNECTING`/`CONNECTED`/`DISCONNECTED`, retry con backoff. |
-| `MessageDispatcher` | `src/dispatcher/index.ts` | Classify direction, dedup via `processed_messages`, applica filtro, instrada. |
-| `FilterEngine` | `src/dispatcher/filter.ts` | Wrapper su `shouldReply` predicate user-defined, hot-reload via chokidar. |
-| `ChatStateMachine` | `src/scheduler/state.ts` | Transizioni `IDLE` -> `ACCUMULATING` -> `SCHEDULED` -> `SENDING`, debounce/cap. |
-| `LatencyEstimator` | `src/scheduler/latency.ts` | Rolling avg latency, esclusione night-window, jitter. |
-| `TickerLoop` | `src/scheduler/ticker.ts` | Cron interno 10s, scansiona `chat_state`, processa transizioni dovute. |
-| `ReplyOrchestrator` | `src/orchestrator/index.ts` | Pipeline reply: fetch history -> build context -> AI -> parse -> send -> persist. |
-| `InflightRegistry` | `src/orchestrator/inflight.ts` | `Map<chat_id, AbortController>` per cancellazione cooperativa. |
-| `KBStore` | `src/kb/store.ts` | CRUD `facts`, retrieval per tier, supersede. |
-| `VecStore` | `src/kb/vec.ts` | Interfaccia astratta + impl `SqliteVecStore`. |
-| `EmbeddingService` | `src/kb/embedding.ts` | `@xenova/transformers` lazy-load, cache LRU. |
-| `EphemeralPruner` | `src/kb/pruner.ts` | Cron giornaliero TTL ephemeral. |
-| `PersonProfileStore` | `src/persona/profile.ts` | CRUD `person_profile`, lingue, tone_summary. |
-| `AIClient` | `src/ai/turn.ts` + `src/ai/router.ts` + `src/ai/opencode.ts` | Wrapper su OpenCode, prompt builder, parse + zod validation. |
-| `Repo` | `src/db/repo.ts` | Tutte le funzioni semantiche di accesso DB. Niente SQL inline fuori da qui. |
-| `BootReconciler` | `src/boot/reconciler.ts` | Catch-up al boot e a ogni reconnect. |
-| `ManualJobsCron` | `src/scheduler/manual-jobs-cron.ts` | Scansione giornaliera per `re_engage`, fire `date_anchored`/`revive`/`re_engage`. |
-| `EscalationNotifier` | `src/escalation/notifier.ts` | Invio notifica out-of-band quando l'AI dichiara `escalate_to_human`. Gestisce canali multipli (WhatsApp self-chat, Telegram), retry, rate limit. Vedi `18-escalation.md`. |
-| `EscalationChannel` | `src/escalation/channels/*.ts` | Implementazioni canale: `WhatsAppSelfChannel`, `TelegramChannel`. Interfaccia comune. |
-| `Config` | `src/config/index.ts` | Carica `config/index.ts`, valida zod, espone tipato + hot reload. |
-| `Logger` | `src/log.ts` | Istanza pino condivisa. |
+| Modulo                   | File principale                                              | Responsabilità                                                                                                                                                            |
+| ------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `WhatsAppClient`         | `src/whatsapp/client.ts`                                     | Init `whatsapp-web.js`, gestione QR, eventi, `sendMessage`, `fetchMessages`.                                                                                              |
+| `ConnectionStateMachine` | `src/whatsapp/connection.ts`                                 | Stati `BOOTING`/`CONNECTING`/`CONNECTED`/`DISCONNECTED`, retry con backoff.                                                                                               |
+| `MessageDispatcher`      | `src/dispatcher/index.ts`                                    | Classify direction, dedup via `processed_messages`, applica filtro, instrada.                                                                                             |
+| `FilterEngine`           | `src/dispatcher/filter.ts`                                   | Wrapper su `shouldReply` predicate user-defined, hot-reload via chokidar.                                                                                                 |
+| `ChatStateMachine`       | `src/scheduler/state.ts`                                     | Transizioni `IDLE` -> `ACCUMULATING` -> `SCHEDULED` -> `SENDING`, debounce/cap.                                                                                           |
+| `LatencyEstimator`       | `src/scheduler/latency.ts`                                   | Rolling avg latency, esclusione night-window, jitter.                                                                                                                     |
+| `TickerLoop`             | `src/scheduler/ticker.ts`                                    | Cron interno 10s, scansiona `chat_state`, processa transizioni dovute.                                                                                                    |
+| `ReplyOrchestrator`      | `src/orchestrator/index.ts`                                  | Pipeline reply: fetch history -> build context -> AI -> parse -> send -> persist.                                                                                         |
+| `InflightRegistry`       | `src/orchestrator/inflight.ts`                               | `Map<chat_id, AbortController>` per cancellazione cooperativa.                                                                                                            |
+| `KBStore`                | `src/kb/store.ts`                                            | CRUD `facts`, retrieval per tier, supersede.                                                                                                                              |
+| `VecStore`               | `src/kb/vec.ts`                                              | Interfaccia astratta + impl `SqliteVecStore`.                                                                                                                             |
+| `EmbeddingService`       | `src/kb/embedding.ts`                                        | `@xenova/transformers` lazy-load, cache LRU.                                                                                                                              |
+| `EphemeralPruner`        | `src/kb/pruner.ts`                                           | Cron giornaliero TTL ephemeral.                                                                                                                                           |
+| `PersonProfileStore`     | `src/persona/profile.ts`                                     | CRUD `person_profile`, lingue, tone_summary.                                                                                                                              |
+| `AIClient`               | `src/ai/turn.ts` + `src/ai/router.ts` + `src/ai/opencode.ts` | Wrapper su OpenCode, prompt builder, parse + zod validation.                                                                                                              |
+| `Repo`                   | `src/db/repo.ts`                                             | Tutte le funzioni semantiche di accesso DB. Niente SQL inline fuori da qui.                                                                                               |
+| `BootReconciler`         | `src/boot/reconciler.ts`                                     | Catch-up al boot e a ogni reconnect.                                                                                                                                      |
+| `ManualJobsCron`         | `src/scheduler/manual-jobs-cron.ts`                          | Scansione giornaliera per `re_engage`, fire `date_anchored`/`revive`/`re_engage`.                                                                                         |
+| `EscalationNotifier`     | `src/escalation/notifier.ts`                                 | Invio notifica out-of-band quando l'AI dichiara `escalate_to_human`. Gestisce canali multipli (WhatsApp self-chat, Telegram), retry, rate limit. Vedi `18-escalation.md`. |
+| `EscalationChannel`      | `src/escalation/channels/*.ts`                               | Implementazioni canale: `WhatsAppSelfChannel`, `TelegramChannel`. Interfaccia comune.                                                                                     |
+| `Config`                 | `src/config/index.ts`                                        | Carica `config/index.ts`, valida zod, espone tipato + hot reload.                                                                                                         |
+| `Logger`                 | `src/log.ts`                                                 | Istanza pino condivisa.                                                                                                                                                   |
 
 ## Confini di responsabilità
 

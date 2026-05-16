@@ -50,16 +50,16 @@ Pragmas e load extension stanno solo in `src/db/client.ts`. Per Postgres quel fi
 
 ## Punti che richiedono modifica
 
-| File | Cosa cambia |
-|---|---|
-| `src/db/client.ts` | Apertura: `better-sqlite3` -> `postgres-js`. Niente `loadExtension`, niente pragmas. |
-| `src/db/schema.ts` | `sqliteTable` -> `pgTable`. Adeguare tipi `integer/bigint`, `serial`. |
-| `src/kb/vec.ts` | Aggiungere `PgvectorStore implements VecStore`. Switchare la factory. |
-| `drizzle/0000_init.sql` (e simili) | Rigenerare con `drizzle-kit` per il nuovo dialect. La virtual table sqlite-vec viene sostituita da `CREATE EXTENSION vector` + colonna `vector(384)` su `facts` direttamente (pgvector permette colonne typed senza virtual table). |
-| `drizzle.config.ts` | `dialect: 'sqlite'` -> `dialect: 'postgresql'`. |
-| `package.json` | Sostituire `better-sqlite3` + `sqlite-vec` con `postgres` (o `pg`). |
-| Tutte le query in `repo.ts` con time arithmetic (`expires_at < strftime('%s', 'now') * 1000` se mai usato) | Cambiano in `expires_at < extract(epoch from now()) * 1000`. Ma se usiamo `Date.now()` lato app, niente cambia. |
-| `src/db/migrate.ts` | Cambia il migrator client. |
+| File                                                                                                       | Cosa cambia                                                                                                                                                                                                                         |
+| ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/db/client.ts`                                                                                         | Apertura: `better-sqlite3` -> `postgres-js`. Niente `loadExtension`, niente pragmas.                                                                                                                                                |
+| `src/db/schema.ts`                                                                                         | `sqliteTable` -> `pgTable`. Adeguare tipi `integer/bigint`, `serial`.                                                                                                                                                               |
+| `src/kb/vec.ts`                                                                                            | Aggiungere `PgvectorStore implements VecStore`. Switchare la factory.                                                                                                                                                               |
+| `drizzle/0000_init.sql` (e simili)                                                                         | Rigenerare con `drizzle-kit` per il nuovo dialect. La virtual table sqlite-vec viene sostituita da `CREATE EXTENSION vector` + colonna `vector(384)` su `facts` direttamente (pgvector permette colonne typed senza virtual table). |
+| `drizzle.config.ts`                                                                                        | `dialect: 'sqlite'` -> `dialect: 'postgresql'`.                                                                                                                                                                                     |
+| `package.json`                                                                                             | Sostituire `better-sqlite3` + `sqlite-vec` con `postgres` (o `pg`).                                                                                                                                                                 |
+| Tutte le query in `repo.ts` con time arithmetic (`expires_at < strftime('%s', 'now') * 1000` se mai usato) | Cambiano in `expires_at < extract(epoch from now()) * 1000`. Ma se usiamo `Date.now()` lato app, niente cambia.                                                                                                                     |
+| `src/db/migrate.ts`                                                                                        | Cambia il migrator client.                                                                                                                                                                                                          |
 
 ## Punti che NON cambiano
 

@@ -130,5 +130,6 @@ Triggered da Flow C step 13 quando `turnOutput.escalate_to_human != null`.
 9. Se almeno uno OK: log info, escalation è "delivered".
 
 Note:
+
 - Notify è idempotente sul lato canale per design (Telegram dedup non c'è, ma se inviato 2 volte per timing race è accettabile - utente vede 2 notifiche sostanzialmente identiche).
 - Notify non cambia lo `status` dell'escalation, che resta `pending` finchè utente risponde manualmente o un nuovo turn supera l'escalation.

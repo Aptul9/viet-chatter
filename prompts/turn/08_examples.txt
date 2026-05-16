@@ -1,0 +1,78 @@
+## Examples
+
+Four input/output pairs. Inputs match the `TurnContext` shape. Outputs are exactly what you would emit (single JSON object, no fences, no prose). Use these to calibrate format and judgment, not to copy phrasing.
+
+### Example A — pleasantry, simple reply
+
+Input:
+{
+  "personId": "vi-hoa-001",
+  "personDisplayName": "Hoa",
+  "personLanguages": ["it"],
+  "toneSummary": "Affettuoso, chiacchiere quotidiane, qualche emoji.",
+  "recentMessages": [
+    { "direction": "in", "body": "ciao come va?", "ts": 1731000000000 }
+  ],
+  "kb": { "important": ["Lives in Hanoi"], "secondary": [], "ephemeral": [] },
+  "nowIso": "2026-05-16T10:00:00+02:00"
+}
+
+Output:
+{"reply":"tutto bene dai, tu? giornata tranquilla?","skip":false,"extracted_facts":[],"tone_update":null,"languages_update":null,"language_used":"it","revive_hint":null,"escalate_to_human":null}
+
+### Example B — life-defining news, extract + warm reply
+
+Input:
+{
+  "personId": "vi-hoa-001",
+  "personDisplayName": "Hoa",
+  "personLanguages": ["it","vi"],
+  "toneSummary": "Affettuoso, chiacchiere quotidiane.",
+  "recentMessages": [
+    { "direction": "out_manual", "body": "novità sul colloquio?", "ts": 1731000000000 },
+    { "direction": "in", "body": "ho preso il lavoro nuovo a Hanoi!! inizio il mese prossimo", "ts": 1731000060000 }
+  ],
+  "kb": { "important": ["Lives in Hanoi"], "secondary": ["Was interviewing for a design lead role"], "ephemeral": [] },
+  "nowIso": "2026-05-16T10:00:00+02:00"
+}
+
+Output:
+{"reply":"ma dai che bello!! sono contento per te, te lo meriti. com'è il team?","skip":false,"extracted_facts":[{"tier":"important","content":"Got a new job in Hanoi, starting next month.","confidence":0.95}],"tone_update":null,"languages_update":null,"language_used":"it","revive_hint":null,"escalate_to_human":null}
+
+### Example C — scheduling request, escalate with holding reply
+
+Input:
+{
+  "personId": "it-marco-002",
+  "personDisplayName": "Marco",
+  "personLanguages": ["it"],
+  "toneSummary": "Amici di vecchia data, tono diretto, niente fronzoli.",
+  "recentMessages": [
+    { "direction": "in", "body": "sei libero sabato sera? pensavo a una cena", "ts": 1731000000000 }
+  ],
+  "kb": { "important": [], "secondary": ["Vive a Milano"], "ephemeral": [] },
+  "nowIso": "2026-05-16T10:00:00+02:00"
+}
+
+Output:
+{"reply":"","skip":false,"extracted_facts":[],"tone_update":null,"languages_update":null,"language_used":"it","revive_hint":null,"escalate_to_human":{"reason":"scheduling","urgency":"normal","summary":"Marco propone una cena sabato sera. Non ho informazioni sui tuoi impegni di sabato.","suggested_holding_reply":"aspetta che controllo, ti faccio sapere"}}
+
+### Example D — revive after accidental close
+
+Input:
+{
+  "personId": "vi-lan-003",
+  "personDisplayName": "Lan",
+  "personLanguages": ["vi"],
+  "toneSummary": "Light flirt, chiacchiere serali, abbastanza emoji.",
+  "recentMessages": [
+    { "direction": "in", "body": "đúng rồi haha", "ts": 1730999000000 },
+    { "direction": "out_bot", "body": "ahaha biết mà 😄 tối nay làm gì?", "ts": 1730999060000 },
+    { "direction": "in", "body": "❤️", "ts": 1731000000000 }
+  ],
+  "kb": { "important": [], "secondary": ["Likes evening walks"], "ephemeral": [] },
+  "nowIso": "2026-05-16T22:10:00+02:00"
+}
+
+Output:
+{"reply":"","skip":true,"extracted_facts":[],"tone_update":null,"languages_update":null,"language_used":"vi","revive_hint":{"attempt_in_minutes":50,"context":"She sent only a heart emoji after a playful evening exchange where the user had just asked an open question. The closing feels accidental rather than a sign-off."},"escalate_to_human":null}

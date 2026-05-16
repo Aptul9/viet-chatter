@@ -9,9 +9,7 @@ Tre tipi di job non-reattivi che il bot fa partire da solo:
 ## Tabella `manual_jobs`
 
 ```ts
-manualJobs(
-  id, chatId, kind, fireAt, payload (JSON), status, firedAt, createdAt
-)
+manualJobs(id, chatId, kind, fireAt, payload(JSON), status, firedAt, createdAt)
 ```
 
 `status`: `pending` -> `firing` -> `fired` | `superseded` | `cancelled`.
@@ -25,12 +23,12 @@ Pseudocode:
 ```ts
 async function tick() {
   if (!client.isConnected()) return
-  if (isInNightWindow(Date.now(), config.timezone)) return       // niente fire notturni
+  if (isInNightWindow(Date.now(), config.timezone)) return // niente fire notturni
 
   const due = await repo.pendingManualJobs(Date.now())
   for (const job of due) {
     const claimed = await repo.transitionManualJob(job.id, 'pending', 'firing')
-    if (!claimed) continue                                        // qualcun altro
+    if (!claimed) continue // qualcun altro
 
     if (await preFireCheckSupersedes(job)) {
       await repo.transitionManualJob(job.id, 'firing', 'superseded')
@@ -38,7 +36,7 @@ async function tick() {
     }
 
     invokeJob(job)
-      .catch(err => log.error({ err, jobId: job.id }, 'manual job error'))
+      .catch((err) => log.error({ err, jobId: job.id }, 'manual job error'))
       .finally(() => {
         if (job.kind === 'date_anchored' && job.recurring === 'yearly') {
           repo.insertManualJob({ ...job, fireAt: job.fireAt + ONE_YEAR_MS, status: 'pending' })
@@ -54,10 +52,10 @@ async function tick() {
 ```ts
 async function preFireCheckSupersedes(job: ManualJob): Promise<boolean> {
   // 1. ultimi 12h: c'è stato out_bot o out_manual verso questa chat?
-  const recent = await repo.recentProcessedMessages(job.chatId, /*limit=*/30)
+  const recent = await repo.recentProcessedMessages(job.chatId, /*limit=*/ 30)
   const cutoff = Date.now() - 12 * 3600_000
-  const hasRecentOut = recent.some(r =>
-    (r.direction === 'out_bot' || r.direction === 'out_manual') && r.ts > cutoff
+  const hasRecentOut = recent.some(
+    (r) => (r.direction === 'out_bot' || r.direction === 'out_manual') && r.ts > cutoff
   )
   if (hasRecentOut) return true
 
@@ -76,7 +74,7 @@ Per tutti e tre i kind, l'invocazione passa attraverso `ReplyOrchestrator.genera
 ```ts
 manualJobContext = {
   kind: 'date_anchored' | 'revive' | 're_engage',
-  hint: string                                  // testo per AI: "today is birthday", "user sent only ❤️ after long chat", etc.
+  hint: string, // testo per AI: "today is birthday", "user sent only ❤️ after long chat", etc.
 }
 ```
 
@@ -216,7 +214,7 @@ Cleanup post-fired:
 ```ts
 // cron periodico
 async function markColdAfterReEngageNoReply() {
-  const stale = await repo.recentReEngagesWithoutReply(/*olderThanDays=*/7)
+  const stale = await repo.recentReEngagesWithoutReply(/*olderThanDays=*/ 7)
   for (const job of stale) {
     await repo.setEngagementState(job.chatId, 'cold')
   }
@@ -239,7 +237,7 @@ Quando arriva un `incoming` per una chat con `manual_jobs.pending`:
 ```ts
 async function onIncoming(chatId: string) {
   // ...
-  await repo.cancelPendingManualJobsForChat(chatId)         // qualunque kind
+  await repo.cancelPendingManualJobsForChat(chatId) // qualunque kind
   // proceed with state machine
 }
 ```
