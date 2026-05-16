@@ -17,6 +17,7 @@
     "health": "tsx src/scripts/health.ts",
     "test:e2e": "tsx src/scripts/test-e2e.ts",
     "test:e2e:full": "tsx e2e/run.ts",
+    "loc": "node scripts/cloc.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
