@@ -35,7 +35,51 @@ Per problemi NON banali che impattano la docs o il design futuro:
 
 ---
 
-## 2026-05-16
+## 2026-05-17
+
+### Evento: scope expansion impl shipped — 5 specs end-to-end (A / B / C+D1 / D2)
+
+- Cosa fatto: implementati tutti e 5 gli spec progettati nella sessione di brainstorm del 2026-05-16, autonomamente in single overnight session su branch `feat/v1-scope-expansion`. 5 commit semanticamente coerenti (uno per spec), + 1 commit fix finali.
+  - **Spec A — media handler** (commit `3a8a1f6`): `src/dispatcher/media-policy.ts` + `src/orchestrator/media-queue.ts` + `src/escalation/from-media.ts` + estensione `opencode.ts/router.ts/turn.ts` con parts API. Dispatcher branch su `msg.type`. Image vision via OpenCode multimodal (VISION_CAPABLE_MODELS allowlist + fallback). Audio/video/document/location/sticker policy YAML-driven.
+  - **Spec B — test framework** (commit `824a72c`): refactor di `src/scripts/test-e2e.ts` in scenario registry sotto `src/scripts/e2e-scenarios/`. 6 scenari mockati (basic-reply, image-vision, image-escalation-fallback, audio-escalation, skip-output, escalation-output). Subagent creato `e2e/` top-level con driver wweb separato + validator readonly DB + orchestrator `e2e/run.ts`. Env knobs `BOT_E2E_STUB_AI` / `BOT_E2E_LOG_PATH` / `BOT_E2E_DB_PATH` / `BOT_E2E_MODE`. AI stub in router.ts.
+  - **Spec C+D1 — dashboard read-only + AI summary** (commit `558ec3d`): nuovi tab `/dashboard` (home + chats + chats/[id] + schedule + stats + summary). API read-only sotto `/api/dashboard/`. 4 nuovi repo helper read-only (listChatsWithSummary / getChatDetail / getScheduleOverview / getStats). D1 endpoint POST `/api/dashboard/summary` chiama AI con prompts/summary template (no zod, free-form markdown, cap 4000 char).
+  - **Spec D2 — AI command channel** (commit `7d99cad`): nuovo modulo `src/agent/` (types + context + turn + store + 6 action handler). Web UI `/dashboard/agent` con chat + confirm-then-execute pattern. AgentOutput discriminated zod union (createManualJob / cancelManualJobs / dismissEscalation / summarizeChat / updateEngagement / listOverview). Nuova tabella `agent_commands` (audit log) via `ensureAdditiveSchema` in client.ts (idempotent). Security: forced localhost bind (`--hostname 127.0.0.1`) + Host-header runtime check (web/lib/agent-gate.ts) + kill switch `AGENT_DISABLED=1` env + audit log.
+  - **Fix finali** (commit `17424e2`): `BOT_E2E_MODE=1` settato all'inizio di test-e2e.ts; `web/next.config.mjs` extensionAlias `.js` → `.ts` per webpack che altrimenti non risolve i bot imports.
+- Verifica:
+  - `npx tsc --noEmit` (bot side): clean.
+  - `cd web && npx tsc --noEmit`: clean.
+  - `cd e2e/driver && npx tsc --noEmit`: clean.
+  - `cd e2e/validator && npx tsc --noEmit`: clean.
+  - `npm run test:e2e -- all`: **6/6 PASS** (basic-reply 5.2s, image-vision 5.2s, image-escalation-fallback 37ms, audio-escalation 30ms, skip-output 4.7s, escalation-output 4.7s).
+  - `npm run health`: ok, 7 chats, 2 facts, 3 escalations pending (residue di test).
+  - `npm run build:web`: PASS, tutti i 14 route generati (7 page + 7 api).
+  - `npm run dev` (boot completo + UI): NON eseguito per evitare di disturbare la sessione WhatsApp paired dell'utente.
+- Decisioni implementative:
+  - **Media bytes mai persistiti**: vivono solo nella `MediaQueue` in-memory, drenata al turn fire o all'out_manual. Privacy by design (richiesta da spec A).
+  - **Vision allowlist hardcoded** in `src/config/constants.ts` invece di runtime probe per evitare API call al boot. Update manuale quando si aggiunge un nuovo model vision-capable.
+  - **`__overrideConfigForTest` gated** dietro `BOT_E2E_MODE=1` o `NODE_ENV=test` per evitare accidental production use.
+  - **`agent_commands` table NON gestita via drizzle migration**: usata `ensureAdditiveSchema(sqlite)` in `client.ts` con `CREATE TABLE IF NOT EXISTS`. Pragmatico per single-user project. Una futura `drizzle-kit generate` la fold in una vera migration.
+  - **Separate db-ro vs db-rw connections** in web/lib/: dashboard read-only routes usano sempre db-ro, solo agent routes (D2) hanno accesso a db-rw. Defense-in-depth contro write accidentali.
+  - **Webpack extensionAlias** per il .js → .ts: necessario perchè bot code (NodeNext) usa `.js` extensions su relative imports, mentre web (bundler resolution) non li riconosce.
+  - **Vision scenario nel mock test** usa monkey-patch del fake WA handle's `downloadMedia` invece di setup config aggiuntivo. Più localizzato.
+- Note di sicurezza per D2 (write-capable):
+  - Forced bind a `127.0.0.1` in `package.json` scripts (dev + dev:web).
+  - Runtime check su Host header in `web/lib/agent-gate.ts` come backstop.
+  - Kill switch `AGENT_DISABLED=1`: route ritorna 503.
+  - Audit log: ogni propose/execute scrive JSON line su stdout + persiste in `agent_commands` table.
+  - Action whitelist enforced via zod discriminated union: payload corrotto / type sconosciuto → fail al propose AND al execute (double validation).
+  - Banner UI giallo prominente in `/dashboard/agent` warning utente.
+- Subagent usage: spawn 1 subagent per Spec B's `e2e/` folder (23 file completamente isolati da src/). Lavoro parallelo, coordinazione zero perchè file disjoint. Subagent completato in 6m31s con clean tsc. Decisione corretta in retrospect.
+- Tempo: ~3.5h wall-clock per i 5 spec impl + commit + verify. Subagent ridotto il context bloat sul main agent.
+- Follow-up live testing (`In Progress` lane su board.md):
+  - **#62** escalation Telegram live trigger.
+  - **#63** birthday job live fire.
+  - **#NEW1** re_engage live.
+  - **#NEW2** skip-output live.
+  - **#SA-live** invio media reali (image / audio / video / location) da numero whitelistato. Vision model: `gpt-5-mini` (default) già in allowlist.
+  - **#SB-live** pair second WhatsApp account in `e2e/driver/`, run `npx tsx e2e/run.ts basic-reply --ai stub`.
+  - **#SD-live** UI dashboard `/dashboard/agent` con prompt reale, verifica Confirm + manual_jobs row creata. Inoltre testare kill switch + curl Host header.
+- Branch: `feat/v1-scope-expansion`. Da mergeare a `main` dopo review.
 
 ### Evento: scope expansion — 5 specs aggiunti (A media / B test framework / C dashboard / D1 AI summary / D2 AI commands)
 
