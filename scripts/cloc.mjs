@@ -32,12 +32,15 @@ const EXCLUDE_EXTS = ['log', 'db', 'db-journal', 'db-shm', 'db-wal', 'tsbuildinf
 
 const passthrough = process.argv.slice(2)
 
+// Note: do NOT pass a `--not-match-d` regex here. Through `shell: true` on
+// Windows the parens get parsed by cmd.exe. --vcs=git already filters to
+// tracked files (so dotfile dirs like .idea / .vscode are skipped via the
+// repo's .gitignore), and --exclude-dir handles non-git checkouts.
 const args = [
   '.',
   '--vcs=git',
   `--exclude-dir=${EXCLUDE_DIRS}`,
   `--exclude-ext=${EXCLUDE_EXTS}`,
-  '--not-match-d=^(\\.|_)', // also skip dotfile dirs (.idea, etc) when not in git mode
   ...passthrough,
 ]
 
