@@ -70,6 +70,18 @@ async function main(): Promise<void> {
 
   await runReconciler({ sqlite, wa, dispatcher })
 
+  // wweb's multi-device sync trickles chats in over the first 30-90s after
+  // boot. The initial reconciler may have run before any real chat showed up
+  // in `client.getChats()`. Re-run after delays to catch late-syncing chats.
+  // Each pass is idempotent via `processed_messages.whatsapp_msg_id` PK.
+  for (const delayMs of [15_000, 45_000, 120_000]) {
+    setTimeout(() => {
+      runReconciler({ sqlite, wa, dispatcher }).catch((err) =>
+        log.warn({ err: err instanceof Error ? err.message : String(err) }, 'delayed reconciler failed')
+      )
+    }, delayMs).unref()
+  }
+
   const registerInflight = (chatId: string): AbortSignal => inflight.register(chatId).signal
   const isConnected = (): boolean => connection.getState() === 'CONNECTED'
 

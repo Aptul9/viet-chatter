@@ -168,7 +168,10 @@ export class MessageDispatcher {
 
   private classify(msg: MessageLike): Direction {
     if (!msg.fromMe) return 'in'
-    return this.deps.wa.isBotSent(msg.id._serialized) ? 'out_bot' : 'out_manual'
+    const body = typeof msg.body === 'string' ? msg.body : undefined
+    // `to` is the recipient chat (the conversation we're echoing into).
+    const echoChat = msg.to ?? undefined
+    return this.deps.wa.isBotSent(msg.id._serialized, echoChat, body) ? 'out_bot' : 'out_manual'
   }
 }
 

@@ -72,8 +72,12 @@ export interface WhatsAppHandle {
    * self-chat escalation channel (see docs/dev/18-escalation.md).
    */
   getSelfWid(): string
-  /** True iff `msgId` corresponds to a message sent via this handle's `sendMessage`. */
-  isBotSent(msgId: string): boolean
+  /**
+   * True iff this message is the echo of a `sendMessage` we issued.
+   * Strict path: exact id match. Fuzzy path (when chatId+body supplied): match
+   * against recent sends to the same chat to handle wweb's @lid id-rewrite race.
+   */
+  isBotSent(msgId: string, chatId?: string, body?: string): boolean
   /**
    * Resolve a WhatsApp `@lid` (Linked Identifier) to the real E.164 phone, when
    * possible. Returns `+393xxx` if the lid corresponds to a SAVED contact on
@@ -92,9 +96,16 @@ export interface WhatsAppHandle {
 // ---------------------------------------------------------------------------
 
 const BOT_SENT_TTL_MS = 5 * 60_000
+const BOT_SENT_FUZZY_WINDOW_MS = 15_000
 
 class BotSentTracker {
+  // Strict path: exact msg id match (works when wweb's `sendMessage` returns
+  // the same id WhatsApp later echoes in `message_create`).
   private readonly ids: Set<string> = new Set()
+  // Fuzzy path: (chatId -> [{ body, ts }]). Covers the @lid case where wweb
+  // may rewrite the id between send and echo (or the echo arrives before the
+  // sendMessage promise resolves, leaving the id-tracker empty).
+  private readonly recentSends = new Map<string, Array<{ body: string; ts: number }>>()
 
   add(id: string): void {
     this.ids.add(id)
@@ -103,8 +114,37 @@ class BotSentTracker {
     }, BOT_SENT_TTL_MS).unref?.()
   }
 
+  addRecent(chatId: string, body: string): void {
+    const list = this.recentSends.get(chatId) ?? []
+    list.push({ body, ts: Date.now() })
+    // Drop entries older than the fuzzy window inline so the map stays small.
+    const cutoff = Date.now() - BOT_SENT_FUZZY_WINDOW_MS
+    while (list.length > 0 && list[0]!.ts < cutoff) list.shift()
+    this.recentSends.set(chatId, list)
+  }
+
   has(id: string): boolean {
     return this.ids.has(id)
+  }
+
+  matches(msgId: string, chatId: string | undefined, body: string | undefined): boolean {
+    if (this.ids.has(msgId)) return true
+    if (!chatId) return false
+    const list = this.recentSends.get(chatId)
+    if (!list || list.length === 0) return false
+    const now = Date.now()
+    const cutoff = now - BOT_SENT_FUZZY_WINDOW_MS
+    // Match either: any send within window (covers empty/sticker echoes where
+    // body comparison fails), or a body-exact send within window.
+    for (let i = list.length - 1; i >= 0; i--) {
+      const entry = list[i]!
+      if (entry.ts < cutoff) break
+      if (body !== undefined && entry.body === body) return true
+      // Bare-window match: if the echo arrives within ~3s of a send to the
+      // same chat, it's almost certainly ours. Tighter than the full window.
+      if (now - entry.ts < 3_000) return true
+    }
+    return false
   }
 }
 
@@ -232,9 +272,12 @@ export async function initWhatsApp(sessionDir: string): Promise<WhatsAppHandle> 
     client,
 
     async sendMessage(chatId, text) {
-      // CRITICAL: add the id to the tracker synchronously after the await
-      // resolves and BEFORE returning. The dispatcher's `message_create`
-      // handler may run on the next tick and will check `isBotSent`.
+      // Two-tier dedup so the `message_create` echo never gets mis-classified
+      // as `out_manual`:
+      //   1) recentSends entry BEFORE the network call — covers the race where
+      //      wweb fires `message_create` before our `await` resolves.
+      //   2) exact id AFTER the call resolves — covers the strict-id path.
+      tracker.addRecent(chatId, text)
       const sent = await client.sendMessage(chatId, text)
       tracker.add(sent.id._serialized)
       return sent
@@ -259,8 +302,8 @@ export async function initWhatsApp(sessionDir: string): Promise<WhatsAppHandle> 
       return wid
     },
 
-    isBotSent(msgId) {
-      return tracker.has(msgId)
+    isBotSent(msgId, chatId, body) {
+      return tracker.matches(msgId, chatId, body)
     },
 
     async resolveLidPhone(serializedId) {

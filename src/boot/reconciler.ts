@@ -65,12 +65,19 @@ export async function runReconciler(deps: ReconcilerDeps): Promise<void> {
   const skippedCap = toFetch.length - capped.length
   if (skippedCap > 0) log.warn({ skipped: skippedCap }, 'boot cap reached, older chats skipped')
 
-  // Apply filter pre-fetch.
+  // Apply filter pre-fetch. For @lid-keyed chats, try to resolve the lid
+  // to a real phone first (same fix as dispatcher.handleIncoming).
   const filtered: typeof capped = []
   for (const c of capped) {
     try {
-      const ctx = await buildChatContext(c.chat as never)
+      let ctx = await buildChatContext(c.chat as never)
+      const chatId = c.chat.id._serialized
+      if (chatId.endsWith('@lid')) {
+        const realPhone = await deps.wa.resolveLidPhone(chatId)
+        if (realPhone) ctx = { ...ctx, phone: realPhone }
+      }
       if (applyFilter(ctx)) filtered.push(c)
+      else log.debug({ chatId, phone: ctx.phone }, 'reconcile: filter rejected')
     } catch (err) {
       log.warn({ err, chatId: c.chat.id._serialized }, 'reconcile buildChatContext failed')
     }

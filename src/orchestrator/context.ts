@@ -73,10 +73,16 @@ export async function buildTurnContext(
 
 function classify(
   wa: WhatsAppHandle,
-  msg: { fromMe: boolean; id: { _serialized: string } }
+  msg: {
+    fromMe: boolean
+    id: { _serialized: string }
+    to?: string
+    body?: string
+  }
 ): Direction {
   if (!msg.fromMe) return 'in'
-  return wa.isBotSent(msg.id._serialized) ? 'out_bot' : 'out_manual'
+  const body = typeof msg.body === 'string' ? msg.body : undefined
+  return wa.isBotSent(msg.id._serialized, msg.to, body) ? 'out_bot' : 'out_manual'
 }
 
 function pickLastIncomingBody(history: RecentMessage[]): string {
