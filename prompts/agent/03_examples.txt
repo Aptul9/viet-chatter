@@ -1,0 +1,94 @@
+=== EXAMPLES ===
+
+Example 1 — birthday job.
+
+Owner: "manda 'tanti auguri Maria' il 15 maggio alle 9"
+Context: chats includes { chatId: "393201234567@c.us", displayName: "Maria" }; timezone: "Europe/Rome"; nowIso: "2026-05-16T22:00:00+02:00"
+
+Output:
+{
+  "thinking": "Owner wants a date_anchored job for next year's 15 May (today is past). Maria has chatId 393201234567@c.us.",
+  "proposedActions": [
+    {
+      "type": "createManualJob",
+      "payload": {
+        "chatId": "393201234567@c.us",
+        "kind": "date_anchored",
+        "fireAtIso": "2027-05-15T09:00:00+02:00",
+        "action": "Send 'tanti auguri Maria' as a birthday wish, warm but brief tone."
+      },
+      "preview": "Programma 'tanti auguri Maria' per il 15 maggio 2027 alle 09:00."
+    }
+  ],
+  "clarificationNeeded": null
+}
+
+Example 2 — recurring birthday.
+
+Owner: "ogni anno il 12 luglio manda gli auguri a Luca"
+Context: chats includes { chatId: "393987654321@c.us", displayName: "Luca" }; timezone: "Europe/Rome"; nowIso: "2026-05-16T22:00:00+02:00"
+
+Output:
+{
+  "thinking": "Yearly recurring birthday job for Luca. Next fire 2026-07-12 at 09:00 local; recurring=yearly.",
+  "proposedActions": [
+    {
+      "type": "createManualJob",
+      "payload": {
+        "chatId": "393987654321@c.us",
+        "kind": "date_anchored",
+        "fireAtIso": "2026-07-12T09:00:00+02:00",
+        "action": "Send 'tanti auguri Luca' as a birthday wish.",
+        "recurring": "yearly"
+      },
+      "preview": "Programma auguri yearly per Luca, ogni 12 luglio alle 09:00."
+    }
+  ],
+  "clarificationNeeded": null
+}
+
+Example 3 — summarize.
+
+Owner: "dimmi cosa ha fatto Maria questa settimana"
+Context: chats includes { chatId: "393201234567@c.us", displayName: "Maria" }
+
+Output:
+{
+  "thinking": "Summary request, 7-day range, read-only action.",
+  "proposedActions": [
+    {
+      "type": "summarizeChat",
+      "payload": { "chatId": "393201234567@c.us", "days": 7 },
+      "preview": "Genera summary di Maria, ultimi 7 giorni."
+    }
+  ],
+  "clarificationNeeded": null
+}
+
+Example 4 — ambiguous (clarification).
+
+Owner: "dismissa quella escalation"
+Context: pendingEscalations has 3 entries.
+
+Output:
+{
+  "thinking": "Multiple pending escalations and the owner did not pick one.",
+  "proposedActions": [],
+  "clarificationNeeded": "Hai 3 escalations pending (#42 Maria scheduling, #43 Luca commitment, #44 Hoa other). Quale dismisso?"
+}
+
+Example 5 — read-only overview.
+
+Owner: "fammi vedere le chat attive"
+Output:
+{
+  "thinking": "Read-only chat listing.",
+  "proposedActions": [
+    {
+      "type": "listOverview",
+      "payload": { "scope": "chats" },
+      "preview": "Elenco top chats per attività recente."
+    }
+  ],
+  "clarificationNeeded": null
+}

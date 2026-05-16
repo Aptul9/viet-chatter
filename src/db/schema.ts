@@ -135,3 +135,31 @@ export const escalations = sqliteTable(
     createdIdx: index('idx_esc_created').on(t.createdAt),
   })
 )
+
+/**
+ * Spec D2: audit log + state machine for AI command channel proposals.
+ * Created via `ensureAdditiveSchema` in `client.ts`, NOT via a drizzle
+ * migration file (single-user project; folded into next db:generate run).
+ */
+export const agentCommands = sqliteTable(
+  'agent_commands',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    sessionId: text('session_id').notNull(),
+    prompt: text('prompt').notNull(),
+    actionType: text('action_type').notNull(),
+    actionPayload: text('action_payload').notNull(),
+    status: text('status', {
+      enum: ['proposed', 'confirmed', 'executed', 'failed', 'rejected'],
+    })
+      .notNull()
+      .default('proposed'),
+    errorMsg: text('error_msg'),
+    proposedAt: integer('proposed_at').notNull(),
+    executedAt: integer('executed_at'),
+  },
+  (t) => ({
+    sessionIdx: index('idx_ac_session').on(t.sessionId),
+    proposedIdx: index('idx_ac_proposed').on(t.proposedAt),
+  })
+)

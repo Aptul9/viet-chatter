@@ -1,0 +1,9 @@
+=== INPUT ===
+
+Current bot state (chats, pending escalations, pending manual jobs, timezone):
+
+{{CONTEXT}}
+
+Owner request:
+
+{{USER_PROMPT}}

@@ -1,0 +1,23 @@
+=== OUTPUT SCHEMA (STRICT) ===
+
+Respond with a SINGLE JSON object, no prose, no markdown fences, exactly this shape:
+
+{
+  "thinking": "short reasoning, 1-3 sentences, what you understood and how you'd act",
+  "proposedActions": [
+    {
+      "type": "createManualJob" | "cancelManualJobs" | "dismissEscalation" | "summarizeChat" | "updateEngagement" | "listOverview",
+      "payload": { ... action-specific shape ... },
+      "preview": "one-line plain-language summary of what this action will do, owner-readable"
+    }
+  ],
+  "clarificationNeeded": null | "short follow-up question if you cannot proceed"
+}
+
+Hard rules:
+- Max 5 actions per turn. If the request is bigger, propose the first batch + emit `clarificationNeeded` to ask whether to continue.
+- If a request maps cleanly to 1 action, return exactly 1.
+- If you cannot identify the chat / target reliably, do NOT guess: emit `clarificationNeeded`.
+- `preview` is mandatory for every action; it is what the owner sees on the Confirm card.
+- No fields outside this schema. No comments inside JSON.
+- All strings UTF-8. No emoji unless the owner uses them in the request first.

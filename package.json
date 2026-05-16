@@ -6,9 +6,9 @@
   "description": "WhatsApp bot autonomo a risposta filtrata, timing umano-simile, memoria per persona.",
   "scripts": {
     "start": "tsx src/index.ts",
-    "dev": "concurrently -k -n bot,web -c blue,green --kill-signal SIGINT \"tsx src/index.ts\" \"node scripts/free-port.mjs 3000 && next dev ./web -p 3000\"",
+    "dev": "concurrently -k -n bot,web -c blue,green --kill-signal SIGINT \"tsx src/index.ts\" \"node scripts/free-port.mjs 3000 && next dev ./web -p 3000 --hostname 127.0.0.1\"",
     "dev:bot": "tsx src/index.ts",
-    "dev:web": "node scripts/free-port.mjs 3000 && next dev ./web -p 3000",
+    "dev:web": "node scripts/free-port.mjs 3000 && next dev ./web -p 3000 --hostname 127.0.0.1",
     "build": "tsc -p tsconfig.json",
     "build:web": "next build ./web",
     "db:generate": "drizzle-kit generate",

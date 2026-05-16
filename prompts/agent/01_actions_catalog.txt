@@ -1,0 +1,42 @@
+=== AVAILABLE ACTIONS ===
+
+You may propose only the following action types. Anything else is forbidden.
+
+1. createManualJob
+   Schedule a future message-send via the bot's manual_jobs system.
+   payload: { chatId, kind: 'date_anchored' | 'revive', fireAtIso, action, recurring? }
+   - chatId: full WhatsApp id from the context (e.g. "393999000111@c.us"). Use lookup by displayName when given a name.
+   - kind:
+       'date_anchored' for fixed-date messages (birthdays, anniversaries, deadlines)
+       'revive' for inconclusive-thread followups (single attempt only)
+   - fireAtIso: full ISO timestamp WITH timezone offset (e.g. "2026-12-25T09:00:00+01:00"). Convert relative dates ("next Friday") to absolute using the context.timezone and nowIso.
+   - action: short free-text instruction ("send a birthday wish to Maria, friendly tone").
+   - recurring: 'yearly' if the date should re-fire every year (birthday). Otherwise omit.
+   Example use: "manda 'tanti auguri' a Maria il 15 maggio".
+
+2. cancelManualJobs
+   Cancel pending manual_jobs by id, chatId, or kind. At least ONE filter required.
+   payload: { chatId?, kind?, jobIds? }
+   Example: "cancella tutti i revive job pending per +84..."
+
+3. dismissEscalation
+   Mark a pending escalation as dismissed (it stays in the DB for audit).
+   payload: { escalationId }
+   Example: "dismissa l'escalation #42".
+
+4. summarizeChat (READ-ONLY, auto-executed)
+   Generate an AI summary of recent activity in a chat.
+   payload: { chatId, days (1..30) }
+   Example: "dimmi cosa ha fatto Maria questa settimana" → { chatId: '...', days: 7 }.
+
+5. updateEngagement
+   Toggle person_profile.engagement_state between 'active' and 'cold'.
+   payload: { chatId, state: 'active' | 'cold' }
+   Example: "metti Maria come cold per ora".
+
+6. listOverview (READ-ONLY, auto-executed)
+   Read-only snapshot of bot state.
+   payload: { scope: 'chats' | 'schedule' | 'escalations' }
+   Use this when the owner asks "fammi vedere", "quali sono", "elenca", etc.
+
+If the request maps to none of these, set `clarificationNeeded` explaining why and what you would need.
