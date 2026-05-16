@@ -38,10 +38,15 @@
    │ BootReconciler   │  on startup: catch up missed messages
    └──────────────────┘
 
-   ┌──────────────────┐    ┌──────────────────┐
+    ┌──────────────────┐    ┌──────────────────┐
    │ ManualJobsCron   │───▶│  re_engage scan, │
    │ (daily, morning) │    │  date_anchored   │
    └──────────────────┘    └──────────────────┘
+
+   ┌──────────────────────┐    ┌─────────────────────┐
+   │ EscalationNotifier   │───▶│  WhatsApp self-chat │
+   │  (out-of-band ping)  │───▶│  Telegram bot       │
+   └──────────────────────┘    └─────────────────────┘
 ```
 
 ## Moduli
@@ -66,6 +71,8 @@
 | `Repo` | `src/db/repo.ts` | Tutte le funzioni semantiche di accesso DB. Niente SQL inline fuori da qui. |
 | `BootReconciler` | `src/boot/reconciler.ts` | Catch-up al boot e a ogni reconnect. |
 | `ManualJobsCron` | `src/scheduler/manual-jobs-cron.ts` | Scansione giornaliera per `re_engage`, fire `date_anchored`/`revive`/`re_engage`. |
+| `EscalationNotifier` | `src/escalation/notifier.ts` | Invio notifica out-of-band quando l'AI dichiara `escalate_to_human`. Gestisce canali multipli (WhatsApp self-chat, Telegram), retry, rate limit. Vedi `18-escalation.md`. |
+| `EscalationChannel` | `src/escalation/channels/*.ts` | Implementazioni canale: `WhatsAppSelfChannel`, `TelegramChannel`. Interfaccia comune. |
 | `Config` | `src/config/index.ts` | Carica `config/index.ts`, valida zod, espone tipato + hot reload. |
 | `Logger` | `src/log.ts` | Istanza pino condivisa. |
 
@@ -73,7 +80,8 @@
 
 - `MessageDispatcher` non sa di scheduler. Riceve eventi, decide il routing.
 - `ChatStateMachine` non sa di AI. Gestisce solo state + timing.
-- `ReplyOrchestrator` è l'unico che chiama l'AI e parla con WhatsApp `sendMessage`.
+- `ReplyOrchestrator` è l'unico che chiama l'AI e parla con WhatsApp `sendMessage`. Quando l'AI dichiara `escalate_to_human`, delega a `EscalationNotifier` invece di mandare la reply.
+- `EscalationNotifier` non sa di AI o di stato chat. Riceve un payload (escalation row), formatta, dispatch sui canali. Gestisce rate limit e retry.
 - `Repo` è l'unica via per parlare col DB. Tutto il resto consuma Repo.
 - `VecStore` è l'unico che conosce il layout sqlite-vec. Sostituibile.
 

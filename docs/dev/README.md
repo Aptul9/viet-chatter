@@ -19,6 +19,7 @@
 15. [Runbook](15-runbook.md)
 16. [Future enhancements](16-future-enhancements.md)
 17. [Out of scope](17-out-of-scope.md)
+18. [Escalation a umano](18-escalation.md)
 
 Spec di design originale: [specs/2026-05-10-viet-chatter-design.md](specs/2026-05-10-viet-chatter-design.md).
 

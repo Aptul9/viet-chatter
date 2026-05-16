@@ -6,6 +6,8 @@ Lingua: italiano.
 
 Documento di design originale, consolidato dal brainstorming. Per dettagli implementativi rivedere i singoli file in `docs/dev/`.
 
+Aggiornamento 2026-05-16: aggiunta feature "Escalation a umano" (sezione 19). Compatibile con il design fully-autonomous esistente. Vedi `18-escalation.md`.
+
 ## 1. Scopo
 
 Bot autonomo che risponde a un sottoinsieme filtrato di chat WhatsApp 1:1 sull'account personale dell'utente, con timing umano-simile, KB per-persona auto-popolato, tono adattivo, lingua dinamica. Esecuzione locale, zero cloud per dati personali.
@@ -126,10 +128,11 @@ Single-call per turn. Output JSON enforced via prompt + parsed/validated con zod
 - `languages_update: string[] | null`
 - `language_used: string`
 - `revive_hint: { attempt_in_minutes, context } | null`
+- `escalate_to_human: { reason, urgency, summary, suggested_holding_reply } | null`
 
 Retry: 1 retry su parse/zod fail. Se fallisce ancora, log + skip turn.
 
-Vedi `07-ai-integration.md`.
+Vedi `07-ai-integration.md` e `18-escalation.md`.
 
 ## 10. Manual jobs
 
@@ -154,6 +157,7 @@ Tabelle:
 - `facts_vec` virtual (fact_id PK, embedding FLOAT[384]).
 - `manual_jobs` (id PK, chat_id, kind, fire_at, payload JSON, status, fired_at, created_at).
 - `turn_log` (id PK, chat_id, ts, status, language_used, facts_extracted, duration_ms, error_msg, triggered_by).
+- `escalations` (id PK, chat_id, trigger_msg_id, reason, urgency, summary, holding_reply_sent, status, created_at, resolved_at, notified_channels JSON).
 
 Niente body messaggi salvato. Solo metadata + facts derivati.
 
@@ -237,3 +241,19 @@ Vedi `17-out-of-scope.md`.
 Spec approvato il 2026-05-10. Codice non ancora scritto. Documentazione precede implementazione.
 
 Prossimo step: implementation plan dettagliato (uso del skill `writing-plans`).
+
+## 19. Escalation a umano
+
+Aggiunta 2026-05-16. L'AI può dichiarare che un turn richiede l'utente reale (impegni, decisioni delicate, opinioni personali) tramite il campo `escalate_to_human` nel `TurnOutput`. Il bot in quel caso:
+
+- Manda eventuale `suggested_holding_reply` su WhatsApp ("aspetta che controllo").
+- Crea row in `escalations`.
+- Notifica l'utente su canali fuori-banda (Telegram, WhatsApp self-chat, configurabili).
+- Non genera reply autonoma.
+- Marca `resolved` quando l'utente risponde a mano.
+
+Compatibile con design fully-autonomous: l'AI sceglie autonomamente quando escalare, non è un approval flow di routine. Approval flow puro resta out-of-scope.
+
+Canali in v1: WhatsApp self-chat e/o Telegram bot. Configurabili insieme. Token Telegram in `.env` gitignored.
+
+Vedi `18-escalation.md` per dettagli e `17-out-of-scope.md` per il chiarimento escalation vs approval.

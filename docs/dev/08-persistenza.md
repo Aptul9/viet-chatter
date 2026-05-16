@@ -106,7 +106,7 @@ export const turnLog = sqliteTable('turn_log', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   chatId: text('chat_id').notNull(),
   ts: integer('ts').notNull(),
-  status: text('status', { enum: ['sent','skipped','failed','aborted'] }).notNull(),
+  status: text('status', { enum: ['sent','skipped','failed','aborted','escalated'] }).notNull(),
   languageUsed: text('language_used'),
   factsExtracted: integer('facts_extracted').notNull().default(0),
   durationMs: integer('duration_ms'),
@@ -115,7 +115,34 @@ export const turnLog = sqliteTable('turn_log', {
 }, (t) => ({
   chatTsIdx: index('idx_tl_chat_ts').on(t.chatId, t.ts),
 }))
+
+export const escalations = sqliteTable('escalations', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  chatId: text('chat_id').notNull(),
+  triggerMsgId: text('trigger_msg_id').notNull(),
+  reason: text('reason', {
+    enum: ['scheduling','commitment','sensitive','financial','identity','other'],
+  }).notNull(),
+  urgency: text('urgency', { enum: ['low','normal','high'] }).notNull(),
+  summary: text('summary').notNull(),
+  holdingReplySent: integer('holding_reply_sent', { mode: 'boolean' }).notNull().default(false),
+  status: text('status', {
+    enum: ['pending','user_replied','superseded','dismissed'],
+  }).notNull().default('pending'),
+  createdAt: integer('created_at').notNull(),
+  resolvedAt: integer('resolved_at'),
+  notifiedChannels: text('notified_channels').notNull().default('[]'),     // JSON array
+}, (t) => ({
+  chatStatusIdx: index('idx_esc_chat_status').on(t.chatId, t.status),
+  createdIdx: index('idx_esc_created').on(t.createdAt),
+}))
 ```
+
+Note `escalations`:
+
+- Una escalation per `triggerMsgId` (il messaggio incoming che ha fatto scattare). Se l'AI escalla due volte sullo stesso messaggio (caso patologico), dedup applicata lato app via `repo.pendingEscalation(chatId)`.
+- `notifiedChannels` è un JSON array di stringhe canale (`['whatsapp_self','telegram']`). Vuoto se nessun canale ha confermato la consegna.
+- `status='superseded'` indica che un nuovo turn ha generato una nuova escalation o una reply autonoma, rendendo questa stale.
 
 Virtual table `facts_vec` non gestita da Drizzle (Drizzle non supporta virtual tables). Definita manualmente in `drizzle/0000_init.sql`:
 
@@ -199,6 +226,15 @@ export async function transitionManualJob(id: number, fromStatus: ..., toStatus:
 export async function cancelPendingManualJobsForChat(chatId: string) { ... }
 
 export async function insertTurnLog(row: TurnLogInsert) { ... }
+
+export async function insertEscalation(row: EscalationInsert): Promise<number> { ... }
+export async function getEscalation(id: number) { ... }
+export async function pendingEscalation(chatId: string) { ... }                  // dedup lookup, restituisce solo status='pending'
+export async function updateEscalationSummary(id: number, summary: string, urgency: ...) { ... }
+export async function updateEscalationNotified(id: number, channels: string[]) { ... }
+export async function markEscalationsResolved(chatId: string, status: 'user_replied' | 'superseded') { ... }
+export async function pendingEscalationsForRetry(): Promise<EscalationRow[]> { ... }   // per retry job notifica
+export async function countEscalationsLastHour(): Promise<number> { ... }              // per rate limit
 ```
 
 ## Concorrenza e WAL

@@ -19,6 +19,7 @@ Quando una persona "in lista" ti scrive:
 - **Non risponde di notte**: dalle 22:00 alle 06:00 sta zitto. Le risposte arrivano la mattina.
 - **Si adatta**: tono, lingua e contenuto cambiano in base alla persona.
 - **Si ricorda**: la prossima volta che quella persona ti scrive, il bot si ricorda cosa avevi detto la settimana scorsa.
+- **Sa quando non sa**: quando la persona chiede una cosa che il bot non può sapere o decidere al posto tuo (un appuntamento futuro, un favore importante, un argomento delicato), invece di inventare ti notifica fuori da WhatsApp e tu vai a rispondere a mano. Vedi `12-quando-ti-chiama.md`.
 
 ## Cosa non sa fare
 

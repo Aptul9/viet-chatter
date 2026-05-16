@@ -1,6 +1,6 @@
 # Cosa fa da solo
 
-Oltre a rispondere ai messaggi che riceve, il bot ogni tanto fa partire una conversazione lui per primo. Tre casi.
+Oltre a rispondere ai messaggi che riceve, il bot ogni tanto fa partire una conversazione lui per primo, oppure fa partire una notifica verso di te. In totale quattro casi.
 
 ## 1. Auguri di compleanno (e date importanti)
 
@@ -45,8 +45,16 @@ Soglia di silenzio default: 14 giorni. L'AI può adattarla in base al tipo di ra
 
 Per tutti e tre i tipi (auguri, revive, re-engage): se prima del momento programmato la persona ti scrive (o tu scrivi a lei), il job auto-programmato si annulla. Niente messaggio doppio.
 
+## 4. Escalation a umano
+
+Quando la persona ti scrive una cosa che il bot non sa rispondere (appuntamenti, decisioni delicate, ecc.), invece di inventare ti manda una notifica su Telegram (o WhatsApp self-chat) per dirti "vai a gestire questa".
+
+Vedi il dettaglio in `12-quando-ti-chiama.md`.
+
+Questa è una funzionalità importante: senza, il bot tenderebbe a confermare appuntamenti che non puoi mantenere o a rispondere a domande delicate sbagliando.
+
 ## Posso disattivare uno di questi comportamenti per una persona specifica?
 
 In v1 non c'è un interruttore comodo. Si può intervenire sulla configurazione globale per disattivarli tutti, oppure scrivere il messaggio a mano e il job si auto-cancella.
 
-In versioni future è prevista una gestione più granulare (vedi `dev/16-future-enhancements.md`).
+In versioni future è prevista una gestione più granulare (vedi `dev/16-future-enhancements.md`), inclusa la possibilità di forzare "sempre escalation" o "mai escalation" per persona specifica.

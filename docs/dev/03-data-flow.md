@@ -45,18 +45,28 @@ Ogni 10s:
 10. `turnOutput = await aiClient.generateTurn(turnContext, abortSignal)`.
 11. Check abort signal #3.
 12. Validazione zod su `turnOutput`. Se fail, retry una volta. Se di nuovo fail, log error, `state='IDLE'`, return.
-13. Se `turnOutput.skip == true`: niente send. Persisti comunque `extracted_facts`. Update `tone_summary` / `languages`. `state='IDLE'`.
-14. Altrimenti: check abort signal #4 (last guard before send).
-15. `sentMsg = await client.sendMessage(chat_id, turnOutput.reply)`.
-16. Persisti `processed_messages` con `direction='out_bot'`, `whatsapp_msg_id=sentMsg.id`.
-17. Persisti `extracted_facts`:
+13. **Branch escalation**: se `turnOutput.escalate_to_human != null` AND `config.escalation.enabled`:
+    - Check dedup: `existing = repo.pendingEscalation(chat_id)`. Se esiste, aggiorna `summary` e ri-notifica solo se urgency è salita. Salta i passi 14-15. Persisti comunque `extracted_facts` (passo 17). Procedi al passo 19+.
+    - Se non esiste:
+      - Insert `escalations` row (`status='pending'`, `notified_channels='[]'`).
+      - Se `escalate_to_human.suggested_holding_reply != null`: send come `out_bot`, persisti `processed_messages`, marca `holding_reply_sent=true`.
+      - `EscalationNotifier.notify(escId)` (async, non bloccante per il completamento del turn).
+      - Persisti `extracted_facts` (passo 17), tone/languages update (18-19), `turn_log` con `status='escalated'` (20). `state='IDLE'`.
+      - Return.
+14. Se `turnOutput.skip == true`: niente send. Persisti comunque `extracted_facts`. Update `tone_summary` / `languages`. `state='IDLE'`.
+15. Altrimenti: check abort signal #4 (last guard before send).
+16. `sentMsg = await client.sendMessage(chat_id, turnOutput.reply)`.
+17. Persisti `processed_messages` con `direction='out_bot'`, `whatsapp_msg_id=sentMsg.id`.
+18. Persisti `extracted_facts`:
     - Per ogni fact: insert in `facts`. Se `tier='secondary'`, calcola embedding e insert in `facts_vec`.
     - Se `supersedes_id` presente: `UPDATE facts SET superseded_by=newId WHERE id=supersedes_id`.
     - Se `anchor_date` presente: crea row in `manual_jobs(kind='date_anchored', fire_at=...)`.
-18. Update `person_profile.tone_summary = turnOutput.tone_update` (se non null).
-19. Update `person_profile.languages = turnOutput.languages_update` (se non null).
-20. Insert `turn_log` con esito.
-21. `state='IDLE'`, unregister `InflightRegistry`.
+19. Update `person_profile.tone_summary = turnOutput.tone_update` (se non null).
+20. Update `person_profile.languages = turnOutput.languages_update` (se non null).
+21. Insert `turn_log` con esito.
+22. `state='IDLE'`, unregister `InflightRegistry`.
+
+Conflict rule: se `escalate_to_human != null` e contemporaneamente `reply` è non-vuoto, l'escalation ha precedenza, la reply viene scartata. Solo `suggested_holding_reply` viene inviato (se non null). Vedi `18-escalation.md`.
 
 ## Flow D: messaggio uscente manuale
 
@@ -64,7 +74,8 @@ Ogni 10s:
    - Distinzione: tracciamo gli `id` dei messaggi inviati dal bot in una set in-memory + nel DB. Se `fromMe` e `id` non in quel set -> manuale.
 2. Persisti `processed_messages` con `direction='out_manual'`.
 3. Cancella eventuali `manual_jobs` pendenti per quella chat.
-4. `ChatStateMachine.handleOutgoingManual(chat_id)`:
+4. **Risolvi escalations pendenti**: `repo.markEscalationsResolved(chat_id, 'user_replied')`. Marca tutte le `escalations` con `status='pending'` e `chat_id=?` come `resolved`. Niente notifica all'utente.
+5. `ChatStateMachine.handleOutgoingManual(chat_id)`:
    - `ACCUMULATING` -> `IDLE`.
    - `SCHEDULED` -> `IDLE`. (Job cancellato.)
    - `SENDING` -> abort tramite `InflightRegistry.get(chat_id)?.abort()`. Lo orchestrator vede l'abort sui check 1-4 e gestisce.
@@ -99,3 +110,25 @@ Ogni 10s:
 5. Invoca `ReplyOrchestrator.generateAndSendForManualJob(chat_id, jobContext, abortSignal)`. Stessa pipeline di Flow C ma con context aggiuntivo.
 6. Se `recurring=yearly`: dopo successo, crea nuovo `manual_jobs` con `fire_at += 1 year`.
 7. `status='fired'`.
+
+## Flow H: escalation notification
+
+Triggered da Flow C step 13 quando `turnOutput.escalate_to_human != null`.
+
+1. `EscalationNotifier.notify(escId)` viene invocato.
+2. Lookup escalation: `esc = await repo.getEscalation(escId)`.
+3. Rate limit check: count escalations notified nell'ultima ora. Se > `config.escalation.rateLimitPerHour` AND `esc.urgency != 'high'`:
+   - Marca `notified_channels=['rate_limited']`.
+   - Log warn. Skip notify.
+4. Format del messaggio: `format(esc)` produce stringa con reason, person, summary, holding indicator.
+5. Per ogni canale in `config.escalation.channels`:
+   - `WhatsAppSelfChannel`: `client.sendMessage(myWid, formattedText)`.
+   - `TelegramChannel`: HTTPS POST a `api.telegram.org/bot<TOKEN>/sendMessage`.
+6. `Promise.allSettled` per parallelismo.
+7. Aggrega risultati. Update `escalations.notified_channels` con i nomi dei canali che hanno restituito success.
+8. Se nessun canale OK: log error. La row resta `pending`. Un retry job ogni 5 min tenta di rinotificare (vedi `18-escalation.md`).
+9. Se almeno uno OK: log info, escalation è "delivered".
+
+Note:
+- Notify è idempotente sul lato canale per design (Telegram dedup non c'è, ma se inviato 2 volte per timing race è accettabile - utente vede 2 notifiche sostanzialmente identiche).
+- Notify non cambia lo `status` dell'escalation, che resta `pending` finchè utente risponde manualmente o un nuovo turn supera l'escalation.

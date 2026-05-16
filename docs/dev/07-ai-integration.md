@@ -193,9 +193,17 @@ const TurnOutputSchema = z.object({
     attempt_in_minutes: z.number().int().positive(),
     context: z.string(),
   }).nullable(),
+  escalate_to_human: z.object({
+    reason: z.enum(['scheduling','commitment','sensitive','financial','identity','other']),
+    urgency: z.enum(['low','normal','high']),
+    summary: z.string().min(1).max(500),
+    suggested_holding_reply: z.string().nullable(),
+  }).nullable(),
 })
 export type TurnOutput = z.infer<typeof TurnOutputSchema>
 ```
+
+Vedi `18-escalation.md` per il flusso completo di gestione di `escalate_to_human` e i criteri usati dall'AI per emetterlo.
 
 ## Prompt structure
 
@@ -209,11 +217,23 @@ Cartella `prompts/turn/`, file `.txt` numerati:
 | `03_language_rules.txt` | Scegli da `personLanguages`. Adatta per turn. Suggerisci `languages_update` solo se drift consistente. |
 | `04_extraction_rules.txt` | Regole tier (important/secondary/ephemeral). Anti-duplicate. Use `supersedes_id`. Anchor date format. |
 | `05_revive_and_skip.txt` | Quando emettere `revive_hint`. Quando settare `skip: true`. |
-| `06_output_schema.txt` | Schema JSON esatto. Output ONLY JSON. No prose, no fences (ma il bot li striscia comunque). |
-| `07_examples.txt` | Few-shot: 2-3 esempi input/output completi. |
+| `06_escalation_rules.txt` | Quando emettere `escalate_to_human` (categorie reason, livelli urgency, criteri di ingaggio, regole su `suggested_holding_reply`, conflict con `reply`). |
+| `07_output_schema.txt` | Schema JSON esatto. Output ONLY JSON. No prose, no fences (ma il bot li striscia comunque). |
+| `08_examples.txt` | Few-shot: 3-4 esempi input/output completi, di cui almeno uno con escalation. |
 | `99_context_template.txt` | `{{CONTEXT}}` placeholder. |
 
 Concatenati via `loadAndCombinePrompts` (riusato da linkedin-autoapply).
+
+### Note specifiche per `06_escalation_rules.txt`
+
+Contenuto chiave del file:
+
+- **Quando escalare**: scheduling con date/orari futuri, commitment (favori, prestiti, visite), sensitive (lutti, malattie, conflitti recenti), financial, identity (opinioni forti non nel KB), other (qualunque caso dove "tirare a indovinare" rischia di impegnare l'utente o ferire la persona).
+- **Quando NON escalare**: convenevoli, info nel KB, continuazioni di thread già chiariti, sticker / emoji / non-text.
+- **Conflict rule**: se setti `escalate_to_human` non-null, lascia `reply` vuoto o usa solo `suggested_holding_reply`. Il bot scarta eventuali `reply` simultanee.
+- **Holding reply linguaggio**: se viene impostato, dev'essere nella lingua scelta per la persona (`language_used`).
+- **Urgency**: `high` solo se la persona necessita risposta entro minuti ("vengo da te tra 10 min, mi apri?"). `normal` di default. `low` per cose dilazionabili (in v1 trattata come normal).
+- **Summary**: 1-3 frasi che descrivono cosa chiede e perchè non posso rispondere. In italiano (la summary è leggibile dall'utente, non dalla persona).
 
 ## Token budget
 
@@ -237,6 +257,8 @@ Cap di sicurezza:
 | zod validation fail | Retry una volta con prompt corretto. Se di nuovo fail, return null. |
 | AbortSignal triggered | Return early null, niente persist niente send. |
 | `signal` aborted mid-network | OpenCode supporta abort della session. La fetch viene cancellata. |
+| `escalate_to_human` con `summary` mancante o vuota | zod fallisce, retry. Se persiste, fallback summary "AI ha richiesto escalation senza fornire dettagli. Vai a controllare la chat." applicata lato bot, escalation creata comunque. |
+| `escalate_to_human` non null + `reply` non vuoto | Conflict resolved: la reply viene scartata, solo `suggested_holding_reply` (se non null) viene inviato. Log warn. |
 
 Quando `generateTurn` ritorna `null`:
 - Niente send.

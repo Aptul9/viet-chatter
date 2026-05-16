@@ -5,6 +5,7 @@
 - Un computer (Windows, Linux o Mac) sempre acceso quando vuoi che il bot risponda.
 - Connessione internet.
 - Il tuo telefono con WhatsApp installato e funzionante (per la prima sincronizzazione).
+- (Opzionale ma consigliato) Un bot Telegram personale per ricevere le notifiche di "escalation a umano". Vedi `12-quando-ti-chiama.md` per cos'è e perchè serve, e `dev/15-runbook.md` per il setup tecnico (5 minuti).
 
 ## Procedura
 

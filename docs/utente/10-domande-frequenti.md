@@ -84,6 +84,16 @@ Può succedere. Il bot non ha controlli umani su ogni risposta (è "fully autono
 - Controlla periodicamente le chat per vedere come sta andando.
 - Se vedi un messaggio sbagliato, scrivi tu un messaggio di "scusa, non volevo".
 
+Per ridurre la probabilità che inventi informazioni che non sa, è attivata di default la **escalation a umano** (vedi `12-quando-ti-chiama.md`): l'AI ti notifica fuori da WhatsApp quando una richiesta richiede informazioni che non ha (appuntamenti futuri, scelte personali, argomenti delicati). Tu rispondi a mano in quei casi.
+
+## Il bot mi avvisa quando non sa rispondere?
+
+Sì. Quando il messaggio chiede informazioni o decisioni che il bot non può conoscere o sostituire (appuntamenti, prestiti, argomenti delicati), invece di inventare manda una notifica fuori da WhatsApp (Telegram o WhatsApp self-chat). Vedi `12-quando-ti-chiama.md` per il dettaglio.
+
+## Posso configurare via Telegram?
+
+In v1 no. Il setup di Telegram serve solo come canale di notifica per le escalations. In futuro potrebbe essere esteso per ricevere comandi dal bot Telegram (es. snooze), ma in v1 è solo una direzione: bot -> tu.
+
 ## Funziona con WhatsApp Business?
 
 Probabilmente sì come account collegabile, ma non è stato testato e WhatsApp Business ha politiche diverse. Usalo a tuo rischio.

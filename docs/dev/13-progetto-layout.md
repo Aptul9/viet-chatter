@@ -21,8 +21,9 @@ viet-chatter/
 │       ├── 03_language_rules.txt
 │       ├── 04_extraction_rules.txt
 │       ├── 05_revive_and_skip.txt
-│       ├── 06_output_schema.txt
-│       ├── 07_examples.txt
+│       ├── 06_escalation_rules.txt
+│       ├── 07_output_schema.txt
+│       ├── 08_examples.txt
 │       └── 99_context_template.txt           # placeholder {{CONTEXT}}
 │
 ├── drizzle/
@@ -117,6 +118,15 @@ viet-chatter/
 │   │   ├── opencode.ts                        # backend OpenCode (copia 1:1 da linkedin-autoapply)
 │   │   └── turn.ts                            # generateTurn + parse + zod
 │   │
+│   ├── escalation/
+│   │   ├── notifier.ts                        # EscalationNotifier: orchestra format + dispatch su canali
+│   │   ├── format.ts                          # format del messaggio per canale (whatsapp / telegram)
+│   │   ├── retry.ts                           # cron retry per escalations con notify fallita
+│   │   └── channels/
+│   │       ├── index.ts                       # interfaccia EscalationChannel + factory
+│   │       ├── whatsapp-self.ts               # WhatsAppSelfChannel (usa client esistente)
+│   │       └── telegram.ts                    # TelegramChannel (HTTPS POST a api.telegram.org)
+│   │
 │   ├── boot/
 │   │   └── reconciler.ts                      # boot + post-reconnect
 │   │
@@ -157,6 +167,13 @@ viet-chatter.db-wal
 .env
 ```
 
+`.env` deve assolutamente restare gitignored: contiene `TELEGRAM_BOT_TOKEN` e `TELEGRAM_USER_CHAT_ID`. Verificare a setup time:
+
+```bash
+git check-ignore .env       # deve restituire .env (significa: ignored)
+git ls-files .env           # deve essere vuoto
+```
+
 ## Tipo entry-point (`src/index.ts`)
 
 Pseudo-flow al boot:
@@ -171,6 +188,7 @@ import { initOrchestrator } from './orchestrator'
 import { startTicker, startManualJobsCron } from './scheduler'
 import { startEphemeralPruner } from './kb/pruner'
 import { runReconciler } from './boot/reconciler'
+import { initEscalation, startEscalationRetry } from './escalation/notifier'
 import { ensureOpencodeServer, stopOpencodeServer } from './ai/opencode'
 import { log } from './log'
 
@@ -180,12 +198,14 @@ async function main() {
   const { db, sqlite } = openDb(config.dbPath)
   await ensureOpencodeServer('boot')
   const wa = await initWhatsApp(config.sessionDir)
-  initDispatcher({ db, wa })
-  initOrchestrator({ db, wa })
+  const escalationNotifier = initEscalation({ wa })   // setup canali (whatsapp_self, telegram)
+  initDispatcher({ db, wa, escalationNotifier })
+  initOrchestrator({ db, wa, escalationNotifier })
   await runReconciler(wa, db)
   startTicker()
   startManualJobsCron()
   startEphemeralPruner()
+  startEscalationRetry()                              // cron 5min per escalations con notify fallita
   log.info('boot done')
 
   process.on('SIGINT', async () => {

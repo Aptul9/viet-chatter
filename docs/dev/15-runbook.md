@@ -7,10 +7,99 @@ git clone <repo>
 cd viet-chatter
 npm install
 npm run db:migrate     # crea ./viet-chatter.db con schema iniziale
+# (opzionale) setup Telegram per le escalations: vedi sezione "Setup Telegram" sotto
 npm start              # primo run, mostra QR code
 ```
 
 Scansiona il QR code da WhatsApp mobile (`Impostazioni > Dispositivi collegati > Collega un dispositivo`).
+
+## Setup Telegram (canale escalation)
+
+Necessario solo se `config.escalation.channels` include `'telegram'`. Se usi solo `'whatsapp_self'`, skip questa sezione.
+
+### Creare un bot Telegram
+
+1. Su Telegram, cerca il contatto `@BotFather`.
+2. Avvia chat e invia `/newbot`.
+3. Scegli un display name (es. `viet-chatter notifier`).
+4. Scegli uno username (deve finire con `bot`, es. `viet_chatter_notify_bot`).
+5. BotFather risponde con il token: lo registri in `.env`:
+
+   ```
+   TELEGRAM_BOT_TOKEN=123456789:AAA-bbb-ccc-ddd-eee
+   ```
+
+   ATTENZIONE: chiunque abbia il token controlla il bot. Se trapela, revoca via `/revoke` su BotFather e genera nuovo.
+
+### Recuperare il proprio chat_id
+
+1. Da Telegram, scrivi un messaggio qualunque al bot appena creato (es. "ciao").
+2. Apri nel browser:
+
+   ```
+   https://api.telegram.org/bot<IL_TUO_TOKEN>/getUpdates
+   ```
+
+3. Cerca nel JSON `"chat":{"id": NNNNNNNN, ...}`. Il numero è il tuo `chat_id`.
+4. Lo registri in `.env`:
+
+   ```
+   TELEGRAM_USER_CHAT_ID=987654321
+   ```
+
+### Verifica setup
+
+Da terminale:
+
+```bash
+curl -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
+  -H "Content-Type: application/json" \
+  -d "{\"chat_id\": $TELEGRAM_USER_CHAT_ID, \"text\": \"viet-chatter test ok\"}"
+```
+
+Deve arrivare il messaggio "viet-chatter test ok" sul tuo Telegram. Se sì, setup completato.
+
+### Caricamento ENV vars
+
+Le ENV vars devono essere visibili al processo Node che lancia il bot.
+
+Linux/macOS:
+
+```bash
+export $(grep -v '^#' .env | xargs)
+npm start
+```
+
+Windows PowerShell:
+
+```powershell
+Get-Content .env | ForEach-Object {
+  $name, $value = $_.split('=', 2)
+  if ($name -and !$name.StartsWith('#')) {
+    [Environment]::SetEnvironmentVariable($name, $value, 'Process')
+  }
+}
+npm start
+```
+
+Windows cmd:
+
+```
+for /f "tokens=1,* delims==" %a in (.env) do set %a=%b
+npm start
+```
+
+In v1 il bot non auto-carica `.env` (per scelta di minimal dependency). Vedi `11-config-e-hot-reload.md` per opzione futura con `dotenv`.
+
+## Setup WhatsApp self-chat
+
+Niente da configurare a livello bot. Tre cose da fare lato utente per assicurarti che le notifiche ti arrivino:
+
+1. Sul telefono, apri WhatsApp -> chat con te stesso (numero "Te stesso" / "You").
+2. Aprire le impostazioni della chat e verifica che "Notifiche" siano attive (non muted).
+3. Test: dal computer (con bot fermo, oppure manualmente da WhatsApp Web), mandati un messaggio nella self-chat. Deve apparire come notifica push sul telefono come per le altre chat.
+
+Se la notifica NON appare, il telefono / la versione di WhatsApp potrebbe non supportare bene le notifiche di self-chat. In quel caso usare Telegram come canale primario.
 
 ## Avvio normale
 
@@ -191,6 +280,81 @@ Verifica porte libere:
 ```bash
 netstat -an | grep 3456
 ```
+
+## Troubleshoot: escalation non arriva su Telegram
+
+1. Verifica ENV vars caricate:
+   ```bash
+   echo $TELEGRAM_BOT_TOKEN | head -c 20    # deve mostrare prefisso del token
+   echo $TELEGRAM_USER_CHAT_ID              # deve mostrare il numero
+   ```
+   Se sono vuote, le ENV vars non sono visibili al processo. Ricarica `.env` come da sezione "Caricamento ENV vars".
+
+2. Test diretto API Telegram:
+   ```bash
+   curl -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
+     -H "Content-Type: application/json" \
+     -d "{\"chat_id\": $TELEGRAM_USER_CHAT_ID, \"text\": \"manual test\"}"
+   ```
+   Se la risposta JSON ha `"ok": false`:
+   - `"description":"Unauthorized"` -> token sbagliato o revocato.
+   - `"description":"chat not found"` -> chat_id sbagliato. Rifai `getUpdates`.
+   - `"description":"Forbidden: bot was blocked by the user"` -> hai bloccato il bot, sbloccalo da Telegram.
+
+3. Verifica log del bot:
+   ```bash
+   cat logs/viet-chatter.log | jq 'select(.msg | test("escalation"))'
+   ```
+   Cerca `escalation notified` con `channels_failed` includente `telegram`. Vedi il messaggio errore.
+
+4. Rate limit raggiunto: cerca `escalation rate limited` nei log. Aumenta `config.escalation.rateLimitPerHour`.
+
+5. Bot Telegram disabilitato: BotFather può disabilitare bot per inattività prolungata. Verifica con `/mybots` su BotFather.
+
+## Troubleshoot: escalation non arriva su WhatsApp self-chat
+
+1. Verifica che il bot sia connesso a WhatsApp Web (`npm run health`, vedi `chats_total > 0`).
+
+2. Verifica che `client.info.wid` sia disponibile. Il modulo `WhatsAppSelfChannel` dovrebbe loggare al primo invio "self chat resolved to <wid>". Se non logga, problema lato `whatsapp-web.js`.
+
+3. Verifica notifiche WhatsApp self-chat sul telefono: alcune versioni di WhatsApp non emettono notifica push per messaggi inviati a se stesso da WhatsApp Web. Test manuale: mandati un messaggio dalla chat self-chat su WhatsApp Web stesso. Vedi se la notifica appare sul telefono.
+
+4. Se il telefono non riceve push per self-chat, switcha a Telegram (più affidabile per use case "chiamami quando serve").
+
+## Troubleshoot: escalations stuck in pending
+
+Query:
+
+```sql
+SELECT id, chat_id, reason, urgency, created_at, notified_channels
+FROM escalations
+WHERE status = 'pending' AND created_at < strftime('%s','now') * 1000 - 3600000
+ORDER BY created_at DESC;
+```
+
+Cause possibili:
+- `notified_channels='[]'`: nessun canale ha funzionato. Il retry job (ogni 5 min, max 3 attempts) potrebbe averli esauriti. Riavvia il bot per resettare retry counter (in v1 retry counter è in-memory).
+- `notified_channels=['whatsapp_self']` ma utente non vede: notifica self-chat non recapitata correttamente, vedi sopra.
+- `notified_channels=['telegram']` ma utente non vede: bot Telegram bloccato o muted.
+
+Per risolvere manualmente una escalation senza che l'utente abbia risposto:
+
+```sql
+UPDATE escalations SET status='dismissed', resolved_at = strftime('%s','now') * 1000
+WHERE id = ?;
+```
+
+## Disabilitare temporaneamente escalation
+
+```ts
+// config/index.ts
+escalation: {
+  enabled: false,
+  ...
+}
+```
+
+Salva, hot reload prende effetto immediato. Le escalations già pendenti restano in DB ma non vengono rinotificate. Quando riabiliti, il retry riprende.
 
 ## Cancellazione totale del bot
 

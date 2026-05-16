@@ -15,6 +15,7 @@ Questa cartella spiega cosa fa il bot in modo semplice, senza gergo tecnico.
 9. [Privacy e dati](09-privacy-dati.md)
 10. [Domande frequenti](10-domande-frequenti.md)
 11. [Workflow e casi d'uso](11-workflow-e-casi-uso.md)
+12. [Quando il bot ti chiama (escalation)](12-quando-ti-chiama.md)
 
 ## In una frase
 

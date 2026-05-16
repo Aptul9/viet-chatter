@@ -12,6 +12,9 @@ Lista finita. Tutto fuori da questa lista è automaticamente out-of-scope.
 | 6 | **Engagement state lifecycle** più granulare. Stati aggiuntivi a `cold`: `dormant`, `breakup`, `do_not_re_engage`. Comportamenti differenziati per re_engage e revive. | Quando il binario `active`/`cold` non basta e si nota che persone diverse richiedono trattamenti diversi (es. ex partner -> mai re-engage; conoscenze sporadiche -> threshold lungo). |
 | 7 | **Dashboard locale con Next.js**. Piccola UI read-only che legge da `turn_log`, `facts`, `manual_jobs`, `chat_state`. Niente Express. | Quando il check da log file e `npm run health` diventa scomodo. Use case: capire al volo perchè il bot non ha risposto a X. |
 | 8 | **Daily digest in self-chat**. Ogni mattina (es. 08:30 ora locale) il bot manda alla tua chat WhatsApp con te stesso un riassunto: ultime 24h di attivita, job in coda per oggi, KB facts ad alta confidenza appena inseriti per review veloce. | Quando vuoi visibilità sul lavoro del bot senza guardare log o dashboard. Costo: una chiamata AI extra al giorno. |
+| 9 | **Escalation policy per chat**. Aggiungere `escalation_policy: 'auto' \| 'always' \| 'never'` su `person_profile`. L'AI legge il valore dal `TurnContext` e applica: `always` -> escalation forzata su ogni turn (chat di lavoro / cose serie). `never` -> mai escalare (chat dove ti fidi al 100% del bot). `auto` (default) -> AI decide turn per turn come oggi. | Quando l'esperienza con escalation globale (v1) mostra che alcune chat richiedono trattamento differenziato. Indicatore: troppe escalations sulla stessa chat (segnale di `always`), oppure escalations su chat dove vorresti il bot rispondesse autonomo (segnale di `never`). |
+| 10 | **Escalation snooze**. Quando arriva una notifica di escalation, l'utente può rispondere al bot Telegram con un comando tipo `/snooze 30` per dire "ti ricordo tra 30 minuti se ancora non ho risposto". Implica un piccolo command parser su Telegram (BotFather setup webhook o polling). | Solo se le escalations diventano frequenti e l'utente sente bisogno di un sistema di reminder strutturato. Bassa priorità. |
+| 11 | **Escalation aggregation intelligente**. Quando arrivano N escalations in 30 minuti, invece di N notifiche separate, una sola notifica con elenco. Gestita da un piccolo buffer in-memory + flush a interval o su `high` urgency. | Quando il rate limit semplice (cap orario) inizia a perdere segnale. |
 
 ## Cosa NON entrerà mai (esclusioni dure)
 
@@ -31,14 +34,17 @@ Vedi anche `17-out-of-scope.md`. In sintesi:
 
 Non vincolante, è un suggerimento se si decide di lavorare su enhancement futuri:
 
-1. (#8) Daily digest: utile da subito una volta che il bot è in produzione.
-2. (#7) Dashboard Next.js: complementare al digest, fornisce vista on-demand.
-3. (#1) Sentiment locale: utile per analytics. Costa poco implementare.
-4. (#6) Engagement state lifecycle: emerge come bisogno dopo qualche settimana di uso.
-5. (#2) Dynamic delay livello 3: solo se si nota che il bot è troppo "regolare".
-6. (#4) Multi-backend AI: solo se OpenCode dà problemi.
-7. (#3) Dynamic delay livello 4: dopo livello 3.
-8. (#5) Postgres: ultima risorsa.
+1. (#9) Escalation policy per chat: emerge naturalmente con uso reale dell'escalation.
+2. (#8) Daily digest: utile da subito una volta che il bot è in produzione.
+3. (#7) Dashboard Next.js: complementare al digest, fornisce vista on-demand.
+4. (#11) Escalation aggregation: quando il volume cresce.
+5. (#1) Sentiment locale: utile per analytics. Costa poco implementare.
+6. (#6) Engagement state lifecycle: emerge come bisogno dopo qualche settimana di uso.
+7. (#2) Dynamic delay livello 3: solo se si nota che il bot è troppo "regolare".
+8. (#4) Multi-backend AI: solo se OpenCode dà problemi.
+9. (#10) Escalation snooze: solo se le escalations diventano frequenti.
+10. (#3) Dynamic delay livello 4: dopo livello 3.
+11. (#5) Postgres: ultima risorsa.
 
 ## Criterio per aggiungere alla lista
 

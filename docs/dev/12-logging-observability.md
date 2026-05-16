@@ -70,6 +70,14 @@ Ogni log line è un oggetto JSON. Campi standard:
 | manual job created | `info` | `job_id`, `chat_id`, `kind`, `fire_at` |
 | manual job fired | `info` | `job_id`, `chat_id`, `kind`, `outcome` |
 | manual job superseded | `debug` | `job_id`, `chat_id`, `kind`, `reason` |
+| escalation created | `info` | `esc_id`, `chat_id`, `reason`, `urgency`, `holding_reply_sent` |
+| escalation notified | `info` | `esc_id`, `channels_ok` (array), `channels_failed` (array) |
+| escalation rate limited | `warn` | `esc_id`, `aggregated` |
+| escalation resolved | `info` | `esc_id`, `chat_id`, `resolution` (`user_replied` / `superseded`) |
+| escalation dedup hit | `debug` | `esc_id_existing`, `chat_id`, `urgency_changed` |
+| escalation retry | `info` | `esc_id`, `attempt` |
+| escalation retry exhausted | `error` | `esc_id`, `attempts` |
+| holding reply sent | `info` | `esc_id`, `chat_id` |
 | ephemeral pruner | `info` | `deleted_count`, `duration_ms` |
 | reconnect | `warn` | `outage_duration_ms` |
 | post-reconnect spread | `info` | `chats_redistributed` |
@@ -86,6 +94,9 @@ Ogni log line è un oggetto JSON. Campi standard:
 | Body messaggio | MAI |
 | Body fact estratto | Solo a level `trace` (off di default), in casi di debug profondo |
 | Reply generata | MAI per intero (solo `chars` count) |
+| Escalation `summary` | Loggata solo come `chars` count a `info`. Body intero solo a `trace`. |
+| Telegram bot token | MAI. Solo presenza/assenza della ENV var. |
+| Telegram chat_id utente | MAI. Solo `chat_id_set: true/false`. |
 
 ## `turn_log` come secondo canale di observability
 
@@ -118,6 +129,13 @@ console.log({
   last_turn: /* SELECT * FROM turn_log ORDER BY ts DESC LIMIT 1 */ ,
   facts_total: /* count */ ,
   embedding_model_present: /* fs check su .cache/transformers */ ,
+  escalations: {
+    pending: /* count where status='pending' */ ,
+    resolved_24h: /* count user_replied + superseded last 24h */ ,
+    failed_to_notify_24h: /* count where notified_channels='[]' AND created_at > now-24h */ ,
+  },
+  telegram_configured: !!process.env[config.escalation.telegramBotTokenEnv]
+                     && !!process.env[config.escalation.telegramChatIdEnv],
 })
 ```
 

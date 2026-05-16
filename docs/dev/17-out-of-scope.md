@@ -22,6 +22,17 @@ Il bot manda direttamente. Non c'è step di review umano sulle reply.
 
 Motivo: contraddice il design "fully autonomous". Se vuoi controllo, riscrivi tu il messaggio (il bot rileva l'`out_manual` e annulla il suo schedule).
 
+**Nota su escalation a umano**: la feature "escalation a umano" (vedi `18-escalation.md`) NON è un approval flow. Differenza chiave:
+
+| Aspetto | Escalation (in scope) | Approval flow (out of scope) |
+|---|---|---|
+| Frequenza | Solo turn dove l'AI dichiara incertezza esplicita | Ogni reply, sempre |
+| Default | Bot risponde da solo | Bot mai risponde senza OK |
+| Decisione | L'AI stessa decide quando escalare (parte del suo output) | L'utente decide ogni volta |
+| Latenza utente | 0 (l'AI manda holding reply automatica) | Lunga (deve approvare ogni risposta) |
+
+Escalation è compatibile con `fully autonomous`: la scelta di escalare è autonoma dell'AI, e capita solo nei casi dove non sa. Approval flow puro resta out-of-scope.
+
 ### CLI per KB / job management
 
 Niente comandi `npm run kb:*`, `npm run jobs:*`, ecc.
@@ -87,6 +98,8 @@ Motivo: aggiungere colonne a `processed_messages` solo per tracking implica chia
 - Dashboard Next.js read-only.
 - Daily digest in self-chat.
 - Multi-backend AI rotation (incluso UI Playwright).
+- Escalation `escalation_policy` per chat (`auto` / `always` / `never`).
+- Escalation snooze ("ti ricordo tra X minuti").
 
 ## Comportamento davanti a richieste fuori scope
 

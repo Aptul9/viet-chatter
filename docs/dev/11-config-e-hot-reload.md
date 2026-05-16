@@ -52,6 +52,19 @@ export const config = {
   reEngageColdAfterDays: 7,
   reEngageMinOutgoingHistory: 3,
 
+  // Escalation
+  escalation: {
+    enabled: true,
+    channels: ['telegram'] as Array<'whatsapp_self' | 'telegram'>,
+    whatsappSelfChatId: 'me',                                // 'me' = numero proprio risolto a runtime via client.info.wid
+    telegramBotTokenEnv: 'TELEGRAM_BOT_TOKEN',
+    telegramChatIdEnv: 'TELEGRAM_USER_CHAT_ID',
+    rateLimitPerHour: 12,
+    highUrgencyBypassRateLimit: true,
+    retryIntervalMs: 5 * 60_000,
+    retryMaxAttempts: 3,
+  },
+
   // DB
   dbPath: './viet-chatter.db',
 } as const
@@ -104,6 +117,17 @@ export const ConfigSchema = z.object({
   reEngageDefaultThresholdDays: z.number().int().positive(),
   reEngageColdAfterDays: z.number().int().positive(),
   reEngageMinOutgoingHistory: z.number().int().nonnegative(),
+  escalation: z.object({
+    enabled: z.boolean(),
+    channels: z.array(z.enum(['whatsapp_self','telegram'])),
+    whatsappSelfChatId: z.string(),
+    telegramBotTokenEnv: z.string(),
+    telegramChatIdEnv: z.string(),
+    rateLimitPerHour: z.number().int().nonnegative(),
+    highUrgencyBypassRateLimit: z.boolean(),
+    retryIntervalMs: z.number().int().positive(),
+    retryMaxAttempts: z.number().int().nonnegative(),
+  }),
   dbPath: z.string(),
 })
 ```
@@ -188,6 +212,9 @@ function tick() {
 | Cambio di `embeddingModel` | NON ha effetto runtime se il modello è già caricato. Il modello in uso resta finchè il bot non riparte. |
 | Cambio di `tickIntervalMs` | Effetto al prossimo tick (legge live). |
 | Cambio di `nightWindow` | Effetto immediato sui calcoli successivi. |
+| Cambio di `escalation.enabled` (true -> false) | Effetto immediato: escalations già pendenti restano in DB ma non vengono più rinotificate. Nuovi turn non emettono escalation (l'AI riceve hint nel context per disattivare). |
+| Cambio di `escalation.channels` | Effetto immediato sul prossimo notify. Escalations già notificate non si rinotificano automaticamente sul nuovo canale. |
+| Cambio di `escalation.telegramBotTokenEnv` | NON ha effetto: la ENV var viene letta a ogni notify dal nome configurato, ma il nome stesso cambia solo a hot-reload, e poi viene letto live. Funziona se aggiungi una nuova ENV var prima di salvare il config. |
 
 ## Restart-required parameters
 
@@ -202,9 +229,32 @@ Documentare in cima a `config/index.ts`:
 
 ## ENV vars
 
-Niente `.env` per la config principale (tutto in `config/index.ts`). Le ENV vars riguardano solo OpenCode e plugin esterni:
+Niente `.env` per la config principale (tutto in `config/index.ts`).
 
-- `OPENCODE_DISABLE_CLAUDE_CODE=1`
-- `OPENCODE_DISABLE_DEFAULT_PLUGINS=1`
+Le ENV vars sono usate per:
 
-Settate dal modulo `src/ai/opencode.ts` automaticamente prima di lanciare il server.
+- **OpenCode**:
+  - `OPENCODE_DISABLE_CLAUDE_CODE=1`
+  - `OPENCODE_DISABLE_DEFAULT_PLUGINS=1`
+  - Settate dal modulo `src/ai/opencode.ts` automaticamente prima di lanciare il server.
+- **Escalation (Telegram)**:
+  - `TELEGRAM_BOT_TOKEN`: token del bot Telegram, ottenuto da @BotFather.
+  - `TELEGRAM_USER_CHAT_ID`: chat_id Telegram dell'utente (numerico). Richiesto solo se `escalation.channels` include `'telegram'`.
+  - Lette a ogni notify (live, non cached).
+
+`.env` (gitignored) di esempio:
+
+```
+TELEGRAM_BOT_TOKEN=123456789:AAA-bbb-ccc-ddd-eee
+TELEGRAM_USER_CHAT_ID=987654321
+```
+
+Caricamento `.env`: in v1 il bot non usa `dotenv` per scelta. Le ENV vars vanno settate nell'ambiente dove parte il bot:
+
+- Linux/macOS: `export $(grep -v '^#' .env | xargs)` prima di `npm start`, oppure tramite shell rc.
+- Windows: `set TELEGRAM_BOT_TOKEN=...` (cmd) o `$env:TELEGRAM_BOT_TOKEN = "..."` (PowerShell).
+- Process manager (futuro): inietta tramite il manager (PM2, systemd EnvironmentFile, ecc.).
+
+Se serve `.env` autoload, aggiungere `dotenv` come dependency e `import 'dotenv/config'` in cima a `src/index.ts`. Considerato future enhancement, in v1 setting manuale.
+
+Vedi anche `15-runbook.md` per setup Telegram step-by-step.

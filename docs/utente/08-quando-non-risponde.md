@@ -34,6 +34,16 @@ In ogni turno, l'AI può decidere che non c'è motivo di rispondere. Esempi:
 
 In questi casi non parte nulla. Il bot resta in attesa del prossimo messaggio.
 
+### L'AI decide "escalation a umano"
+
+Il bot capisce che il messaggio richiede informazioni o decisioni che non può sapere/sostituire (appuntamenti futuri, favori, argomenti delicati). In questo caso non manda una risposta automatica e ti notifica su Telegram (o WhatsApp self-chat).
+
+Esempi tipici: "ci vediamo sabato?", "mi presti X?", argomenti emotivamente delicati.
+
+Il bot può inviare un breve "ti faccio sapere" alla persona per non lasciarla in silenzio, ma poi sta a te rispondere a mano.
+
+Vedi `12-quando-ti-chiama.md` per il dettaglio.
+
 ### Errore tecnico
 
 Se l'AI fallisce nel generare una risposta valida (errore di rete, output non parsabile, retry esauriti), il bot non manda niente piuttosto che mandare qualcosa di sbagliato. L'errore va nei log per analisi.
