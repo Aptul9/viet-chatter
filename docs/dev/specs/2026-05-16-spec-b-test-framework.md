@@ -61,7 +61,7 @@ export interface TestDeps {
   inflight: InflightRegistry
   orchestrator: ReplyOrchestrator
   dispatcher: MessageDispatcher
-  aiStub: AiStubControl   // permette di registrare risposta canned per turno
+  aiStub: AiStubControl // permette di registrare risposta canned per turno
 }
 ```
 
@@ -158,11 +158,11 @@ Flusso:
 
 Riconosciute da `src/index.ts` e altri moduli al boot:
 
-| Var                    | Effect                                                                  |
-| ---------------------- | ----------------------------------------------------------------------- |
-| `BOT_E2E_STUB_AI=1`    | `src/ai/router.ts` ritorna canned response da `AI_STUB_RESPONSE` env    |
-| `BOT_E2E_LOG_PATH=...` | Override `config.logFile` al boot (validator legge da qui)              |
-| `BOT_E2E_DB_PATH=...`  | Override `config.dbPath` al boot                                        |
+| Var                    | Effect                                                                 |
+| ---------------------- | ---------------------------------------------------------------------- |
+| `BOT_E2E_STUB_AI=1`    | `src/ai/router.ts` ritorna canned response da `AI_STUB_RESPONSE` env   |
+| `BOT_E2E_LOG_PATH=...` | Override `config.logFile` al boot (validator legge da qui)             |
+| `BOT_E2E_DB_PATH=...`  | Override `config.dbPath` al boot                                       |
 | `BOT_E2E_MODE=1`       | Marker generale; abilita log extra `e2e: <event>` per facile assertion |
 
 Implementazione: in `src/index.ts` main, dopo `await initConfig()`, apply overrides:
@@ -215,9 +215,13 @@ Esempio `e2e/validator/src/checks/basic-reply.ts`:
 export async function check(deps: { db: string; logs: string }): Promise<Result> {
   const sql = new Database(deps.db, { readonly: true })
   const errors: string[] = []
-  const r = sql.prepare(`SELECT COUNT(*) AS c FROM processed_messages WHERE direction='out_bot'`).get() as { c: number }
+  const r = sql
+    .prepare(`SELECT COUNT(*) AS c FROM processed_messages WHERE direction='out_bot'`)
+    .get() as { c: number }
   if (r.c < 1) errors.push(`expected >=1 out_bot, got ${r.c}`)
-  const turn = sql.prepare(`SELECT status FROM turn_log ORDER BY id DESC LIMIT 1`).get() as { status: string } | undefined
+  const turn = sql.prepare(`SELECT status FROM turn_log ORDER BY id DESC LIMIT 1`).get() as
+    | { status: string }
+    | undefined
   if (turn?.status !== 'sent') errors.push(`last turn status=${turn?.status}, expected 'sent'`)
   return { ok: errors.length === 0, errors }
 }
@@ -234,11 +238,11 @@ minDelayMs: 5000
 maxDelayMs: 15000
 nightWindow:
   startHour: 4
-  endHour: 4         # disable night window (start==end)
+  endHour: 4 # disable night window (start==end)
 tickIntervalMs: 1000
 manualJobsTickIntervalMs: 2000
 filter:
-  allowedPrefixes: []   # allow all per testing
+  allowedPrefixes: [] # allow all per testing
   blockedNumbers: []
   savedContactsOnly: false
   unreadOnly: false
@@ -254,23 +258,23 @@ filter:
 
 ## Modifiche ai file
 
-| File / Folder                       | Tipo     | Cambiamento                                                |
-| ----------------------------------- | -------- | ---------------------------------------------------------- |
-| `src/scripts/test-e2e.ts`           | modifica | refactor a scenario registry                               |
-| `src/scripts/e2e-scenarios/*.ts`    | nuovo    | scenari modulari                                           |
-| `src/ai/router.ts`                  | modifica | env-driven AI stub                                         |
-| `src/index.ts`                      | modifica | apply env override per logFile / dbPath in test mode       |
-| `e2e/`                              | nuovo    | top-level folder                                           |
-| `e2e/run.ts`                        | nuovo    | orchestrator                                               |
-| `e2e/driver/package.json`           | nuovo    | minimal wweb driver                                        |
-| `e2e/driver/src/**`                 | nuovo    | session + scenarios                                        |
-| `e2e/validator/package.json`        | nuovo    | minimal validator                                          |
-| `e2e/validator/src/**`              | nuovo    | check helpers                                              |
-| `e2e/config/e2e-config.yaml`        | nuovo    | bot test config                                            |
-| `e2e/fixtures/**`                   | nuovo    | media samples                                              |
-| `e2e/README.md`                     | nuovo    | setup + comandi + troubleshoot                             |
-| `package.json` (root)               | modifica | aggiunge `test:e2e:full` → `tsx e2e/run.ts`                |
-| `.gitignore`                        | modifica | esclude `e2e/driver/.wwebjs_auth/`, `e2e/db/`, `e2e/logs/` |
+| File / Folder                    | Tipo     | Cambiamento                                                |
+| -------------------------------- | -------- | ---------------------------------------------------------- |
+| `src/scripts/test-e2e.ts`        | modifica | refactor a scenario registry                               |
+| `src/scripts/e2e-scenarios/*.ts` | nuovo    | scenari modulari                                           |
+| `src/ai/router.ts`               | modifica | env-driven AI stub                                         |
+| `src/index.ts`                   | modifica | apply env override per logFile / dbPath in test mode       |
+| `e2e/`                           | nuovo    | top-level folder                                           |
+| `e2e/run.ts`                     | nuovo    | orchestrator                                               |
+| `e2e/driver/package.json`        | nuovo    | minimal wweb driver                                        |
+| `e2e/driver/src/**`              | nuovo    | session + scenarios                                        |
+| `e2e/validator/package.json`     | nuovo    | minimal validator                                          |
+| `e2e/validator/src/**`           | nuovo    | check helpers                                              |
+| `e2e/config/e2e-config.yaml`     | nuovo    | bot test config                                            |
+| `e2e/fixtures/**`                | nuovo    | media samples                                              |
+| `e2e/README.md`                  | nuovo    | setup + comandi + troubleshoot                             |
+| `package.json` (root)            | modifica | aggiunge `test:e2e:full` → `tsx e2e/run.ts`                |
+| `.gitignore`                     | modifica | esclude `e2e/driver/.wwebjs_auth/`, `e2e/db/`, `e2e/logs/` |
 
 ## Validation criteria
 

@@ -37,7 +37,7 @@ function killWindows(p) {
   const r = spawnSync(
     'powershell.exe',
     ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', ps],
-    { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 10_000 },
+    { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 10_000 }
   )
   const stderr = (r.stderr ?? '').trim()
   if (stderr) console.warn(`free-port: ps stderr: ${stderr}`)
@@ -58,7 +58,11 @@ function killPosix(p) {
     .map((l) => l.trim())
     .filter((l) => /^\d+$/.test(l))
   for (const pid of pids) {
-    try { process.kill(Number(pid), 'SIGKILL') } catch { /* dead */ }
+    try {
+      process.kill(Number(pid), 'SIGKILL')
+    } catch {
+      /* dead */
+    }
   }
   return pids
 }

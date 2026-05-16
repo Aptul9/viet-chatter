@@ -75,7 +75,7 @@ async function main(): Promise<void> {
       ? [SCENARIO_BY_NAME.get('basic-reply')!]
       : arg === 'all'
         ? SCENARIOS
-        : [SCENARIO_BY_NAME.get(arg) as Scenario | undefined].filter(Boolean) as Scenario[]
+        : ([SCENARIO_BY_NAME.get(arg) as Scenario | undefined].filter(Boolean) as Scenario[])
 
   if (targets.length === 0) {
     console.error(`unknown scenario: ${arg}`)

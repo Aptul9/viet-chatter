@@ -39,12 +39,7 @@ export async function callAiApi(
     if (signal?.aborted) return undefined
     const startedAt = Date.now()
     try {
-      const result = await callOpencodeCliText(
-        prompt,
-        `${logPrefix}/OpenCode`,
-        model,
-        signal
-      )
+      const result = await callOpencodeCliText(prompt, `${logPrefix}/OpenCode`, model, signal)
       log.debug(
         {
           attempt,

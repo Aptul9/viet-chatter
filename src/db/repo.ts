@@ -719,13 +719,13 @@ export function listChatsWithSummary(sqlite: Sqlite): ChatSummaryRow[] {
        ORDER BY last_msg_ts DESC`
     )
     .all(cutoff24h) as Array<{
-      chat_id: string
-      display_name: string | null
-      last_msg_ts: number | null
-      count_24h: number
-      state: ChatState
-      has_esc: number | null
-    }>
+    chat_id: string
+    display_name: string | null
+    last_msg_ts: number | null
+    count_24h: number
+    state: ChatState
+    has_esc: number | null
+  }>
   return rows.map((r) => ({
     chatId: r.chat_id,
     displayName: r.display_name,
@@ -767,14 +767,14 @@ export function getChatDetail(sqlite: Sqlite, chatId: ChatId): ChatDetail {
       'SELECT `id`, `ts`, `status`, `language_used` AS languageUsed, `facts_extracted` AS factsExtracted, `duration_ms` AS durationMs, `triggered_by` AS triggeredBy FROM `turn_log` WHERE `chat_id` = ? ORDER BY `id` DESC LIMIT 20'
     )
     .all(chatId) as Array<{
-      id: number
-      ts: number
-      status: string
-      languageUsed: string | null
-      factsExtracted: number
-      durationMs: number | null
-      triggeredBy: string
-    }>
+    id: number
+    ts: number
+    status: string
+    languageUsed: string | null
+    factsExtracted: number
+    durationMs: number | null
+    triggeredBy: string
+  }>
   const recentEscalations = (
     sqlite
       .prepare(
@@ -876,9 +876,7 @@ export function getStats(sqlite: Sqlite, range: '24h' | '7d' | 'all'): StatsSnap
   }
 
   const turnRows = sqlite
-    .prepare(
-      'SELECT `status`, COUNT(*) AS c FROM `turn_log` WHERE `ts` > ? GROUP BY `status`'
-    )
+    .prepare('SELECT `status`, COUNT(*) AS c FROM `turn_log` WHERE `ts` > ? GROUP BY `status`')
     .all(cutoff) as Array<{ status: string; c: number }>
   const turns = { sent: 0, skipped: 0, failed: 0, aborted: 0, escalated: 0 }
   for (const r of turnRows) {
@@ -900,8 +898,7 @@ export function getStats(sqlite: Sqlite, range: '24h' | '7d' | 'all'): StatsSnap
       "SELECT AVG(`duration_ms`) AS avg_dur FROM `turn_log` WHERE `ts` > ? AND `duration_ms` IS NOT NULL AND `status` IN ('sent', 'escalated')"
     )
     .get(cutoff) as { avg_dur: number | null } | undefined
-  const avgTurnDurationMs =
-    avgRow && avgRow.avg_dur != null ? Math.round(avgRow.avg_dur) : null
+  const avgTurnDurationMs = avgRow && avgRow.avg_dur != null ? Math.round(avgRow.avg_dur) : null
 
   const perChatRows = sqlite
     .prepare(
@@ -920,13 +917,13 @@ export function getStats(sqlite: Sqlite, range: '24h' | '7d' | 'all'): StatsSnap
        LIMIT 100`
     )
     .all(cutoff, cutoff) as Array<{
-      chat_id: string
-      display_name: string | null
-      msg_in: number
-      msg_out_bot: number
-      msg_out_manual: number
-      avg_reply_ms: number | null
-    }>
+    chat_id: string
+    display_name: string | null
+    msg_in: number
+    msg_out_bot: number
+    msg_out_manual: number
+    avg_reply_ms: number | null
+  }>
 
   const perChat = perChatRows.map((r) => ({
     chatId: r.chat_id,

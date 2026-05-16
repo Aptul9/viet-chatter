@@ -84,6 +84,7 @@ Motivo: si delega al filesystem (BitLocker/FileVault/LUKS). La cifratura applica
 ### Detection avanzata sticker/audio/video
 
 **Carve-out 2026-05-16 (Spec A)**: la spec A rilassa parzialmente questa esclusione:
+
 - **Image**: ora processate via vision API di OpenCode (modello multimodale, allowlist di modelli vision-capable). Reply generata normalmente. Caption usata come testo accompagnatorio.
 - **Audio / video / document / location / live_location / vcard**: forzano un'escalation a umano (riusa infra esistente di `18-escalation.md`). Niente OCR, niente speech-to-text, niente analisi video.
 - **Sticker**: skip (equivalente a emoji singolo).

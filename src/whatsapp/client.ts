@@ -251,7 +251,15 @@ export async function initWhatsApp(sessionDir: string): Promise<WhatsAppHandle> 
   // is bound to. Common gotcha: user thinks they paired +X but actually scanned
   // the QR with the +Y phone.
   try {
-    const info = (client as unknown as { info?: { wid?: { _serialized?: string; user?: string }; pushname?: string; platform?: string } }).info
+    const info = (
+      client as unknown as {
+        info?: {
+          wid?: { _serialized?: string; user?: string }
+          pushname?: string
+          platform?: string
+        }
+      }
+    ).info
     log.info(
       {
         wid: info?.wid?._serialized,
@@ -336,10 +344,7 @@ export async function initWhatsApp(sessionDir: string): Promise<WhatsAppHandle> 
         const m = String(pn).match(/^(\d+)@/)
         return m && m[1] ? '+' + m[1] : null
       } catch (err) {
-        log.warn(
-          { err: (err as Error).message, id: serializedId },
-          'resolveLidPhone failed'
-        )
+        log.warn({ err: (err as Error).message, id: serializedId }, 'resolveLidPhone failed')
         return null
       }
     },

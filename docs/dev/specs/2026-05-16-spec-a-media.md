@@ -12,16 +12,16 @@ Gestire messaggi WhatsApp non-testuali (immagini, audio, video, sticker, documen
 
 Mapping tipo messaggio → azione:
 
-| `msg.type`         | Azione default       | Razionale                                                  |
-| ------------------ | -------------------- | ---------------------------------------------------------- |
-| `image`            | `vision`             | Modelli vision-capable (gpt-5-mini, gpt-4o, ...) supportano image input. |
-| `sticker`          | `skip`               | Tipicamente espressivo, equivalente a emoji.                |
-| `audio` / `ptt`    | `escalate`           | STT fuori scope; utente decide se ascoltare e rispondere.   |
-| `video`            | `escalate`           | Analisi video fuori scope.                                  |
-| `document`         | `escalate`           | PDF/Word/Excel arbitrari; non sicuro auto-rispondere.       |
-| `location` / `live_location` | `escalate` | Decisione utente: condividere posizione, dare indicazioni. |
-| `vcard`            | `escalate`           | Condivisione contatto, valutazione utente.                  |
-| `chat` (text)      | (pipeline esistente) | Invariato.                                                  |
+| `msg.type`                   | Azione default       | Razionale                                                                |
+| ---------------------------- | -------------------- | ------------------------------------------------------------------------ |
+| `image`                      | `vision`             | Modelli vision-capable (gpt-5-mini, gpt-4o, ...) supportano image input. |
+| `sticker`                    | `skip`               | Tipicamente espressivo, equivalente a emoji.                             |
+| `audio` / `ptt`              | `escalate`           | STT fuori scope; utente decide se ascoltare e rispondere.                |
+| `video`                      | `escalate`           | Analisi video fuori scope.                                               |
+| `document`                   | `escalate`           | PDF/Word/Excel arbitrari; non sicuro auto-rispondere.                    |
+| `location` / `live_location` | `escalate`           | Decisione utente: condividere posizione, dare indicazioni.               |
+| `vcard`                      | `escalate`           | Condivisione contatto, valutazione utente.                               |
+| `chat` (text)                | (pipeline esistente) | Invariato.                                                               |
 
 L'utente puo' modificare il mapping via YAML (`media.<type>.strategy: 'vision' | 'escalate' | 'skip'`).
 
@@ -121,7 +121,7 @@ interface TurnContext {
   pendingMedia?: Array<{
     mime: string
     type: MediaType
-    caption: string                  // body del messaggio (puo' essere vuoto)
+    caption: string // body del messaggio (puo' essere vuoto)
     timestampMs: number
   }>
 }
@@ -165,8 +165,14 @@ Boot-time check: se `config.media.image.strategy === 'vision'` e `aiModel` non i
 export function escalateMedia(deps, msg, mediaType) {
   const summary = `${labelForType(mediaType)} ricevuto da ${displayName}. Vai a controllare la chat.`
   const escId = insertEscalation({
-    chatId, triggerMsgId, reason: 'other', urgency: 'normal',
-    summary, holdingReplySent: false, createdAt: now, notifiedChannels: []
+    chatId,
+    triggerMsgId,
+    reason: 'other',
+    urgency: 'normal',
+    summary,
+    holdingReplySent: false,
+    createdAt: now,
+    notifiedChannels: [],
   })
   void escalationNotifier.notify(escId)
 }
@@ -233,25 +239,25 @@ If `pendingMedia` is empty or absent, behave as normal text-only turn.
 
 ## Modifiche ai file
 
-| File                                | Tipo     | Cambiamento                                                  |
-| ----------------------------------- | -------- | ------------------------------------------------------------ |
-| `src/dispatcher/index.ts`           | modifica | branch media-aware in `handleIncoming`                       |
-| `src/dispatcher/media-policy.ts`    | nuovo    | mapping + policy resolver                                    |
-| `src/whatsapp/client.ts`            | modifica | espone `downloadMedia`                                       |
-| `src/ai/opencode.ts`                | modifica | parts array + multimodal                                     |
-| `src/ai/router.ts`                  | modifica | overload con `parts`                                         |
-| `src/ai/turn.ts`                    | modifica | accetta `mediaParts` optional                                |
-| `src/orchestrator/context.ts`       | modifica | include `pendingMedia` in TurnContext                        |
-| `src/orchestrator/index.ts`         | modifica | drena MediaQueue al fire, passa a generateTurn               |
-| `src/orchestrator/media-queue.ts`   | nuovo    | Map<chatId, PendingMedia[]> + push/drain                     |
-| `src/escalation/from-media.ts`      | nuovo    | helper diretto per escalation media-driven                   |
-| `src/types.ts`                      | modifica | aggiunge `MediaType`, `PendingMedia`, estende `TurnContext`  |
-| `src/config/constants.ts`           | modifica | aggiunge `VISION_CAPABLE_MODELS`                             |
-| `src/config/schema.ts`              | modifica | aggiunge `media` block                                       |
-| `config/defaults.ts`                | modifica | aggiunge `media` block                                       |
-| `config/user-config.example.yaml`   | modifica | aggiunge sezione commentata                                  |
-| `prompts/turn/07b_media_rules.txt`  | nuovo    | regole media per AI                                          |
-| `src/scripts/test-e2e.ts`           | modifica | nuovi scenari image-vision / image-escalation / audio-escalate (vedi Spec B) |
+| File                               | Tipo     | Cambiamento                                                                  |
+| ---------------------------------- | -------- | ---------------------------------------------------------------------------- |
+| `src/dispatcher/index.ts`          | modifica | branch media-aware in `handleIncoming`                                       |
+| `src/dispatcher/media-policy.ts`   | nuovo    | mapping + policy resolver                                                    |
+| `src/whatsapp/client.ts`           | modifica | espone `downloadMedia`                                                       |
+| `src/ai/opencode.ts`               | modifica | parts array + multimodal                                                     |
+| `src/ai/router.ts`                 | modifica | overload con `parts`                                                         |
+| `src/ai/turn.ts`                   | modifica | accetta `mediaParts` optional                                                |
+| `src/orchestrator/context.ts`      | modifica | include `pendingMedia` in TurnContext                                        |
+| `src/orchestrator/index.ts`        | modifica | drena MediaQueue al fire, passa a generateTurn                               |
+| `src/orchestrator/media-queue.ts`  | nuovo    | Map<chatId, PendingMedia[]> + push/drain                                     |
+| `src/escalation/from-media.ts`     | nuovo    | helper diretto per escalation media-driven                                   |
+| `src/types.ts`                     | modifica | aggiunge `MediaType`, `PendingMedia`, estende `TurnContext`                  |
+| `src/config/constants.ts`          | modifica | aggiunge `VISION_CAPABLE_MODELS`                                             |
+| `src/config/schema.ts`             | modifica | aggiunge `media` block                                                       |
+| `config/defaults.ts`               | modifica | aggiunge `media` block                                                       |
+| `config/user-config.example.yaml`  | modifica | aggiunge sezione commentata                                                  |
+| `prompts/turn/07b_media_rules.txt` | nuovo    | regole media per AI                                                          |
+| `src/scripts/test-e2e.ts`          | modifica | nuovi scenari image-vision / image-escalation / audio-escalate (vedi Spec B) |
 
 ## Vincoli e fuori-scope
 

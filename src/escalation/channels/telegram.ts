@@ -41,11 +41,17 @@ export class TelegramChannel implements EscalationChannel {
     )
     const okCount = results.filter((r) => r.status === 'fulfilled' && r.value).length
     if (okCount === 0) {
-      log.error({ escId: payload.esc.id, recipients: chatIds.length }, 'telegram broadcast: all failed')
+      log.error(
+        { escId: payload.esc.id, recipients: chatIds.length },
+        'telegram broadcast: all failed'
+      )
       return false
     }
     if (okCount < chatIds.length) {
-      log.warn({ escId: payload.esc.id, ok: okCount, total: chatIds.length }, 'telegram broadcast: partial')
+      log.warn(
+        { escId: payload.esc.id, ok: okCount, total: chatIds.length },
+        'telegram broadcast: partial'
+      )
     }
     return true
   }
@@ -78,7 +84,10 @@ export class TelegramChannel implements EscalationChannel {
       } catch {
         body = '<unreadable>'
       }
-      log.error({ status: res.status, body, escId: payload.esc.id, chatId }, 'telegram send rejected')
+      log.error(
+        { status: res.status, body, escId: payload.esc.id, chatId },
+        'telegram send rejected'
+      )
       return false
     }
     return true

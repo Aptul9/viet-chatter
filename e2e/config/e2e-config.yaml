@@ -14,7 +14,7 @@ maxDelayMs: 15000
 jitterPct: 0.2
 nightWindow:
   startHour: 4
-  endHour: 4                                  # start==end disables night window
+  endHour: 4 # start==end disables night window
 rollingLatencyWindow: 5
 fallbackDelayMs: 10000
 postReconnectSpreadMs:
@@ -78,13 +78,13 @@ filter:
 
 # -- Media handling (Spec A) --
 media:
-  image:         { strategy: 'vision' }
-  sticker:       { strategy: 'skip' }
-  audio:         { strategy: 'escalate' }
-  ptt:           { strategy: 'escalate' }
-  video:         { strategy: 'escalate' }
-  document:      { strategy: 'escalate' }
-  location:      { strategy: 'escalate' }
+  image: { strategy: 'vision' }
+  sticker: { strategy: 'skip' }
+  audio: { strategy: 'escalate' }
+  ptt: { strategy: 'escalate' }
+  video: { strategy: 'escalate' }
+  document: { strategy: 'escalate' }
+  location: { strategy: 'escalate' }
   live_location: { strategy: 'escalate' }
-  vcard:         { strategy: 'escalate' }
+  vcard: { strategy: 'escalate' }
   visionFallback: 'escalate'

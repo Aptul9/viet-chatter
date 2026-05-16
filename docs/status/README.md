@@ -18,11 +18,13 @@ Folder operativa di tracking dello sviluppo del progetto. v1 shipped 2026-05-16,
 V1 base shippata. 4 smoke test live ancora pendenti + 5 specs nuovi in attesa di implementazione.
 
 Per ogni spec in `Not Started`:
+
 1. Implementare seguendo il design doc in `docs/dev/specs/`.
 2. Quando completato, sposta da `Not Started` → `Done` e aggiungi entry in `done.md` con esito + decisioni.
 3. Eventuali deviazioni dal design vanno annotate in `docs/dev/19-implementation-notes.md`.
 
 Per smoke test live in `In Progress`:
+
 - Esecuzione richiede WhatsApp reale paired + (per #62) Telegram bot configurato.
 - Sposta a `Done` con esito quando eseguito. Se fallisce, lascia `In Progress` con annotazione.
 

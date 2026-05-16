@@ -48,7 +48,7 @@ function killWindows(absSessionDir: string): void {
   const res = spawnSync(
     'powershell.exe',
     ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', ps],
-    { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 10_000 },
+    { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 10_000 }
   )
   const out = (res.stdout ?? '') + (res.stderr ?? '')
   const pids = out

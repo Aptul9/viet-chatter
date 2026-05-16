@@ -36,9 +36,7 @@ export const skipOutput: Scenario = {
 
     const turnOk = await waitFor(() => {
       const r = deps.sqlite
-        .prepare(
-          "SELECT COUNT(*) AS c FROM turn_log WHERE chat_id = ? AND status = 'skipped'"
-        )
+        .prepare("SELECT COUNT(*) AS c FROM turn_log WHERE chat_id = ? AND status = 'skipped'")
         .get(deps.chatId) as { c: number }
       return r.c >= 1
     }, 20_000)

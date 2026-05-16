@@ -106,7 +106,12 @@ async function reload(source: string): Promise<void> {
     setLogLevel(next.config.logLevel)
     // eslint-disable-next-line no-console
     console.log(
-      JSON.stringify({ level: 'info', msg: 'config reloaded', source, logLevel: next.config.logLevel })
+      JSON.stringify({
+        level: 'info',
+        msg: 'config reloaded',
+        source,
+        logLevel: next.config.logLevel,
+      })
     )
   } catch (err) {
     // eslint-disable-next-line no-console

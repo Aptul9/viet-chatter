@@ -26,7 +26,9 @@ export async function executeSummarizeChat(
     .prepare(
       'SELECT display_name AS displayName, languages, tone_summary AS toneSummary FROM person_profile WHERE chat_id = ?'
     )
-    .get(payload.chatId) as { displayName: string | null; languages: string; toneSummary: string | null } | undefined
+    .get(payload.chatId) as
+    | { displayName: string | null; languages: string; toneSummary: string | null }
+    | undefined
 
   let languages: string[] = ['en']
   if (profile?.languages) {
@@ -66,7 +68,11 @@ export async function executeSummarizeChat(
 
   const context = {
     chat: { id: payload.chatId, displayName: profile?.displayName ?? null, languages },
-    dateRange: { startIso: new Date(cutoff).toISOString(), endIso: new Date(now).toISOString(), days },
+    dateRange: {
+      startIso: new Date(cutoff).toISOString(),
+      endIso: new Date(now).toISOString(),
+      days,
+    },
     messages,
     facts,
     toneSummary: profile?.toneSummary ?? null,

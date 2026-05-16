@@ -46,7 +46,9 @@ async function main(): Promise<void> {
   try {
     mod = (await import(`./checks/${name}.js`)) as { check: CheckFn }
   } catch (err) {
-    console.error(`[validator] unknown check '${name}': ${err instanceof Error ? err.message : String(err)}`)
+    console.error(
+      `[validator] unknown check '${name}': ${err instanceof Error ? err.message : String(err)}`
+    )
     process.exit(2)
   }
   const result = await mod.check(deps)

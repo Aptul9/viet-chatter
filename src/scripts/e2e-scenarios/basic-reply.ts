@@ -35,7 +35,8 @@ export const basicReply: Scenario = {
       .prepare('SELECT status FROM turn_log WHERE chat_id = ? ORDER BY id DESC LIMIT 1')
       .get(deps.chatId) as { status: string } | undefined
     if (!turnRow) errors.push('no turn_log row created')
-    else if (turnRow.status !== 'sent') errors.push(`turn_log.status=${turnRow.status}, want 'sent'`)
+    else if (turnRow.status !== 'sent')
+      errors.push(`turn_log.status=${turnRow.status}, want 'sent'`)
 
     const procRow = deps.sqlite
       .prepare(

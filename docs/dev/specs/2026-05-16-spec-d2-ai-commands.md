@@ -95,10 +95,10 @@ export const agentCommands = sqliteTable(
   'agent_commands',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
-    sessionId: text('session_id').notNull(),     // raggruppa azioni della stessa conversation UI
+    sessionId: text('session_id').notNull(), // raggruppa azioni della stessa conversation UI
     prompt: text('prompt').notNull(),
     actionType: text('action_type').notNull(),
-    actionPayload: text('action_payload').notNull(),   // JSON
+    actionPayload: text('action_payload').notNull(), // JSON
     status: text('status', { enum: ['proposed', 'confirmed', 'executed', 'failed', 'rejected'] })
       .notNull()
       .default('proposed'),
@@ -123,10 +123,10 @@ const AgentActionSchema = z.discriminatedUnion('type', [
       chatId: z.string(),
       kind: z.enum(['date_anchored', 'revive']),
       fireAtIso: z.string().datetime(),
-      action: z.string().min(1).max(200),    // free text describing what to do at fire
+      action: z.string().min(1).max(200), // free text describing what to do at fire
       recurring: z.literal('yearly').optional(),
     }),
-    preview: z.string(),                      // human-readable summary for UI
+    preview: z.string(), // human-readable summary for UI
   }),
   z.object({
     type: z.literal('cancelManualJobs'),
@@ -145,7 +145,7 @@ const AgentActionSchema = z.discriminatedUnion('type', [
     preview: z.string(),
   }),
   z.object({
-    type: z.literal('summarizeChat'),         // read-only, alias di D1
+    type: z.literal('summarizeChat'), // read-only, alias di D1
     payload: z.object({
       chatId: z.string(),
       days: z.number().int().min(1).max(30),
@@ -161,7 +161,7 @@ const AgentActionSchema = z.discriminatedUnion('type', [
     preview: z.string(),
   }),
   z.object({
-    type: z.literal('listOverview'),          // read-only catalog
+    type: z.literal('listOverview'), // read-only catalog
     payload: z.object({
       scope: z.enum(['chats', 'schedule', 'escalations']),
     }),
@@ -170,8 +170,8 @@ const AgentActionSchema = z.discriminatedUnion('type', [
 ])
 
 export const AgentOutputSchema = z.object({
-  thinking: z.string(),                       // chain of thought (for UI display, NOT for execution)
-  proposedActions: z.array(AgentActionSchema).max(5),  // cap 5 actions per turn
+  thinking: z.string(), // chain of thought (for UI display, NOT for execution)
+  proposedActions: z.array(AgentActionSchema).max(5), // cap 5 actions per turn
   clarificationNeeded: z.string().nullable(), // se AI non puo' produrre azione, chiede chiarimento
 })
 ```
@@ -186,14 +186,14 @@ Pattern uniforme:
 export interface ActionHandler<P> {
   type: AgentActionType
   isReadOnly: boolean
-  validate: (payload: P, sqlite: Sqlite) => string | null   // null = ok, string = errore
+  validate: (payload: P, sqlite: Sqlite) => string | null // null = ok, string = errore
   execute: (payload: P, sqlite: Sqlite) => Promise<ActionResult>
 }
 
 interface ActionResult {
   success: boolean
-  message: string                              // shown to user in UI
-  data?: unknown                               // optional details (e.g. summary text)
+  message: string // shown to user in UI
+  data?: unknown // optional details (e.g. summary text)
 }
 ```
 
@@ -249,7 +249,8 @@ Top di `web/app/dashboard/agent/page.tsx`:
   <strong>⚠️ Avviso sicurezza</strong>
   <p className="text-sm">
     Questo canale puo' modificare lo stato del bot (creare job, cancellare escalations, ecc.).
-    Accessibile solo da <code>localhost</code>. Non esporre questa UI in rete senza aggiungere autenticazione.
+    Accessibile solo da <code>localhost</code>. Non esporre questa UI in rete senza aggiungere
+    autenticazione.
   </p>
 </div>
 ```
@@ -292,8 +293,22 @@ You ALWAYS include a human-readable `preview` field for each action so the owner
 interface AgentContext {
   nowIso: string
   chats: Array<{ chatId: string; displayName: string | null; lastMsgIso: string | null }>
-  pendingEscalations: Array<{ id: number; chatId: string; displayName: string | null; reason: string; urgency: string; summary: string; ageHours: number }>
-  pendingManualJobs: Array<{ id: number; chatId: string; displayName: string | null; kind: string; fireAtIso: string }>
+  pendingEscalations: Array<{
+    id: number
+    chatId: string
+    displayName: string | null
+    reason: string
+    urgency: string
+    summary: string
+    ageHours: number
+  }>
+  pendingManualJobs: Array<{
+    id: number
+    chatId: string
+    displayName: string | null
+    kind: string
+    fireAtIso: string
+  }>
 }
 ```
 

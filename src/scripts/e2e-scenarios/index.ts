@@ -18,8 +18,6 @@ export const SCENARIOS: Scenario[] = [
   escalationOutput,
 ]
 
-export const SCENARIO_BY_NAME = new Map<string, Scenario>(
-  SCENARIOS.map((s) => [s.name, s])
-)
+export const SCENARIO_BY_NAME = new Map<string, Scenario>(SCENARIOS.map((s) => [s.name, s]))
 
 export type { Scenario } from './types.js'

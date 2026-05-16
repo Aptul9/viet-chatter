@@ -49,7 +49,9 @@ export function lastTurnLog(db: DB, chatId?: string): TurnLogRow | undefined {
       .prepare(`SELECT * FROM turn_log WHERE chat_id = ? ORDER BY id DESC LIMIT 1`)
       .get(chatId) as TurnLogRow | undefined
   }
-  return db.prepare(`SELECT * FROM turn_log ORDER BY id DESC LIMIT 1`).get() as TurnLogRow | undefined
+  return db.prepare(`SELECT * FROM turn_log ORDER BY id DESC LIMIT 1`).get() as
+    | TurnLogRow
+    | undefined
 }
 
 export interface EscalationRow {
@@ -76,7 +78,11 @@ export function lastEscalation(db: DB, chatId?: string): EscalationRow | undefin
     | undefined
 }
 
-export function countEscalations(db: DB, chatId?: string, status?: EscalationRow['status']): number {
+export function countEscalations(
+  db: DB,
+  chatId?: string,
+  status?: EscalationRow['status']
+): number {
   const clauses: string[] = []
   const params: unknown[] = []
   if (chatId) {
@@ -88,9 +94,9 @@ export function countEscalations(db: DB, chatId?: string, status?: EscalationRow
     params.push(status)
   }
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''
-  const row = db
-    .prepare(`SELECT COUNT(*) AS c FROM escalations ${where}`)
-    .get(...params) as { c: number }
+  const row = db.prepare(`SELECT COUNT(*) AS c FROM escalations ${where}`).get(...params) as {
+    c: number
+  }
   return row.c
 }
 
@@ -105,7 +111,9 @@ export interface ManualJobRow {
 export function pendingManualJobs(db: DB, chatId?: string): ManualJobRow[] {
   if (chatId) {
     return db
-      .prepare(`SELECT * FROM manual_jobs WHERE chat_id = ? AND status = 'pending' ORDER BY fire_at`)
+      .prepare(
+        `SELECT * FROM manual_jobs WHERE chat_id = ? AND status = 'pending' ORDER BY fire_at`
+      )
       .all(chatId) as ManualJobRow[]
   }
   return db

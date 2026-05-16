@@ -66,16 +66,16 @@ BOT_TARGET_NUMBER=393334445566 npx tsx e2e/run.ts <scenario> [--ai stub|real] [-
 
 ## Available scenarios
 
-| Scenario                    | Driver action                                | Validator expects                                          |
-| --------------------------- | -------------------------------------------- | ---------------------------------------------------------- |
-| `send-text`                 | single text message                          | `basic-reply`: >=1 `out_bot`, last `turn_log.status=sent`  |
-| `send-image`                | image with caption                           | `image-vision`: bot replied, log has `AI call (multimodal)`|
-| `send-image` (no-vision AI) | image with caption, model not vision-capable | `image-escalation-fallback`: 1 pending escalation, no reply|
-| `send-audio`                | voice clip (ptt)                             | `audio-escalation`: 0 replies, escalation summary has "audio"|
-| `send-document`             | PDF                                          | manual: escalation row created                             |
-| `send-location`             | static GPS pin                               | manual: escalation row created                             |
-| `burst-text`                | 5 text messages, 500ms apart                 | `basic-reply` (only 1 turn fires, debounce coalesces)      |
-| `reconnect`                 | manual: see check source                     | `reconnect`: placeholder                                   |
+| Scenario                    | Driver action                                | Validator expects                                             |
+| --------------------------- | -------------------------------------------- | ------------------------------------------------------------- |
+| `send-text`                 | single text message                          | `basic-reply`: >=1 `out_bot`, last `turn_log.status=sent`     |
+| `send-image`                | image with caption                           | `image-vision`: bot replied, log has `AI call (multimodal)`   |
+| `send-image` (no-vision AI) | image with caption, model not vision-capable | `image-escalation-fallback`: 1 pending escalation, no reply   |
+| `send-audio`                | voice clip (ptt)                             | `audio-escalation`: 0 replies, escalation summary has "audio" |
+| `send-document`             | PDF                                          | manual: escalation row created                                |
+| `send-location`             | static GPS pin                               | manual: escalation row created                                |
+| `burst-text`                | 5 text messages, 500ms apart                 | `basic-reply` (only 1 turn fires, debounce coalesces)         |
+| `reconnect`                 | manual: see check source                     | `reconnect`: placeholder                                      |
 
 Note: scenario name and validator check name are independent. The
 orchestrator reuses the scenario name for both files; if you want a

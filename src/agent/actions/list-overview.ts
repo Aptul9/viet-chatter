@@ -1,10 +1,7 @@
 // Spec D2 — Action: read-only overview snapshot.
 
 import type { Sqlite } from '../../db/client.js'
-import {
-  getScheduleOverview,
-  listChatsWithSummary,
-} from '../../db/repo.js'
+import { getScheduleOverview, listChatsWithSummary } from '../../db/repo.js'
 import type { ActionResult } from '../types.js'
 
 export interface ListOverviewPayload {

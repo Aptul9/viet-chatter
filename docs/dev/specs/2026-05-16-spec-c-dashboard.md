@@ -136,7 +136,7 @@ Tutte sotto `web/app/api/dashboard/`. Pattern coerente con `web/app/api/config/r
 // web/app/api/dashboard/chats/route.ts
 import { NextResponse } from 'next/server'
 import { getReadOnlyDb } from '@/lib/db-ro'
-import { listChatsWithSummary } from '@/lib/repo-bridge'  // re-export from src
+import { listChatsWithSummary } from '@/lib/repo-bridge' // re-export from src
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -155,6 +155,7 @@ Helper `web/lib/repo-bridge.ts`: thin re-export delle funzioni read-only da `src
 Server components dove possibile (data fetch al render).
 
 **`web/app/dashboard/page.tsx`** (home):
+
 - top: 3 stats cards (messaggi 24h, turn sent 24h, escalations pending).
 - middle: lista compatta chat (top 10 by recent activity).
 - link a `/dashboard/chats`, `/dashboard/schedule`, `/dashboard/stats`, `/dashboard/summary`.
@@ -162,6 +163,7 @@ Server components dove possibile (data fetch al render).
 **`web/app/dashboard/chats/page.tsx`**: tabella full di tutte le chat, sortabile (lato client). Click su row → `[chatId]/page.tsx`.
 
 **`web/app/dashboard/chats/[chatId]/page.tsx`**: scheda chat con:
+
 - Profile (displayName, languages, toneSummary, engagement state, threshold)
 - Facts in 3 sezioni (important, secondary, ephemeral). Tabella con content, confidence, created.
 - Recent messages (last 50). Direction badge, body, ts.
@@ -169,6 +171,7 @@ Server components dove possibile (data fetch al render).
 - Recent escalations (last 10). Reason, urgency, summary, status.
 
 **`web/app/dashboard/schedule/page.tsx`**: 3 sezioni:
+
 - Chat in ACCUMULATING / SCHEDULED / SENDING (con fire_at e debounce_deadline)
 - Manual jobs pending (kind, fire_at, chatId, payload sintetico)
 - Escalations pending (con created_at, age, reason, urgency, summary truncato)
@@ -285,36 +288,36 @@ async function loadAndCombinePrompts(dir: string): Promise<string> {
 
 ## Modifiche ai file
 
-| File                                          | Tipo     | Cambiamento                                          |
-| --------------------------------------------- | -------- | ---------------------------------------------------- |
-| `src/db/repo.ts`                              | modifica | 4 helper read-only aggiunti                          |
-| `src/ai/turn.ts`                              | modifica | `loadAndCombinePrompts` cache map per dir            |
-| `prompts/summary/00_role.txt`                 | nuovo    | role summarizer                                       |
-| `prompts/summary/01_format.txt`               | nuovo    | format markdown                                      |
-| `prompts/summary/99_context_template.txt`     | nuovo    | placeholder                                          |
-| `web/app/dashboard/layout.tsx`                | nuovo    | nav fra config + dashboard subtabs                   |
-| `web/app/dashboard/page.tsx`                  | nuovo    | home dashboard                                       |
-| `web/app/dashboard/chats/page.tsx`            | nuovo    | lista chat                                           |
-| `web/app/dashboard/chats/[chatId]/page.tsx`   | nuovo    | dettaglio chat                                       |
-| `web/app/dashboard/schedule/page.tsx`         | nuovo    | schedule view                                        |
-| `web/app/dashboard/stats/page.tsx`            | nuovo    | stats view                                           |
-| `web/app/dashboard/summary/page.tsx`          | nuovo    | summary form                                         |
-| `web/app/api/dashboard/chats/route.ts`        | nuovo    | GET list                                             |
-| `web/app/api/dashboard/chats/[chatId]/route.ts` | nuovo  | GET detail                                           |
-| `web/app/api/dashboard/schedule/route.ts`     | nuovo    | GET                                                  |
-| `web/app/api/dashboard/stats/route.ts`        | nuovo    | GET con range query                                  |
-| `web/app/api/dashboard/summary/route.ts`      | nuovo    | POST D1                                              |
-| `web/components/dashboard/ChatList.tsx`       | nuovo    | tabella chat                                         |
-| `web/components/dashboard/FactsTable.tsx`     | nuovo    | tabella facts 3-tier                                 |
-| `web/components/dashboard/ScheduleTable.tsx`  | nuovo    | tabella code                                         |
-| `web/components/dashboard/StatsCards.tsx`     | nuovo    | grid counter                                         |
-| `web/components/dashboard/SummaryForm.tsx`    | nuovo    | form D1                                              |
-| `web/lib/db-ro.ts`                            | nuovo    | helper readonly DB                                   |
-| `web/lib/repo-bridge.ts`                      | nuovo    | re-export functions da src/db/repo                   |
-| `web/lib/format.ts`                           | nuovo    | helpers formatting                                   |
-| `web/app/page.tsx`                            | modifica | link a /dashboard                                    |
-| `web/README.md`                               | modifica | sezione dashboard + warning dev-only                 |
-| `docs/dev/16-future-enhancements.md`          | modifica | rimuove #7 Dashboard (ora in scope)                  |
+| File                                            | Tipo     | Cambiamento                               |
+| ----------------------------------------------- | -------- | ----------------------------------------- |
+| `src/db/repo.ts`                                | modifica | 4 helper read-only aggiunti               |
+| `src/ai/turn.ts`                                | modifica | `loadAndCombinePrompts` cache map per dir |
+| `prompts/summary/00_role.txt`                   | nuovo    | role summarizer                           |
+| `prompts/summary/01_format.txt`                 | nuovo    | format markdown                           |
+| `prompts/summary/99_context_template.txt`       | nuovo    | placeholder                               |
+| `web/app/dashboard/layout.tsx`                  | nuovo    | nav fra config + dashboard subtabs        |
+| `web/app/dashboard/page.tsx`                    | nuovo    | home dashboard                            |
+| `web/app/dashboard/chats/page.tsx`              | nuovo    | lista chat                                |
+| `web/app/dashboard/chats/[chatId]/page.tsx`     | nuovo    | dettaglio chat                            |
+| `web/app/dashboard/schedule/page.tsx`           | nuovo    | schedule view                             |
+| `web/app/dashboard/stats/page.tsx`              | nuovo    | stats view                                |
+| `web/app/dashboard/summary/page.tsx`            | nuovo    | summary form                              |
+| `web/app/api/dashboard/chats/route.ts`          | nuovo    | GET list                                  |
+| `web/app/api/dashboard/chats/[chatId]/route.ts` | nuovo    | GET detail                                |
+| `web/app/api/dashboard/schedule/route.ts`       | nuovo    | GET                                       |
+| `web/app/api/dashboard/stats/route.ts`          | nuovo    | GET con range query                       |
+| `web/app/api/dashboard/summary/route.ts`        | nuovo    | POST D1                                   |
+| `web/components/dashboard/ChatList.tsx`         | nuovo    | tabella chat                              |
+| `web/components/dashboard/FactsTable.tsx`       | nuovo    | tabella facts 3-tier                      |
+| `web/components/dashboard/ScheduleTable.tsx`    | nuovo    | tabella code                              |
+| `web/components/dashboard/StatsCards.tsx`       | nuovo    | grid counter                              |
+| `web/components/dashboard/SummaryForm.tsx`      | nuovo    | form D1                                   |
+| `web/lib/db-ro.ts`                              | nuovo    | helper readonly DB                        |
+| `web/lib/repo-bridge.ts`                        | nuovo    | re-export functions da src/db/repo        |
+| `web/lib/format.ts`                             | nuovo    | helpers formatting                        |
+| `web/app/page.tsx`                              | modifica | link a /dashboard                         |
+| `web/README.md`                                 | modifica | sezione dashboard + warning dev-only      |
+| `docs/dev/16-future-enhancements.md`            | modifica | rimuove #7 Dashboard (ora in scope)       |
 
 ## Validation criteria
 

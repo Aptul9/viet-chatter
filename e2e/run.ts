@@ -37,7 +37,9 @@ function parseArgs(): Args {
     process.exit(2)
   }
   const scenario = argv[0]!
-  const ai = argv.includes('--ai') ? ((argv[argv.indexOf('--ai') + 1] ?? 'stub') as 'stub' | 'real') : 'stub'
+  const ai = argv.includes('--ai')
+    ? ((argv[argv.indexOf('--ai') + 1] ?? 'stub') as 'stub' | 'real')
+    : 'stub'
   const keep = argv.includes('--keep')
   return { scenario, ai, keep }
 }
@@ -67,7 +69,12 @@ function restoreConfig(backedUp: boolean): void {
   }
 }
 
-function spawnBot(scenario: string, ai: 'stub' | 'real', logPath: string, dbPath: string): ChildProcess {
+function spawnBot(
+  scenario: string,
+  ai: 'stub' | 'real',
+  logPath: string,
+  dbPath: string
+): ChildProcess {
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     BOT_E2E_MODE: '1',
@@ -111,15 +118,11 @@ async function waitForBotReady(logPath: string, timeoutMs: number): Promise<void
 
 function runDriver(scenario: string, botNumber: string): { ok: boolean } {
   console.log(`[run] driver scenario=${scenario} -> ${botNumber}`)
-  const result = spawnSync(
-    'npm',
-    ['run', 'scenario', '--', scenario, '--to', botNumber],
-    {
-      cwd: resolve(E2E_DIR, 'driver'),
-      stdio: 'inherit',
-      shell: process.platform === 'win32',
-    }
-  )
+  const result = spawnSync('npm', ['run', 'scenario', '--', scenario, '--to', botNumber], {
+    cwd: resolve(E2E_DIR, 'driver'),
+    stdio: 'inherit',
+    shell: process.platform === 'win32',
+  })
   return { ok: result.status === 0 }
 }
 

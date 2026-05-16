@@ -195,9 +195,7 @@ export interface ScenarioCtx {
 /** Bootstrap every dependency for a single scenario + start the ticker. */
 export async function bootstrapScenario(opts: {
   chatId: string
-  history?: TestDeps extends { wa: infer _W }
-    ? Parameters<typeof makeFakeWa>[0]['history']
-    : never
+  history?: TestDeps extends { wa: infer _W } ? Parameters<typeof makeFakeWa>[0]['history'] : never
   downloadMediaResult?: Parameters<typeof makeFakeWa>[0]['downloadMediaResult']
 }): Promise<ScenarioCtx> {
   await ensureInitialized()

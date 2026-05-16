@@ -41,9 +41,11 @@ export const imageVision: Scenario = {
 
     // Override the fake WA's downloadMedia by patching the closure: easier to
     // monkey-patch via Object.defineProperty since the handle is opaque.
-    ;(deps.wa as unknown as {
-      downloadMedia: () => Promise<{ mime: string; base64: string; filename: string | null }>
-    }).downloadMedia = async () => ({
+    ;(
+      deps.wa as unknown as {
+        downloadMedia: () => Promise<{ mime: string; base64: string; filename: string | null }>
+      }
+    ).downloadMedia = async () => ({
       mime: 'image/png',
       base64: TINY_PNG_BASE64,
       filename: null,

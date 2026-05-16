@@ -98,7 +98,10 @@ async function main(): Promise<void> {
   for (const delayMs of [15_000, 45_000, 120_000]) {
     setTimeout(() => {
       runReconciler({ sqlite, wa, dispatcher }).catch((err) =>
-        log.warn({ err: err instanceof Error ? err.message : String(err) }, 'delayed reconciler failed')
+        log.warn(
+          { err: err instanceof Error ? err.message : String(err) },
+          'delayed reconciler failed'
+        )
       )
     }, delayMs).unref()
   }

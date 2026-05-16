@@ -31,7 +31,8 @@ export async function executeCancelManualJobs(
   if (conditions.length === 1) {
     return {
       success: false,
-      message: 'refusing to cancel ALL pending jobs without at least one filter (chatId / kind / jobIds)',
+      message:
+        'refusing to cancel ALL pending jobs without at least one filter (chatId / kind / jobIds)',
     }
   }
   const sql = `UPDATE manual_jobs SET status = 'cancelled' WHERE ${conditions.join(' AND ')}`

@@ -13,29 +13,17 @@ export type ActionExecutor = (action: AgentAction, sqlite: Sqlite) => Promise<Ac
 
 const REGISTRY: Record<AgentActionType, ActionExecutor> = {
   createManualJob: (a, db) =>
-    a.type === 'createManualJob'
-      ? executeCreateManualJob(a.payload, db)
-      : invalid(a.type),
+    a.type === 'createManualJob' ? executeCreateManualJob(a.payload, db) : invalid(a.type),
   cancelManualJobs: (a, db) =>
-    a.type === 'cancelManualJobs'
-      ? executeCancelManualJobs(a.payload, db)
-      : invalid(a.type),
+    a.type === 'cancelManualJobs' ? executeCancelManualJobs(a.payload, db) : invalid(a.type),
   dismissEscalation: (a, db) =>
-    a.type === 'dismissEscalation'
-      ? executeDismissEscalation(a.payload, db)
-      : invalid(a.type),
+    a.type === 'dismissEscalation' ? executeDismissEscalation(a.payload, db) : invalid(a.type),
   summarizeChat: (a, db) =>
-    a.type === 'summarizeChat'
-      ? executeSummarizeChat(a.payload, db)
-      : invalid(a.type),
+    a.type === 'summarizeChat' ? executeSummarizeChat(a.payload, db) : invalid(a.type),
   updateEngagement: (a, db) =>
-    a.type === 'updateEngagement'
-      ? executeUpdateEngagement(a.payload, db)
-      : invalid(a.type),
+    a.type === 'updateEngagement' ? executeUpdateEngagement(a.payload, db) : invalid(a.type),
   listOverview: (a, db) =>
-    a.type === 'listOverview'
-      ? executeListOverview(a.payload, db)
-      : invalid(a.type),
+    a.type === 'listOverview' ? executeListOverview(a.payload, db) : invalid(a.type),
 }
 
 async function invalid(type: string): Promise<ActionResult> {

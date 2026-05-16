@@ -22,7 +22,9 @@ interface ParsedArgs {
 function parseArgs(): ParsedArgs {
   const argv = process.argv.slice(2)
   if (argv.length < 1 || argv[0]?.startsWith('--')) {
-    console.error('usage: npm run scenario -- <scenario> --to <e164> [--body <text>] [--file <path>]')
+    console.error(
+      'usage: npm run scenario -- <scenario> --to <e164> [--body <text>] [--file <path>]'
+    )
     process.exit(2)
   }
   const scenario = argv[0]!

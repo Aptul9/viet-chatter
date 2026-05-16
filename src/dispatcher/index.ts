@@ -114,10 +114,7 @@ export class MessageDispatcher {
     const row: ProcessedMessageRow = { whatsappMsgId, chatId, direction, ts }
     insertProcessedMessage(this.deps.sqlite, row) // idempotent on PK
 
-    log.info(
-      { chatId, msgId: whatsappMsgId, direction, fromBoot: !!opts.fromBoot },
-      'msg received'
-    )
+    log.info({ chatId, msgId: whatsappMsgId, direction, fromBoot: !!opts.fromBoot }, 'msg received')
 
     if (direction === 'in') {
       await this.handleIncoming(msg, chat, chatId, ts)
@@ -152,7 +149,12 @@ export class MessageDispatcher {
     const allowed = applyFilter(ctx)
     if (!allowed) {
       log.info(
-        { chatId, phone: ctx.phone, isSavedContact: ctx.isSavedContact, unreadCount: ctx.unreadCount },
+        {
+          chatId,
+          phone: ctx.phone,
+          isSavedContact: ctx.isSavedContact,
+          unreadCount: ctx.unreadCount,
+        },
         'msg filtered out'
       )
       return
@@ -214,10 +216,7 @@ export class MessageDispatcher {
     // strategy === 'vision'
     const downloaded = await this.deps.wa.downloadMedia(msg as never)
     if (!downloaded) {
-      log.warn(
-        { chatId, mediaType, msgId },
-        'media download failed, falling back to escalate'
-      )
+      log.warn({ chatId, mediaType, msgId }, 'media download failed, falling back to escalate')
       escalateMedia({
         sqlite: this.deps.sqlite,
         notifier: this.deps.escalationNotifier,
@@ -300,7 +299,10 @@ export async function buildChatContext(chat: ChatLike): Promise<ChatContext> {
  * (digits only, no +). Same for `contact.id.user` when number is missing.
  * If we can't resolve it, return "" so the filter rejects deterministically.
  */
-function resolvePhone(serialized: string, contact: ChatLike extends { getContact: () => Promise<infer C> } ? C : never): string {
+function resolvePhone(
+  serialized: string,
+  contact: ChatLike extends { getContact: () => Promise<infer C> } ? C : never
+): string {
   // 1. Phone-keyed jid: trivial parse.
   const phoneJidMatch = serialized.match(/^(\d+)@(c\.us|s\.whatsapp\.net)$/)
   if (phoneJidMatch && phoneJidMatch[1]) return '+' + phoneJidMatch[1]

@@ -58,7 +58,11 @@ export function buildAgentContext(sqlite: Sqlite): AgentContext {
          ORDER BY last_ts DESC
          LIMIT ?`
       )
-      .all(MAX_CHATS) as Array<{ chat_id: string; display_name: string | null; last_ts: number | null }>
+      .all(MAX_CHATS) as Array<{
+      chat_id: string
+      display_name: string | null
+      last_ts: number | null
+    }>
   ).map<AgentChatEntry>((r) => ({
     chatId: r.chat_id,
     displayName: r.display_name,
@@ -76,14 +80,14 @@ export function buildAgentContext(sqlite: Sqlite): AgentContext {
          LIMIT ?`
       )
       .all(MAX_ESCALATIONS) as Array<{
-        id: number
-        chat_id: string
-        display_name: string | null
-        reason: string
-        urgency: string
-        summary: string
-        created_at: number
-      }>
+      id: number
+      chat_id: string
+      display_name: string | null
+      reason: string
+      urgency: string
+      summary: string
+      created_at: number
+    }>
   ).map<AgentEscalationEntry>((r) => ({
     id: r.id,
     chatId: r.chat_id,
@@ -105,12 +109,12 @@ export function buildAgentContext(sqlite: Sqlite): AgentContext {
          LIMIT ?`
       )
       .all(MAX_JOBS) as Array<{
-        id: number
-        chat_id: string
-        display_name: string | null
-        kind: string
-        fire_at: number
-      }>
+      id: number
+      chat_id: string
+      display_name: string | null
+      kind: string
+      fire_at: number
+    }>
   ).map<AgentJobEntry>((r) => ({
     id: r.id,
     chatId: r.chat_id,
