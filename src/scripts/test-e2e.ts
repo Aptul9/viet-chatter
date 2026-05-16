@@ -15,6 +15,9 @@
 //   1  at least one scenario failed
 //   2  no scenarios run (bad name / empty registry)
 
+// MUST be set BEFORE any module that consults the gate (config helper).
+process.env['BOT_E2E_MODE'] = '1'
+
 import 'dotenv/config'
 import { stopOpencodeServer } from '../ai/opencode.js'
 import { bootstrapScenario } from './e2e-scenarios/common.js'
