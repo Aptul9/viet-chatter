@@ -12,11 +12,13 @@ Gruppi sempre ignorati, anche al boot. Il `MessageDispatcher` filtra `chat.isGro
 
 Motivo: contesto sociale multi-persona è un problema di scope completamente diverso (KB per partecipante, sentiment incrociato, decisione "rispondere a chi"). Non vale la complessità per casi d'uso atipici.
 
-### Account multipli WhatsApp
+### Account multipli WhatsApp (nel runtime del bot)
 
-Una sola sessione `whatsapp-web.js`, un solo numero. Niente astrazione `accountId`, niente isolation per account, niente switching.
+Una sola sessione `whatsapp-web.js` IN PRODUZIONE, un solo numero. Niente astrazione `accountId`, niente isolation per account, niente switching.
 
 Motivo: complessità trasversale (ogni tabella avrebbe `account_id`, ogni query filter, ogni flow lookup). Beneficio marginale (chi ha bisogno di multi-account può girare due istanze separate del bot in directory diverse).
+
+**Carve-out 2026-05-16 (Spec B)**: il framework di test e2e in `e2e/driver/` USA un secondo client `whatsapp-web.js` come "driver" per inviare messaggi al bot da un account di test. Vive completamente isolato dal runtime del bot (separate `package.json`, separate `sessionDir`, separate process), e NON espone alcuna astrazione multi-account in `src/`. Vedi `specs/2026-05-16-spec-b-test-framework.md`.
 
 ### Approval flow / draft / preview
 
@@ -40,6 +42,8 @@ Escalation è compatibile con `fully autonomous`: la scelta di escalare è auton
 Niente comandi `npm run kb:*`, `npm run jobs:*`, ecc.
 
 Motivo: fora il principio "tutto via conversazione naturale". Se serve manipolare il KB, lo si fa via DB diretto (intervento raro) o lasciando che l'AI emetta `supersedes_id`.
+
+**Carve-out 2026-05-16 (Spec C + D2)**: la web UI dashboard (Spec C) fornisce lettura read-only su KB + schedule + stats. La spec D2 estende con un AI command channel che propone azioni structured (createManualJob, dismissEscalation, ecc.) eseguite dopo conferma utente. NON e' una CLI con prefissi: e' una chat naturale in UI che ritorna proposed actions whitelisted via zod. Sicurezza: localhost-only binding + kill switch. Vedi `specs/2026-05-16-spec-c-dashboard.md` e `specs/2026-05-16-spec-d2-ai-commands.md`.
 
 ### Self-chat command channel strutturato
 
@@ -79,9 +83,14 @@ Motivo: si delega al filesystem (BitLocker/FileVault/LUKS). La cifratura applica
 
 ### Detection avanzata sticker/audio/video
 
-Il body di messaggi non testuali resta come marker (`[sticker]`, `[audio]`, `[image]`, `[video]`). Niente OCR, niente speech-to-text, niente analisi video.
+**Carve-out 2026-05-16 (Spec A)**: la spec A rilassa parzialmente questa esclusione:
+- **Image**: ora processate via vision API di OpenCode (modello multimodale, allowlist di modelli vision-capable). Reply generata normalmente. Caption usata come testo accompagnatorio.
+- **Audio / video / document / location / live_location / vcard**: forzano un'escalation a umano (riusa infra esistente di `18-escalation.md`). Niente OCR, niente speech-to-text, niente analisi video.
+- **Sticker**: skip (equivalente a emoji singolo).
 
-Motivo: scope creep enorme. Eventualmente in futuro come feature isolata, mai in v1.
+Vedi `specs/2026-05-16-spec-a-media.md` per il design completo.
+
+Resta OUT: OCR di document, STT di audio, frame extraction di video, analisi semantica del contenuto multimediale non-image. Scope creep enorme.
 
 ### Persistenza sentiment classification (in v1)
 

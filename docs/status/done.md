@@ -37,6 +37,31 @@ Per problemi NON banali che impattano la docs o il design futuro:
 
 ## 2026-05-16
 
+### Evento: scope expansion — 5 specs aggiunti (A media / B test framework / C dashboard / D1 AI summary / D2 AI commands)
+
+- Cosa fatto: brainstorm sessione con utente per estendere lo scope post-v1. Decomposizione in 4 spec separati (D1 integrato in C) + 1 spec future-but-now-in-scope (D2). Cinque design doc scritti in `docs/dev/specs/`:
+  - [`2026-05-16-spec-a-media.md`](../dev/specs/2026-05-16-spec-a-media.md): handling non-text media. Image → vision via OpenCode multimodal parts. Audio / video / document / location / vcard / live_location → escalation a umano. Sticker → skip. Vision capability check via allowlist `VISION_CAPABLE_MODELS`. Fallback policy se modello non vision-capable. Config YAML per-tipo. Nuovo prompt `prompts/turn/07b_media_rules.txt`. Zero schema change DB.
+  - [`2026-05-16-spec-b-test-framework.md`](../dev/specs/2026-05-16-spec-b-test-framework.md): test e2e B+C hybrid. C side = scenario registry in `src/scripts/test-e2e.ts` (basic-reply, image-vision, audio-escalation, skip-output, escalation-output, manual-job-revive, out-manual-during-sending). B side = nuovo top-level `e2e/` con driver wweb separato (proprio sessionDir, proprio QR account di test) + validator readonly su bot DB + orchestrator `e2e/run.ts`. Test mode env vars (`BOT_E2E_STUB_AI`, `BOT_E2E_LOG_PATH`, `BOT_E2E_DB_PATH`). Bot resta single-account, multi-account confinato all'e2e tooling.
+  - [`2026-05-16-spec-c-dashboard.md`](../dev/specs/2026-05-16-spec-c-dashboard.md): dashboard read-only nella web UI. 4 nuovi tab (Home / Chats list+detail / Schedule / Stats / Summary). Riusa DB esistente in readonly via WAL (gia' attivo). 4 nuovi helper read-only in `src/db/repo.ts`. API route sotto `web/app/api/dashboard/`. Include D1 (AI summary): nuovo prompt folder `prompts/summary/`, POST endpoint che carica history + facts + profile e chiama AI per riassunto free-form (no zod, no parse).
+  - [`2026-05-16-spec-d2-ai-commands.md`](../dev/specs/2026-05-16-spec-d2-ai-commands.md): AI command channel write-capable. Chat-with-agent in `/dashboard/agent`. AI emette `AgentOutput` con `proposedActions` (createManualJob / cancelManualJobs / dismissEscalation / summarizeChat / updateEngagement / listOverview). Action whitelist enforced via zod discriminated union. Confirm-then-execute pattern per write actions, auto-execute per read-only. Nuova tabella `agent_commands` (migration `0001`). Sicurezza: forced localhost bind (`--hostname 127.0.0.1`) + runtime check su Host header + kill switch `AGENT_DISABLED=1` env var + audit log + banner UI prominente.
+- Decisioni:
+  - **Multi-account WhatsApp resta out-of-scope in `src/`**. Lo zero-shot multi-account refactor (touch ogni tabella, ogni query, ogni flow) e' debito troppo grosso per beneficio marginale. Spec B sposta il "second WhatsApp" in `e2e/driver/` come tool esterno, completamente isolato dal runtime del bot (separate `package.json`, separate `sessionDir`, separate process).
+  - **D2 NON deferred**. L'utente ha esplicitamente autorizzato l'implementazione contestuale a C, accettando il tradeoff sicurezza (no auth, solo localhost). Mitigazioni: forced bind + runtime check + audit log + banner + kill switch + read-only branch handlers + write actions confirm-required.
+  - **Vision via OpenCode parts API**. Wrapper esistente passa solo `parts: [{type:'text', text: prompt}]`. Estensione additiva: accetta array di parts misto text + file. Allowlist hardcoded di modelli vision-capable (gpt-5-mini, gpt-4o, claude-sonnet-4-6, gemini-2.5-pro/flash). Fallback config-driven se modello corrente non in allowlist.
+  - **Media bytes mai persistiti** in DB o filesystem. Vivono in MediaQueue in-memory per il tempo del turn poi dropped. Privacy-by-design.
+  - **Summary AI free-form, no zod**. Output e' prosa markdown destinata all'utente, non struttura. Cap a 4000 chars per evitare uso come LLM proxy gratuito.
+- Decisione board:
+  - `tested.md` conservato con superseded-note al top, NON cancellato (richiesta esplicita utente). Mapping degli item documentato nella note stessa + board.md.
+  - `board.md` ristrutturato: #61 e #64 spostati in Done. Aggiunti #NEW1 (re_engage live test) + #NEW2 (skip-output live test) in In Progress, mappati agli item del tested.md. 5 nuovi card #SA/#SB/#SC/#SD1/#SD2 in Not Started.
+  - `done.md`: questo entry.
+- Documenti aggiornati:
+  - `docs/dev/16-future-enhancements.md`: rimosso #7 (Dashboard locale Next.js) come future enhancement (ora in scope come Spec C).
+  - `docs/dev/17-out-of-scope.md`: rilassati 3 carve-out: (a) "Detection avanzata sticker/audio/video" ora image=vision e altri=escalate, OCR/STT/analisi-video restano OUT; (b) "CLI per KB / job management" equivalente disponibile via web UI dashboard (Spec C+D2); (c) "Account multipli WhatsApp" carve-out per testing only in `e2e/`.
+- Tempo: brainstorm + scrittura specs ~1h wall-clock.
+- Follow-up:
+  - Implementare i 5 spec in ordine A, B, C+D1, D2. Branch corrente `feat/v1-scope-expansion`.
+  - Wave 11 #62 / #63 / #NEW1 / #NEW2 restano live tests manuali, da eseguire dopo l'implementazione di Spec B.
+
 ### Evento: runtime hardening — wweb lid + race fixes
 
 - Cosa fatto: wave di hardening post-implementazione per stabilizzare l'esperienza utente. Coperti: wweb upgrade, lid resolution, isBotSent race, delayed reconciler, pre-launch cleanup, free-port helper, Telegram multi-recipient, dotenv autoload, OpenCode model swap, OPENCODE_DISABLE_DEFAULT_PLUGINS bug, shutdown hardening, dispatcher log level promotion, npm run test:e2e, wweb diagnostics. Dettaglio in [docs/dev/19-implementation-notes.md](../dev/19-implementation-notes.md).
