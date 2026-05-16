@@ -1,0 +1,5 @@
+=== INPUT CONTEXT ===
+
+The summary input is provided below as JSON.
+
+{{CONTEXT}}

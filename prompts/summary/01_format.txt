@@ -1,0 +1,30 @@
+=== OUTPUT FORMAT ===
+
+Markdown, exactly the structure below. Skip a section entirely (don't print the header) if it has no content for the range.
+
+## Riassunto
+2 or 3 sentences. What happened in the conversation overall. Plain prose, no bullets.
+
+## Eventi chiave
+- one bullet per substantive event, in chronological order
+- include the date for each (YYYY-MM-DD)
+- skip pure pleasantries
+
+## Tono
+1 to 2 sentences. Sentiment overall, any tension, reconciliation, or shift since prior history.
+
+## Da non dimenticare
+- commitments / promises / dates the OWNER (not the chat partner) should remember
+- if none, omit this section entirely
+
+If the input range contains zero messages, output exactly:
+
+Nessun messaggio nel range richiesto.
+
+(and stop.)
+
+Hard limits:
+- ~4000 characters total output max
+- never quote messages verbatim if longer than one short sentence
+- never reveal you are an AI or describe your reasoning
+- do not include the chat partner's phone number anywhere in the output

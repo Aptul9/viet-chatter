@@ -687,6 +687,266 @@ function mapManualJob(r: Record<string, unknown>): ManualJobRow {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Part 7 — read-only helpers for Spec C dashboard. Additive, no writes.
+// ---------------------------------------------------------------------------
+
+export interface ChatSummaryRow {
+  chatId: ChatId
+  displayName: string | null
+  lastMsgTs: number | null
+  msgCount24h: number
+  hasPendingEscalation: boolean
+  state: ChatState
+}
+
+export function listChatsWithSummary(sqlite: Sqlite): ChatSummaryRow[] {
+  const now = Date.now()
+  const cutoff24h = now - 24 * 60 * 60 * 1000
+  const rows = sqlite
+    .prepare(
+      `SELECT
+         pm.chat_id AS chat_id,
+         pp.display_name AS display_name,
+         MAX(pm.ts) AS last_msg_ts,
+         SUM(CASE WHEN pm.ts > ? THEN 1 ELSE 0 END) AS count_24h,
+         COALESCE(cs.state, 'IDLE') AS state,
+         (SELECT 1 FROM escalations e WHERE e.chat_id = pm.chat_id AND e.status = 'pending' LIMIT 1) AS has_esc
+       FROM processed_messages pm
+       LEFT JOIN person_profile pp ON pp.chat_id = pm.chat_id
+       LEFT JOIN chat_state cs ON cs.chat_id = pm.chat_id
+       GROUP BY pm.chat_id
+       ORDER BY last_msg_ts DESC`
+    )
+    .all(cutoff24h) as Array<{
+      chat_id: string
+      display_name: string | null
+      last_msg_ts: number | null
+      count_24h: number
+      state: ChatState
+      has_esc: number | null
+    }>
+  return rows.map((r) => ({
+    chatId: r.chat_id,
+    displayName: r.display_name,
+    lastMsgTs: r.last_msg_ts,
+    msgCount24h: r.count_24h ?? 0,
+    hasPendingEscalation: r.has_esc === 1,
+    state: r.state,
+  }))
+}
+
+export interface ChatDetail {
+  profile: PersonProfileRow | null
+  facts: { important: FactRow[]; secondary: FactRow[]; ephemeral: FactRow[] }
+  recentMessages: ProcessedMessageRow[]
+  recentTurns: Array<{
+    id: number
+    ts: number
+    status: string
+    languageUsed: string | null
+    factsExtracted: number
+    durationMs: number | null
+    triggeredBy: string
+  }>
+  recentEscalations: EscalationRow[]
+}
+
+export function getChatDetail(sqlite: Sqlite, chatId: ChatId): ChatDetail {
+  const profile = getPersonProfile(sqlite, chatId)
+  const factsImportant = loadImportant(sqlite, chatId)
+  const factsEphemeral = loadActiveEphemeral(sqlite, chatId)
+  const factsSecondary = sqlite
+    .prepare(
+      "SELECT `id`, `person_id`, `tier`, `content`, `source_msg_id`, `confidence`, `created_at`, `expires_at`, `superseded_by` FROM `facts` WHERE `person_id` = ? AND `tier` = 'secondary' AND `superseded_by` IS NULL ORDER BY `created_at` DESC LIMIT 50"
+    )
+    .all(chatId) as Array<Record<string, unknown>>
+  const recentMessages = recentProcessedMessages(sqlite, chatId, 50)
+  const recentTurns = sqlite
+    .prepare(
+      'SELECT `id`, `ts`, `status`, `language_used` AS languageUsed, `facts_extracted` AS factsExtracted, `duration_ms` AS durationMs, `triggered_by` AS triggeredBy FROM `turn_log` WHERE `chat_id` = ? ORDER BY `id` DESC LIMIT 20'
+    )
+    .all(chatId) as Array<{
+      id: number
+      ts: number
+      status: string
+      languageUsed: string | null
+      factsExtracted: number
+      durationMs: number | null
+      triggeredBy: string
+    }>
+  const recentEscalations = (
+    sqlite
+      .prepare(
+        'SELECT `id`, `chat_id`, `trigger_msg_id`, `reason`, `urgency`, `summary`, `holding_reply_sent`, `status`, `created_at`, `resolved_at`, `notified_channels` FROM `escalations` WHERE `chat_id` = ? ORDER BY `id` DESC LIMIT 10'
+      )
+      .all(chatId) as Array<Record<string, unknown>>
+  ).map(mapEscalation)
+  return {
+    profile,
+    facts: {
+      important: factsImportant,
+      secondary: factsSecondary.map(mapFact),
+      ephemeral: factsEphemeral,
+    },
+    recentMessages,
+    recentTurns,
+    recentEscalations,
+  }
+}
+
+export interface ScheduleOverview {
+  chatStates: ChatStateRow[]
+  manualJobs: ManualJobRow[]
+  escalations: EscalationRow[]
+}
+
+export function getScheduleOverview(sqlite: Sqlite): ScheduleOverview {
+  const chatStates = (
+    sqlite
+      .prepare(
+        "SELECT `chat_id`, `state`, `first_msg_at`, `debounce_deadline`, `fire_at`, `attempt`, `last_event_at` FROM `chat_state` WHERE `state` != 'IDLE' ORDER BY COALESCE(`fire_at`, `last_event_at`) ASC"
+      )
+      .all() as Array<Record<string, unknown>>
+  ).map(mapChatState)
+  const manualJobs = (
+    sqlite
+      .prepare(
+        "SELECT `id`, `chat_id`, `kind`, `fire_at`, `payload`, `status`, `fired_at`, `created_at` FROM `manual_jobs` WHERE `status` = 'pending' ORDER BY `fire_at` ASC LIMIT 100"
+      )
+      .all() as Array<Record<string, unknown>>
+  ).map(mapManualJob)
+  const escalations = (
+    sqlite
+      .prepare(
+        "SELECT `id`, `chat_id`, `trigger_msg_id`, `reason`, `urgency`, `summary`, `holding_reply_sent`, `status`, `created_at`, `resolved_at`, `notified_channels` FROM `escalations` WHERE `status` = 'pending' ORDER BY `id` DESC LIMIT 100"
+      )
+      .all() as Array<Record<string, unknown>>
+  ).map(mapEscalation)
+  return { chatStates, manualJobs, escalations }
+}
+
+export interface StatsSnapshot {
+  range: '24h' | '7d' | 'all'
+  totalMessages: { in: number; out_bot: number; out_manual: number }
+  turns: {
+    sent: number
+    skipped: number
+    failed: number
+    aborted: number
+    escalated: number
+  }
+  escalations: {
+    pending: number
+    user_replied: number
+    superseded: number
+    dismissed: number
+  }
+  avgTurnDurationMs: number | null
+  perChat: Array<{
+    chatId: string
+    displayName: string | null
+    msgIn: number
+    msgOutBot: number
+    msgOutManual: number
+    avgReplyMs: number | null
+  }>
+}
+
+function rangeCutoff(range: '24h' | '7d' | 'all'): number {
+  if (range === 'all') return 0
+  const now = Date.now()
+  const days = range === '24h' ? 1 : 7
+  return now - days * 24 * 60 * 60 * 1000
+}
+
+export function getStats(sqlite: Sqlite, range: '24h' | '7d' | 'all'): StatsSnapshot {
+  const cutoff = rangeCutoff(range)
+
+  const pmRows = sqlite
+    .prepare(
+      'SELECT `direction`, COUNT(*) AS c FROM `processed_messages` WHERE `ts` > ? GROUP BY `direction`'
+    )
+    .all(cutoff) as Array<{ direction: string; c: number }>
+  const totalMessages = { in: 0, out_bot: 0, out_manual: 0 }
+  for (const r of pmRows) {
+    if (r.direction === 'in' || r.direction === 'out_bot' || r.direction === 'out_manual') {
+      totalMessages[r.direction] = r.c
+    }
+  }
+
+  const turnRows = sqlite
+    .prepare(
+      'SELECT `status`, COUNT(*) AS c FROM `turn_log` WHERE `ts` > ? GROUP BY `status`'
+    )
+    .all(cutoff) as Array<{ status: string; c: number }>
+  const turns = { sent: 0, skipped: 0, failed: 0, aborted: 0, escalated: 0 }
+  for (const r of turnRows) {
+    if (r.status in turns) (turns as Record<string, number>)[r.status] = r.c
+  }
+
+  const escRows = sqlite
+    .prepare(
+      'SELECT `status`, COUNT(*) AS c FROM `escalations` WHERE `created_at` > ? GROUP BY `status`'
+    )
+    .all(cutoff) as Array<{ status: string; c: number }>
+  const escalations = { pending: 0, user_replied: 0, superseded: 0, dismissed: 0 }
+  for (const r of escRows) {
+    if (r.status in escalations) (escalations as Record<string, number>)[r.status] = r.c
+  }
+
+  const avgRow = sqlite
+    .prepare(
+      "SELECT AVG(`duration_ms`) AS avg_dur FROM `turn_log` WHERE `ts` > ? AND `duration_ms` IS NOT NULL AND `status` IN ('sent', 'escalated')"
+    )
+    .get(cutoff) as { avg_dur: number | null } | undefined
+  const avgTurnDurationMs =
+    avgRow && avgRow.avg_dur != null ? Math.round(avgRow.avg_dur) : null
+
+  const perChatRows = sqlite
+    .prepare(
+      `SELECT
+         pm.chat_id AS chat_id,
+         pp.display_name AS display_name,
+         SUM(CASE WHEN pm.direction = 'in' THEN 1 ELSE 0 END) AS msg_in,
+         SUM(CASE WHEN pm.direction = 'out_bot' THEN 1 ELSE 0 END) AS msg_out_bot,
+         SUM(CASE WHEN pm.direction = 'out_manual' THEN 1 ELSE 0 END) AS msg_out_manual,
+         (SELECT AVG(duration_ms) FROM turn_log tl WHERE tl.chat_id = pm.chat_id AND tl.ts > ? AND tl.duration_ms IS NOT NULL AND tl.status IN ('sent', 'escalated')) AS avg_reply_ms
+       FROM processed_messages pm
+       LEFT JOIN person_profile pp ON pp.chat_id = pm.chat_id
+       WHERE pm.ts > ?
+       GROUP BY pm.chat_id
+       ORDER BY (msg_in + msg_out_bot + msg_out_manual) DESC
+       LIMIT 100`
+    )
+    .all(cutoff, cutoff) as Array<{
+      chat_id: string
+      display_name: string | null
+      msg_in: number
+      msg_out_bot: number
+      msg_out_manual: number
+      avg_reply_ms: number | null
+    }>
+
+  const perChat = perChatRows.map((r) => ({
+    chatId: r.chat_id,
+    displayName: r.display_name,
+    msgIn: r.msg_in ?? 0,
+    msgOutBot: r.msg_out_bot ?? 0,
+    msgOutManual: r.msg_out_manual ?? 0,
+    avgReplyMs: r.avg_reply_ms != null ? Math.round(r.avg_reply_ms) : null,
+  }))
+
+  return {
+    range,
+    totalMessages,
+    turns,
+    escalations,
+    avgTurnDurationMs,
+    perChat,
+  }
+}
+
 function mapEscalation(r: Record<string, unknown>): EscalationRow {
   let notifiedChannels: EscalationChannelName[] = []
   const rawCh = r.notified_channels

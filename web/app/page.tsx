@@ -48,12 +48,20 @@ export default async function Page() {
   const { initial, source, path } = await loadInitial()
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
-      <header className="mb-8 space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">viet-chatter</h1>
-        <p className="text-sm text-muted-foreground">
-          Runtime configuration. Saving writes to <code>config/user-config.yaml</code> at the repo
-          root. The bot hot-reloads on file change.
-        </p>
+      <header className="mb-8 space-y-2 flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">viet-chatter</h1>
+          <p className="text-sm text-muted-foreground">
+            Runtime configuration. Saving writes to <code>config/user-config.yaml</code> at the repo
+            root. The bot hot-reloads on file change.
+          </p>
+        </div>
+        <a
+          href="/dashboard"
+          className="rounded border bg-card px-4 py-2 text-sm font-medium hover:bg-accent"
+        >
+          Open dashboard →
+        </a>
       </header>
       <ConfigForm initial={initial} source={source} path={path} />
     </main>
