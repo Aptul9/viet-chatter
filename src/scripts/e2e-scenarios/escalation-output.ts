@@ -1,12 +1,12 @@
-// Scenario: AI emits escalate_to_human (non-null) → no full reply, escalation
-// row created via orchestrator, optional holding reply sent.
+// Scenario: AI emits a scheduling escalate_to_human (non-null) → no full reply,
+// no holding reply (scheduling suppression), escalation row created.
 
 import { makeFakeIncoming, waitFor } from './common.js'
 import type { Scenario, ScenarioResult, TestDeps } from './types.js'
 
 export const escalationOutput: Scenario = {
   name: 'escalation-output',
-  description: 'AI escalate_to_human → escalation row + holding reply.',
+  description: 'AI scheduling escalation → escalation row, no holding reply.',
 
   async run(deps: TestDeps): Promise<ScenarioResult> {
     const errors: string[] = []
@@ -49,11 +49,19 @@ export const escalationOutput: Scenario = {
     }, 20_000)
     if (!escOk) errors.push('no pending scheduling escalation row within 20s')
 
-    // Holding reply expected: 1 fake send.
-    if (deps.sent.length !== 1) {
-      errors.push(`expected 1 holding-reply send, got ${deps.sent.length}`)
-    } else if (!/aspetta/i.test(deps.sent[0]!.text)) {
-      errors.push(`holding reply text unexpected: ${deps.sent[0]!.text}`)
+    const esc = deps.sqlite
+      .prepare(
+        "SELECT holding_reply_sent FROM escalations WHERE chat_id = ? AND status = 'pending' ORDER BY id DESC LIMIT 1"
+      )
+      .get(deps.chatId) as { holding_reply_sent: number } | undefined
+    if (esc && esc.holding_reply_sent !== 0) {
+      errors.push(`holding_reply_sent=${esc.holding_reply_sent}, want 0 for scheduling`)
+    }
+
+    // Scheduling escalations intentionally stay silent: even a soft holding
+    // reply can imply calendar availability.
+    if (deps.sent.length !== 0) {
+      errors.push(`expected no holding-reply send for scheduling, got ${deps.sent.length}`)
     }
 
     const turn = deps.sqlite

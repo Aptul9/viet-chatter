@@ -14,6 +14,24 @@ const PROMPT_DIR = 'prompts/agent'
 const MAX_ATTEMPTS = 2
 const CONTEXT_TOKEN = '{{CONTEXT}}'
 const PROMPT_TOKEN = '{{USER_PROMPT}}'
+const HISTORY_TOKEN = '{{HISTORY}}'
+
+/** One prior turn from the same agent session, fed back as context.
+ * `payload` is optional because zod's `z.unknown()` deserializes as
+ * `unknown | undefined` and we don't gain anything by forcing the caller to
+ * coerce — the model rarely needs to re-read its own past payloads when the
+ * preview + result already describe the action. */
+export interface AgentTurnHistoryEntry {
+  prompt: string
+  thinking: string | null
+  clarificationNeeded: string | null
+  actions: Array<{
+    type: string
+    payload?: unknown
+    preview: string
+    result: { success: boolean; message: string; data?: unknown } | null
+  }>
+}
 
 function extractJson(s: string): string {
   const fenced = s.match(/```(?:json)?\s*([\s\S]*?)```/)
@@ -21,17 +39,56 @@ function extractJson(s: string): string {
   return s.trim()
 }
 
+function formatHistory(history: AgentTurnHistoryEntry[]): string {
+  if (history.length === 0) return '(no prior turns in this session)'
+  return history
+    .map((turn, i) => {
+      const parts: string[] = []
+      parts.push(`--- Turn ${i + 1} ---`)
+      parts.push(`Owner: ${turn.prompt}`)
+      if (turn.thinking) parts.push(`Your thinking: ${turn.thinking}`)
+      if (turn.clarificationNeeded)
+        parts.push(`Clarification requested: ${turn.clarificationNeeded}`)
+      for (const a of turn.actions) {
+        parts.push(`Action: ${a.type} — ${a.preview}`)
+        if (a.result) {
+          const dataPreview =
+            a.result.data === undefined
+              ? ''
+              : `\n  data: ${truncate(JSON.stringify(a.result.data), 800)}`
+          parts.push(
+            `Result: ${a.result.success ? 'ok' : 'fail'} — ${a.result.message}${dataPreview}`
+          )
+        } else {
+          parts.push('Result: (no result recorded)')
+        }
+      }
+      return parts.join('\n')
+    })
+    .join('\n\n')
+}
+
+function truncate(s: string, max: number): string {
+  if (s.length <= max) return s
+  return `${s.slice(0, max)}…[truncated, total ${s.length} chars]`
+}
+
 export async function generateAgentTurn(
   userPrompt: string,
   ctx: AgentContext,
+  history: AgentTurnHistoryEntry[] = [],
   signal?: AbortSignal
 ): Promise<AgentOutput | null> {
   const template = await loadAndCombinePrompts(PROMPT_DIR)
   const serialized = JSON.stringify(ctx, null, 2)
+  const historyBlock = formatHistory(history)
   let basePrompt = template
   basePrompt = basePrompt.includes(CONTEXT_TOKEN)
     ? basePrompt.replace(CONTEXT_TOKEN, serialized)
     : `${basePrompt}\n\n${serialized}`
+  basePrompt = basePrompt.includes(HISTORY_TOKEN)
+    ? basePrompt.replace(HISTORY_TOKEN, historyBlock)
+    : `${basePrompt}\n\nPrior turns:\n${historyBlock}`
   basePrompt = basePrompt.includes(PROMPT_TOKEN)
     ? basePrompt.replace(PROMPT_TOKEN, userPrompt)
     : `${basePrompt}\n\nUser request:\n${userPrompt}`
@@ -44,7 +101,8 @@ export async function generateAgentTurn(
       : basePrompt
     const raw = await callAiApi(finalPrompt, 'agent', signal)
     if (!raw) {
-      correction = 'Your previous response was empty. Re-read the schema and emit a single valid JSON object.'
+      correction =
+        'Your previous response was empty. Re-read the schema and emit a single valid JSON object.'
       continue
     }
     let parsed: unknown

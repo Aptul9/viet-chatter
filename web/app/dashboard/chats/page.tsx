@@ -1,6 +1,7 @@
 import { getReadOnlyDb } from '@/lib/db-ro'
 import { listChatsWithSummary } from '@/lib/repo-bridge'
-import { formatRelative, formatTs, shortChatId } from '@/lib/format'
+import { formatRelative, formatTs } from '@/lib/format'
+import { chatLabel } from '@/lib/chat-label'
 import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
@@ -26,12 +27,10 @@ export default async function ChatsPage() {
       <table className="w-full text-sm">
         <thead>
           <tr className="text-left text-xs text-muted-foreground uppercase">
-            <th className="py-2">Chat</th>
-            <th>Name</th>
+            <th className="py-2">Contact</th>
             <th>State</th>
             <th>Last msg</th>
             <th>24h count</th>
-            <th>Pending esc.</th>
           </tr>
         </thead>
         <tbody>
@@ -40,18 +39,16 @@ export default async function ChatsPage() {
               <td className="py-2">
                 <Link
                   href={`/dashboard/chats/${encodeURIComponent(c.chatId)}`}
-                  className="font-mono text-xs hover:underline"
+                  className="hover:underline"
                 >
-                  {shortChatId(c.chatId)}
+                  {chatLabel(c)}
                 </Link>
               </td>
-              <td>{c.displayName ?? '-'}</td>
               <td className="text-xs">{c.state}</td>
               <td className="text-xs text-muted-foreground" title={formatTs(c.lastMsgTs)}>
                 {formatRelative(c.lastMsgTs)}
               </td>
               <td>{c.msgCount24h}</td>
-              <td>{c.hasPendingEscalation ? '!' : ''}</td>
             </tr>
           ))}
         </tbody>

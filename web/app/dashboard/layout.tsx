@@ -12,7 +12,7 @@ const TABS = [
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <main className="mx-auto max-w-6xl px-6 py-6">
+    <main className="mx-auto max-w-6xl px-6 py-6 min-h-dvh">
       <header className="mb-6 border-b pb-4">
         <h1 className="text-2xl font-bold tracking-tight mb-3">viet-chatter dashboard</h1>
         <nav className="flex gap-4 text-sm">

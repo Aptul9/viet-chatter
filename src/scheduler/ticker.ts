@@ -71,7 +71,7 @@ function processOnce(deps: TickerDeps): void {
     if (row.state === 'SCHEDULED') {
       if (row.fireAt === null || now < row.fireAt) continue
       if (preSendOutManualPresent(deps, row.chatId, row.fireAt, now)) {
-        deps.state.finishSending(row.chatId, 'aborted')
+        deps.state.handleOutgoingManual(row.chatId)
         log.info({ chatId: row.chatId, reason: 'pre_send_out_manual' }, 'reply turn aborted')
         continue
       }

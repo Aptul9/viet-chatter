@@ -4,17 +4,12 @@
 // then dispatched to the handler registry.
 
 import { NextResponse } from 'next/server'
-import { z } from 'zod'
 
 import { ensureLocalhost } from '@/lib/agent-gate'
+import { AgentExecuteRequestSchema } from '@/lib/agent-api'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
-
-const RequestSchema = z.object({
-  actionId: z.number().int().positive(),
-  confirm: z.literal(true),
-})
 
 export async function POST(req: Request) {
   const gateResp = ensureLocalhost(req)
@@ -26,7 +21,7 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: 'invalid json' }, { status: 400 })
   }
-  const parsed = RequestSchema.safeParse(body)
+  const parsed = AgentExecuteRequestSchema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'invalid params', details: parsed.error.flatten() },

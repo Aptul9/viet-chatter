@@ -20,7 +20,9 @@ Other useful commands:
 
 - `npm start` - bot only (the UI is dev-only).
 - `npm run health` - JSON self-check: DB counters, pending escalations, embedding model present.
-- `npm run test:e2e` - end-to-end smoke pipeline with mocked WhatsApp.
+- `npm run test:unit` - deterministic unit tests for scheduler, DB repo, schemas, media policy, escalation formatting, retry, and dashboard helpers.
+- `npm run test:e2e` - existing mocked WhatsApp smoke harness, not required for normal code-level verification.
+- `npm test` - unit suite.
 - `npm run format` / `format:check` - Prettier.
 
 ## Configuration

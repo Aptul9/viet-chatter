@@ -33,6 +33,19 @@ type ConfigRuntime = typeof defaults
 let _config: ConfigRuntime | null = null
 let _shouldReply: ((c: ChatContext) => boolean) | null = null
 
+function buildShouldReplyPredicate(merged: ConfigRuntime): (c: ChatContext) => boolean {
+  return (chat: ChatContext): boolean => {
+    const f = merged.filter
+    if (f.allowedPrefixes.length > 0) {
+      if (!f.allowedPrefixes.some((p) => chat.phone.startsWith(p))) return false
+    }
+    if (f.blockedNumbers.includes(chat.phone)) return false
+    if (f.savedContactsOnly && !chat.isSavedContact) return false
+    if (f.unreadOnly && chat.unreadCount <= 0) return false
+    return true
+  }
+}
+
 async function loadFresh(): Promise<{
   config: ConfigRuntime
   shouldReply: (c: ChatContext) => boolean
@@ -61,16 +74,7 @@ function loadFromYaml(): { config: ConfigRuntime; shouldReply: (c: ChatContext) 
   const overrides = existsSync(path) ? (parseYaml(readFileSync(path, 'utf8')) as unknown) : null
   const merged = deepMerge(defaults, overrides) as ConfigRuntime
   ConfigSchema.parse(merged)
-  const pred = (chat: ChatContext): boolean => {
-    const f = merged.filter
-    if (f.allowedPrefixes.length > 0) {
-      if (!f.allowedPrefixes.some((p) => chat.phone.startsWith(p))) return false
-    }
-    if (f.blockedNumbers.includes(chat.phone)) return false
-    if (f.savedContactsOnly && !chat.isSavedContact) return false
-    if (f.unreadOnly && chat.unreadCount <= 0) return false
-    return true
-  }
+  const pred = buildShouldReplyPredicate(merged)
   // Smoke-test.
   pred({ phone: '+0', name: undefined, isSavedContact: false, lastMessageTs: 0, unreadCount: 0 })
   return { config: merged, shouldReply: pred }
@@ -180,6 +184,7 @@ export function __overrideConfigForTest(partial: Partial<ConfigRuntime>): void {
     throw new Error('config not initialized')
   }
   _config = { ..._config, ...partial } as ConfigRuntime
+  _shouldReply = buildShouldReplyPredicate(_config)
 }
 
 export type { Config } from '../../config/index.js'

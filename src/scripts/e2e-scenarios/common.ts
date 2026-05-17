@@ -11,7 +11,13 @@ import { ReplyOrchestrator } from '../../orchestrator/index.js'
 import { EmbeddingService } from '../../kb/embedding.js'
 import { SqliteVecStore } from '../../kb/vec.js'
 import { startTicker, stopTicker, type TurnRunner } from '../../scheduler/ticker.js'
+import {
+  startManualJobsCron,
+  stopManualJobsCron,
+  type ManualJobRunner,
+} from '../../scheduler/manual-jobs-cron.js'
 import { EscalationNotifier } from '../../escalation/notifier.js'
+import { __resetFailureTrackerForTest } from '../../utils/failure-tracker.js'
 import { getChatState } from '../../db/repo.js'
 import type { ChatState } from '../../types.js'
 import type { WhatsAppHandle } from '../../whatsapp/client.js'
@@ -198,15 +204,29 @@ export async function bootstrapScenario(opts: {
   history?: TestDeps extends { wa: infer _W } ? Parameters<typeof makeFakeWa>[0]['history'] : never
   downloadMediaResult?: Parameters<typeof makeFakeWa>[0]['downloadMediaResult']
 }): Promise<ScenarioCtx> {
+  __resetFailureTrackerForTest()
   await ensureInitialized()
   applyTestTimers()
 
   const { sqlite } = openDb(config.dbPath)
-  sqlite.prepare('DELETE FROM chat_state WHERE chat_id = ?').run(opts.chatId)
-  sqlite.prepare('DELETE FROM processed_messages WHERE chat_id = ?').run(opts.chatId)
-  sqlite.prepare('DELETE FROM escalations WHERE chat_id = ?').run(opts.chatId)
-  sqlite.prepare('DELETE FROM manual_jobs WHERE chat_id = ?').run(opts.chatId)
-  sqlite.prepare('DELETE FROM turn_log WHERE chat_id = ?').run(opts.chatId)
+  // Tables scoped to a single chat that we clean both before (in case a prior
+  // crash left rows for this chatId) and after each scenario. Without the
+  // after-step the prod DB accumulates one fake `393999XXX@c.us` chat per
+  // scenario run, which then pollutes the dashboard and the agent's context.
+  // `facts` keys by `person_id` (== chat_id in this codebase) instead of
+  // `chat_id`; everything else uses `chat_id`.
+  const CHAT_SCOPED_TABLES: Array<[table: string, column: string]> = [
+    ['chat_state', 'chat_id'],
+    ['processed_messages', 'chat_id'],
+    ['escalations', 'chat_id'],
+    ['manual_jobs', 'chat_id'],
+    ['turn_log', 'chat_id'],
+    ['facts', 'person_id'],
+    ['person_profile', 'chat_id'],
+  ]
+  for (const [t, col] of CHAT_SCOPED_TABLES) {
+    sqlite.prepare(`DELETE FROM ${t} WHERE ${col} = ?`).run(opts.chatId)
+  }
 
   const sent: CapturedSend[] = []
   const history = opts.history ?? []
@@ -241,7 +261,17 @@ export async function bootstrapScenario(opts: {
   const registerInflight = (chatId: string): AbortSignal => inflight.register(chatId).signal
   const isConnected = (): boolean => true
   const runTurn: TurnRunner = (chatId, signal) => orchestrator.generateAndSend(chatId, signal)
+  const runManualJob: ManualJobRunner = (chatId, ctx, signal, retryCtx) =>
+    orchestrator.generateAndSendForManualJob(chatId, ctx, signal, retryCtx)
   startTicker({ sqlite, state, runTurn, registerInflight, isConnected })
+  startManualJobsCron({
+    sqlite,
+    state,
+    runManualJob,
+    runReactiveTurn: runTurn,
+    registerInflight,
+    isConnected,
+  })
 
   const deps: TestDeps = {
     sqlite,
@@ -259,7 +289,29 @@ export async function bootstrapScenario(opts: {
 
   const cleanup = async (): Promise<void> => {
     stopTicker()
+    stopManualJobsCron()
+    __resetFailureTrackerForTest()
     aiStub.reset()
+    // Symmetric cleanup of the chat-scoped tables we wiped at bootstrap. Skip
+    // when running against an isolated e2e DB (BOT_E2E_DB_PATH set by
+    // `e2e/run.ts`) — that path uses a per-scenario file that the runner
+    // already disposes of.
+    try {
+      if (!process.env['BOT_E2E_DB_PATH']) {
+        // Wipe ANY row for the test chatId plus any ad-hoc `393999*@c.us`
+        // chatIds a scenario may have spun up internally (see
+        // `failure-tracker-alert` which creates three of them from a Date.now
+        // seed). The `393999` prefix is the test convention enforced in
+        // `test-e2e.ts` and the per-scenario files; real Italian mobile
+        // numbers don't start with it.
+        for (const [t, col] of CHAT_SCOPED_TABLES) {
+          sqlite.prepare(`DELETE FROM ${t} WHERE ${col} = ?`).run(opts.chatId)
+          sqlite.prepare(`DELETE FROM ${t} WHERE ${col} LIKE '393999%@c.us'`).run()
+        }
+      }
+    } catch (err) {
+      log.warn({ err: (err as Error).message }, 'scenario post-clean failed')
+    }
     try {
       sqlite.close()
     } catch (err) {
@@ -294,3 +346,5 @@ export async function waitFor(predicate: () => boolean, timeoutMs: number): Prom
   }
   return predicate()
 }
+
+export const INVALID_STUB_RESPONSE = 'not json'

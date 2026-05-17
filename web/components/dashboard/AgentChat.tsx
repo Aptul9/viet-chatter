@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
@@ -13,8 +13,9 @@ interface ProposedAction {
 }
 
 interface ActionResult {
-  success: boolean
-  message: string
+  pending?: boolean
+  success?: boolean
+  message?: string
   data?: unknown
 }
 
@@ -33,6 +34,39 @@ function genSessionId(): string {
   return `s_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
 }
 
+const HISTORY_MAX_TURNS = 10
+
+/** Convert the local chat state into the compact shape the planning API
+ * expects. Drops the in-flight turn, pending action results, and any error
+ * record (the AI shouldn't try to recover from a previous-turn fetch error). */
+function buildHistoryForPlanner(turns: AgentTurn[]): Array<{
+  prompt: string
+  thinking: string | null
+  clarificationNeeded: string | null
+  actions: Array<{
+    type: string
+    payload: unknown
+    preview: string
+    result: { success: boolean; message: string; data?: unknown } | null
+  }>
+}> {
+  const completed = turns.filter((t) => !t.pending && !t.error)
+  const recent = completed.slice(-HISTORY_MAX_TURNS)
+  return recent.map((t) => ({
+    prompt: t.prompt,
+    thinking: t.thinking,
+    clarificationNeeded: t.clarificationNeeded,
+    actions: t.actions.map((a) => {
+      const r = t.results[a.id]
+      const result =
+        r && r.pending !== true && r.success !== undefined
+          ? { success: r.success, message: r.message ?? '', data: r.data }
+          : null
+      return { type: a.type, payload: a.payload, preview: a.preview, result }
+    }),
+  }))
+}
+
 /** Pulls a markdown summary out of a summarizeChat result, which the bot
  * either returns as a `{summary: string}` object or — on error — a plain
  * string error message. Returns null when the result isn't markdown-ish. */
@@ -48,8 +82,12 @@ export function AgentChat() {
   const [input, setInput] = useState<string>('')
   const [history, setHistory] = useState<AgentTurn[]>([])
   const [loading, setLoading] = useState<boolean>(false)
-  const scrollRef = useRef<HTMLDivElement>(null)
 
+  // Fires when the last turn's `actions` array reference changes (i.e. the
+  // planning API returned). Depending on `history.length` alone misses this
+  // update; depending on `history` re-fires on every result write and can
+  // double-dispatch when multiple read-only actions complete out of order.
+  const lastActions = history[history.length - 1]?.actions
   useEffect(() => {
     const last = history[history.length - 1]
     if (!last) return
@@ -59,13 +97,14 @@ export function AgentChat() {
     if (pendingReadOnly.length === 0) return
     void Promise.all(pendingReadOnly.map((a) => executeOne(a.id)))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [history.length])
+  }, [lastActions])
 
   useEffect(() => {
-    // Auto-scroll to bottom on new turn / new result.
-    const el = scrollRef.current
-    if (!el) return
-    el.scrollTop = el.scrollHeight
+    // Body scrolls (no inner scroll container any more — form is `position:
+    // fixed` at viewport bottom). Scroll the whole window to the latest turn
+    // so the most recent action card sits just above the input bar.
+    if (typeof window === 'undefined') return
+    window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' })
   }, [history])
 
   async function submitPrompt(e: React.FormEvent) {
@@ -75,6 +114,9 @@ export function AgentChat() {
     setInput('')
     setLoading(true)
     const turnIdx = history.length
+    // Snapshot history BEFORE we push the optimistic pending turn — the planner
+    // only needs prior completed turns, not the in-flight one.
+    const priorTurns = buildHistoryForPlanner(history)
     setHistory((h) => [
       ...h,
       {
@@ -91,7 +133,7 @@ export function AgentChat() {
       const res = await fetch('/api/dashboard/agent', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ sessionId, prompt }),
+        body: JSON.stringify({ sessionId, prompt, history: priorTurns }),
       })
       const json = (await res.json()) as {
         thinking?: string
@@ -132,6 +174,17 @@ export function AgentChat() {
   }
 
   async function executeOne(actionId: number) {
+    // Mark the result as pending so the action card can show a spinner while
+    // the (potentially slow) handler runs. Without this the card sits with
+    // its preview and no loading hint, looking like it's already done.
+    setHistory((h) =>
+      h.map((turn) => ({
+        ...turn,
+        results: turn.actions.some((a) => a.id === actionId)
+          ? { ...turn.results, [actionId]: { pending: true } }
+          : turn.results,
+      }))
+    )
     try {
       const res = await fetch('/api/dashboard/agent/execute', {
         method: 'POST',
@@ -180,10 +233,10 @@ export function AgentChat() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-200px)] min-h-[400px]">
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-2 py-4 space-y-6">
+    <>
+      <div className="space-y-6 pb-24">
         {history.length === 0 && (
-          <div className="text-center text-sm text-muted-foreground mt-12">
+          <div className="text-center text-sm text-muted-foreground mt-4">
             <p>Tell the agent what you want done.</p>
             <p className="text-xs mt-2">
               Read-only requests (summaries, lists) auto-run. Write actions require Confirm.
@@ -197,26 +250,28 @@ export function AgentChat() {
 
       <form
         onSubmit={submitPrompt}
-        className="flex gap-2 border-t pt-3 mt-2 bg-background sticky bottom-0"
+        className="fixed bottom-0 left-0 right-0 z-30 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
       >
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="es. manda 'tanti auguri Maria' il 15 maggio alle 9"
-          className="flex-1 rounded-lg border bg-background px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-foreground/20"
-          disabled={loading}
-          autoFocus
-        />
-        <button
-          type="submit"
-          disabled={loading || !input.trim()}
-          className="rounded-lg bg-foreground text-background px-5 py-2.5 text-sm font-medium disabled:opacity-40 hover:opacity-90 transition"
-        >
-          {loading ? '…' : 'Send'}
-        </button>
+        <div className="mx-auto max-w-6xl px-6 py-3 flex gap-2">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="es. manda 'tanti auguri Maria' il 15 maggio alle 9"
+            className="flex-1 rounded-lg border bg-background px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-foreground/20"
+            disabled={loading}
+            autoFocus
+          />
+          <button
+            type="submit"
+            disabled={loading || !input.trim()}
+            className="rounded-lg bg-foreground text-background px-5 py-2.5 text-sm font-medium disabled:opacity-40 hover:opacity-90 transition"
+          >
+            {loading ? '…' : 'Send'}
+          </button>
+        </div>
       </form>
-    </div>
+    </>
   )
 }
 
@@ -279,7 +334,9 @@ function ActionCard({
   onConfirm: () => void
 }) {
   const [showDetails, setShowDetails] = useState<boolean>(false)
-  const summary = result?.success ? asSummaryMarkdown(result.data) : null
+  const isPending = result?.pending === true
+  const isDone = result !== undefined && !isPending
+  const summary = isDone && result.success ? asSummaryMarkdown(result.data) : null
 
   return (
     <div className="rounded-lg border bg-card overflow-hidden">
@@ -288,7 +345,9 @@ function ActionCard({
           <span className="rounded bg-foreground/10 px-2 py-0.5 text-xs font-mono shrink-0">
             {action.type}
           </span>
-          {action.isReadOnly ? (
+          {isPending ? (
+            <span className="text-[11px] text-muted-foreground shrink-0">running…</span>
+          ) : action.isReadOnly ? (
             <span className="text-[11px] text-muted-foreground shrink-0">read-only · auto</span>
           ) : result === undefined ? (
             <span className="text-[11px] text-amber-700 shrink-0">requires confirm</span>
@@ -307,7 +366,17 @@ function ActionCard({
 
       <div className="px-3 py-2 text-sm">{action.preview}</div>
 
-      {result && (
+      {isPending && (
+        <div className="px-3 py-2 border-t text-sm bg-muted/20 flex items-center gap-2 text-muted-foreground">
+          <span
+            className="inline-block w-3 h-3 rounded-full border-2 border-foreground/30 border-t-foreground animate-spin"
+            aria-hidden
+          />
+          <span>Working on it…</span>
+        </div>
+      )}
+
+      {isDone && (
         <div
           className={`px-3 py-2 border-t text-sm ${
             result.success

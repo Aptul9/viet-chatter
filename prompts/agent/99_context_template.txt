@@ -1,8 +1,21 @@
 === INPUT ===
 
-Current bot state (chats, pending escalations, pending manual jobs, timezone):
+Current bot state (timezone, chats, pending manual jobs, full DB schema):
 
 {{CONTEXT}}
+
+The `schema` block above is the live SQLite schema. Use it as the source of truth for table and column names when emitting a `runReadOnlySql` action. Do not invent tables; do not assume column names — read them from this block.
+
+=== PRIOR TURNS (same session) ===
+
+The owner can chain follow-ups in this session. Earlier turns are listed below
+with their proposed actions and (where available) the executed results. Use
+them to resolve back-references like "that chat", "those escalations", "do it
+for him too", and to avoid re-running an SQL query you already executed.
+
+{{HISTORY}}
+
+=== CURRENT REQUEST ===
 
 Owner request:
 

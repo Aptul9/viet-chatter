@@ -6,18 +6,13 @@
 // Security: localhost-only binding enforced + kill switch env + audit log.
 
 import { NextResponse } from 'next/server'
-import { z } from 'zod'
 
 import { getReadOnlyDb } from '@/lib/db-ro'
 import { ensureLocalhost } from '@/lib/agent-gate'
+import { AgentRouteRequestSchema } from '@/lib/agent-api'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
-
-const RequestSchema = z.object({
-  sessionId: z.string().min(1).max(120),
-  prompt: z.string().min(1).max(4000),
-})
 
 export async function POST(req: Request) {
   const gateResp = ensureLocalhost(req)
@@ -29,14 +24,14 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: 'invalid json' }, { status: 400 })
   }
-  const parsed = RequestSchema.safeParse(body)
+  const parsed = AgentRouteRequestSchema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'invalid params', details: parsed.error.flatten() },
       { status: 400 }
     )
   }
-  const { sessionId, prompt } = parsed.data
+  const { sessionId, prompt, history } = parsed.data
 
   // Lazy-import the bot agent pipeline so the web build never bundles it
   // unless an actual agent request comes in.
@@ -59,7 +54,7 @@ export async function POST(req: Request) {
 
     const sqliteRo = getReadOnlyDb()
     const ctx = buildAgentContext(sqliteRo)
-    const out = await generateAgentTurn(prompt, ctx)
+    const out = await generateAgentTurn(prompt, ctx, history ?? [])
     if (!out) {
       return NextResponse.json({ error: 'AI returned no usable plan' }, { status: 502 })
     }

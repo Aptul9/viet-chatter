@@ -6,28 +6,10 @@ import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
 
 import { ConfigSchema, defaults, type ConfigShape } from '@/lib/config-schema'
 import { userYamlPath, exampleYamlPath } from '@/lib/config-path'
+import { mergeOverDefaults } from '@/lib/config-api'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
-
-function mergeOverDefaults(parsed: unknown): ConfigShape {
-  const p = (parsed ?? {}) as Record<string, unknown>
-  const nightWindow = { ...defaults.nightWindow, ...((p.nightWindow as object) ?? {}) }
-  const postReconnectSpreadMs = {
-    ...defaults.postReconnectSpreadMs,
-    ...((p.postReconnectSpreadMs as object) ?? {}),
-  }
-  const escalation = { ...defaults.escalation, ...((p.escalation as object) ?? {}) }
-  const filter = { ...defaults.filter, ...((p.filter as object) ?? {}) }
-  return {
-    ...defaults,
-    ...p,
-    nightWindow,
-    postReconnectSpreadMs,
-    escalation,
-    filter,
-  } as ConfigShape
-}
 
 export async function GET() {
   const live = userYamlPath()

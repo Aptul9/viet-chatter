@@ -65,16 +65,16 @@ Output:
   "clarificationNeeded": null
 }
 
-Example 4 — ambiguous (clarification).
+Example 4 — ambiguous reference (clarification).
 
-Owner: "dismissa quella escalation"
-Context: pendingEscalations has 3 entries.
+Owner: "cancella quel job"
+Context: pendingManualJobs has 3 entries.
 
 Output:
 {
-  "thinking": "Multiple pending escalations and the owner did not pick one.",
+  "thinking": "Multiple pending manual jobs and the owner did not pick one.",
   "proposedActions": [],
-  "clarificationNeeded": "Hai 3 escalations pending (#42 Maria scheduling, #43 Luca commitment, #44 Hoa other). Quale dismisso?"
+  "clarificationNeeded": "Ci sono 3 manual job pendenti (#42 Maria date_anchored, #43 Luca revive, #44 Hoa date_anchored). Quale cancello?"
 }
 
 Example 5 — read-only overview.

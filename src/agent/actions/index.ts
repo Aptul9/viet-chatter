@@ -8,6 +8,7 @@ import { executeDismissEscalation } from './dismiss-escalation.js'
 import { executeSummarizeChat } from './summarize-chat.js'
 import { executeUpdateEngagement } from './update-engagement.js'
 import { executeListOverview } from './list-overview.js'
+import { executeRunReadOnlySql } from './run-read-only-sql.js'
 
 export type ActionExecutor = (action: AgentAction, sqlite: Sqlite) => Promise<ActionResult>
 
@@ -24,6 +25,8 @@ const REGISTRY: Record<AgentActionType, ActionExecutor> = {
     a.type === 'updateEngagement' ? executeUpdateEngagement(a.payload, db) : invalid(a.type),
   listOverview: (a, db) =>
     a.type === 'listOverview' ? executeListOverview(a.payload, db) : invalid(a.type),
+  runReadOnlySql: (a, db) =>
+    a.type === 'runReadOnlySql' ? executeRunReadOnlySql(a.payload, db) : invalid(a.type),
 }
 
 async function invalid(type: string): Promise<ActionResult> {

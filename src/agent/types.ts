@@ -72,6 +72,18 @@ export const ListOverviewActionSchema = z.object({
   preview: z.string().min(1).max(400),
 })
 
+// Free-form read-only SQL escape hatch. Executed against a separate readonly
+// SQLite handle so any UPDATE/INSERT/DELETE/PRAGMA-with-side-effects fails at
+// the driver level. Single statement only, row cap enforced by the handler.
+export const RunReadOnlySqlActionSchema = z.object({
+  type: z.literal('runReadOnlySql'),
+  payload: z.object({
+    sql: z.string().min(1).max(4000),
+    reason: z.string().min(1).max(300),
+  }),
+  preview: z.string().min(1).max(400),
+})
+
 export const AgentActionSchema = z.discriminatedUnion('type', [
   CreateManualJobActionSchema,
   CancelManualJobsActionSchema,
@@ -79,6 +91,7 @@ export const AgentActionSchema = z.discriminatedUnion('type', [
   SummarizeChatActionSchema,
   UpdateEngagementActionSchema,
   ListOverviewActionSchema,
+  RunReadOnlySqlActionSchema,
 ])
 
 export const AgentOutputSchema = z.object({
@@ -99,6 +112,7 @@ export const READ_ONLY_ACTIONS: Record<AgentActionType, boolean> = {
   summarizeChat: true,
   updateEngagement: false,
   listOverview: true,
+  runReadOnlySql: true,
 }
 
 /** Persisted action row (mirror of agent_commands table). */

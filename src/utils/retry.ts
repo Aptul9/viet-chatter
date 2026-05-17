@@ -27,7 +27,7 @@ const BACKOFF_SCHEDULE_MS: ReadonlyArray<number> = [
 
 /** Random ±30s spread so multiple ops requeued at the same wall-clock
  * moment don't fire simultaneously after backoff elapses. */
-const JITTER_RANGE_MS = 60_000
+const JITTER_RANGE_MS = 30_000
 
 export type RetryTrigger = 'reactive' | 'manual_job' | 'escalation_notify'
 
@@ -59,8 +59,11 @@ export interface ScheduleRetryArgs {
   chatId: ChatId
   trigger: RetryTrigger
   errorSummary: string
-  /** 1-indexed attempt number of the FAILED attempt; we'll schedule the
-   * next attempt as `previousAttempt + 1`. Pass 1 for the original try. */
+  /** 1-indexed attempt number of the FAILED attempt. Pass 1 for the
+   * original try. Backoff is based on this failed attempt number, while the
+   * persisted retry row stores `previousAttempt + 1` as the next attempt to
+   * execute. Example: original try (1) fails -> retry row stores attempt 2,
+   * but delay uses the first bucket (5 min). */
   previousAttempt: number
   manualJobContext?: RetryPayload['manualJobContext']
   escalationId?: number
@@ -70,7 +73,7 @@ export interface ScheduleRetryArgs {
 export function scheduleRetry(args: ScheduleRetryArgs): { jobId: number; fireAt: number } {
   const nextAttempt = args.previousAttempt + 1
   const now = Date.now()
-  const fireAt = nextFireAt(nextAttempt, now)
+  const fireAt = nextFireAt(args.previousAttempt, now)
   const payload: RetryPayload = {
     trigger: args.trigger,
     errorSummary: args.errorSummary.slice(0, 500),
