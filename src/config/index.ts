@@ -24,7 +24,16 @@ type RootConfigModule = {
   shouldReply: (c: ChatContext) => boolean
 }
 
-const ROOT_CONFIG_ABS = resolvePath(process.cwd(), 'config/index.ts')
+// In dev (tsx) the runtime can resolve `.ts` directly, so we point the
+// dynamic re-import at the source file. In a compiled prod build (`node
+// dist/src/...`) the source is no longer the loadable artifact; the compiled
+// sibling at `dist/config/index.js` is what wires up. Pick whichever exists
+// so the same code path works in both modes without a separate prod entry.
+const ROOT_CONFIG_JS_ABS = resolvePath(process.cwd(), 'dist/config/index.js')
+const ROOT_CONFIG_TS_ABS = resolvePath(process.cwd(), 'config/index.ts')
+const ROOT_CONFIG_ABS = existsSync(ROOT_CONFIG_JS_ABS)
+  ? ROOT_CONFIG_JS_ABS
+  : ROOT_CONFIG_TS_ABS
 const USER_YAML_ABS = resolvePath(process.cwd(), 'config/user-config.yaml')
 const EXAMPLE_YAML_ABS = resolvePath(process.cwd(), 'config/user-config.example.yaml')
 
