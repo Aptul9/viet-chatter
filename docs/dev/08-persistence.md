@@ -283,12 +283,12 @@ export async function countEscalationsLastHour(): Promise<number> { ... }       
 
 ## Active pragmas
 
-| Pragma         | Value    | Reason                                                          |
-| -------------- | -------- | --------------------------------------------------------------- |
-| `journal_mode` | `WAL`    | Concurrent reads, fewer fsync.                                  |
-| `synchronous`  | `NORMAL` | Balanced. `FULL` would be for max durability but not needed.    |
-| `foreign_keys` | `ON`     | Even though we don't use many FK, enabled for when we will.     |
-| `busy_timeout` | `5000`   | 5s wait on lock before error.                                   |
+| Pragma         | Value    | Reason                                                       |
+| -------------- | -------- | ------------------------------------------------------------ |
+| `journal_mode` | `WAL`    | Concurrent reads, fewer fsync.                               |
+| `synchronous`  | `NORMAL` | Balanced. `FULL` would be for max durability but not needed. |
+| `foreign_keys` | `ON`     | Even though we don't use many FK, enabled for when we will.  |
+| `busy_timeout` | `5000`   | 5s wait on lock before error.                                |
 
 ## `facts_vec` management from Drizzle
 

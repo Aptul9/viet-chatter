@@ -225,18 +225,18 @@ See `18-escalation.md` for the complete flow of `escalate_to_human` handling and
 
 Folder `prompts/turn/`, numbered `.txt` files:
 
-| File                      | Content                                                                                                                                                  |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `00_role.txt`             | Role: AI ghostwriter of WhatsApp chats on behalf of a user. Single-shot, no tool.                                                                        |
-| `01_persona_kb.txt`       | KB schema (3 tier). How to use it.                                                                                                                       |
-| `02_tone_guidance.txt`    | Adapt tone based on `toneSummary` + message sentiment. Conservative.                                                                                     |
-| `03_language_rules.txt`   | Pick from `personLanguages`. Adapt per turn. Suggest `languages_update` only if consistent drift.                                                        |
-| `04_extraction_rules.txt` | Tier rules (important/secondary/ephemeral). Anti-duplicate. Use `supersedes_id`. Anchor date format.                                                     |
-| `05_revive_and_skip.txt`  | When to emit `revive_hint`. When to set `skip: true`.                                                                                                    |
-| `06_escalation_rules.txt` | When to emit `escalate_to_human` (reason categories, urgency levels, engagement criteria, rules on `suggested_holding_reply`, conflict with `reply`).    |
-| `07_output_schema.txt`    | Exact JSON schema. Output ONLY JSON. No prose, no fences (but the bot strips them anyway).                                                               |
-| `08_examples.txt`         | Few-shot: 3-4 complete input/output examples, of which at least one with escalation.                                                                     |
-| `99_context_template.txt` | `{{CONTEXT}}` placeholder.                                                                                                                               |
+| File                      | Content                                                                                                                                               |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `00_role.txt`             | Role: AI ghostwriter of WhatsApp chats on behalf of a user. Single-shot, no tool.                                                                     |
+| `01_persona_kb.txt`       | KB schema (3 tier). How to use it.                                                                                                                    |
+| `02_tone_guidance.txt`    | Adapt tone based on `toneSummary` + message sentiment. Conservative.                                                                                  |
+| `03_language_rules.txt`   | Pick from `personLanguages`. Adapt per turn. Suggest `languages_update` only if consistent drift.                                                     |
+| `04_extraction_rules.txt` | Tier rules (important/secondary/ephemeral). Anti-duplicate. Use `supersedes_id`. Anchor date format.                                                  |
+| `05_revive_and_skip.txt`  | When to emit `revive_hint`. When to set `skip: true`.                                                                                                 |
+| `06_escalation_rules.txt` | When to emit `escalate_to_human` (reason categories, urgency levels, engagement criteria, rules on `suggested_holding_reply`, conflict with `reply`). |
+| `07_output_schema.txt`    | Exact JSON schema. Output ONLY JSON. No prose, no fences (but the bot strips them anyway).                                                            |
+| `08_examples.txt`         | Few-shot: 3-4 complete input/output examples, of which at least one with escalation.                                                                  |
+| `99_context_template.txt` | `{{CONTEXT}}` placeholder.                                                                                                                            |
 
 Concatenated via `loadAndCombinePrompts` (reused from linkedin-autoapply).
 
@@ -265,17 +265,17 @@ Safety cap:
 
 ## Retry and error handling
 
-| Case                                               | Action                                                                                                                                                                             |
-| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| OpenCode server doesn't start                      | App crash, manual intervention.                                                                                                                                                    |
-| HTTP error 5xx                                     | Retry up to 3 times (handled in `router.ts`).                                                                                                                                      |
-| Empty output                                       | Retry.                                                                                                                                                                             |
-| JSON parse fail                                    | Strip code fences + retry. If fails again after aiMaxRetryParseFail, log error, return null.                                                                                       |
-| zod validation fail                                | Retry once with corrected prompt. If fails again, return null.                                                                                                                     |
-| AbortSignal triggered                              | Return early null, no persist no send.                                                                                                                                             |
-| `signal` aborted mid-network                       | OpenCode supports session abort. The fetch is cancelled.                                                                                                                           |
-| `escalate_to_human` with missing or empty `summary` | zod fails, retry. If it persists, fallback summary "AI requested escalation without providing details. Go check the chat." applied on bot side, escalation created anyway.        |
-| `escalate_to_human` not null + `reply` non-empty   | Conflict resolved: the reply is discarded, only `suggested_holding_reply` (if not null) is sent. Log warn.                                                                         |
+| Case                                                | Action                                                                                                                                                                     |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| OpenCode server doesn't start                       | App crash, manual intervention.                                                                                                                                            |
+| HTTP error 5xx                                      | Retry up to 3 times (handled in `router.ts`).                                                                                                                              |
+| Empty output                                        | Retry.                                                                                                                                                                     |
+| JSON parse fail                                     | Strip code fences + retry. If fails again after aiMaxRetryParseFail, log error, return null.                                                                               |
+| zod validation fail                                 | Retry once with corrected prompt. If fails again, return null.                                                                                                             |
+| AbortSignal triggered                               | Return early null, no persist no send.                                                                                                                                     |
+| `signal` aborted mid-network                        | OpenCode supports session abort. The fetch is cancelled.                                                                                                                   |
+| `escalate_to_human` with missing or empty `summary` | zod fails, retry. If it persists, fallback summary "AI requested escalation without providing details. Go check the chat." applied on bot side, escalation created anyway. |
+| `escalate_to_human` not null + `reply` non-empty    | Conflict resolved: the reply is discarded, only `suggested_holding_reply` (if not null) is sent. Log warn.                                                                 |
 
 When `generateTurn` returns `null`:
 

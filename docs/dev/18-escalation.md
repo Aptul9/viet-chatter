@@ -10,14 +10,14 @@ This functionality does not contradict the "fully autonomous" design: the bot re
 
 The AI in the `TurnOutput` produces a non-null `escalate_to_human` when the incoming message falls into one of the categories:
 
-| `reason`     | Trigger example                                                                                                                                            |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `scheduling` | "shall we meet at 4pm?", "are you free Tuesday evening?", "are you coming to Saturday's dinner?"                                                            |
-| `commitment` | "can you do me this favor?", "can you lend me X?", "can I stop by your place?"                                                                              |
-| `sensitive`  | emotionally sensitive topics where a wrong answer can hurt (bereavements, illnesses, recent conflicts documented in KB)                                     |
-| `financial`  | money requests, loans, gift contributions, bill splits where the AI doesn't know the user's position                                                        |
-| `identity`   | request to discuss a strong personal opinion (politics, faith, life choices) not documented in KB                                                           |
-| `other`      | anything else the AI has recognized as "I'd be guessing". AI bar: "if I were to reply, the user might disapprove of the outcome"                            |
+| `reason`     | Trigger example                                                                                                                  |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| `scheduling` | "shall we meet at 4pm?", "are you free Tuesday evening?", "are you coming to Saturday's dinner?"                                 |
+| `commitment` | "can you do me this favor?", "can you lend me X?", "can I stop by your place?"                                                   |
+| `sensitive`  | emotionally sensitive topics where a wrong answer can hurt (bereavements, illnesses, recent conflicts documented in KB)          |
+| `financial`  | money requests, loans, gift contributions, bill splits where the AI doesn't know the user's position                             |
+| `identity`   | request to discuss a strong personal opinion (politics, faith, life choices) not documented in KB                                |
+| `other`      | anything else the AI has recognized as "I'd be guessing". AI bar: "if I were to reply, the user might disapprove of the outcome" |
 
 General bar: the AI escalates when an autonomous reply would risk committing the user, hurting the person, or exposing opinions that are not in KB.
 
@@ -372,13 +372,13 @@ Allows to detect on the fly if there are stuck escalations (failed notification,
 
 ## Explicit difference: escalation vs approval flow
 
-| Aspect                           | Escalation (this)                                            | Approval flow (out-of-scope)                       |
-| -------------------------------- | ------------------------------------------------------------ | -------------------------------------------------- |
-| Human control                    | Only turns where the AI declares uncertainty                 | On every reply, always                             |
-| Default behavior                 | Bot replies autonomously                                     | Bot never replies without OK                       |
-| User latency                     | Bot sends holding reply (e.g. "wait") immediate + notification | Long: waits for user to approve each turn          |
-| Relationship with `fully autonomous` | Compatible: the choice to escalate is itself autonomous   | Incompatible: by definition requires review        |
-| User experience                  | Person sees reply or stall, user replies when they can       | Person sees nothing until user approves            |
+| Aspect                               | Escalation (this)                                              | Approval flow (out-of-scope)                |
+| ------------------------------------ | -------------------------------------------------------------- | ------------------------------------------- |
+| Human control                        | Only turns where the AI declares uncertainty                   | On every reply, always                      |
+| Default behavior                     | Bot replies autonomously                                       | Bot never replies without OK                |
+| User latency                         | Bot sends holding reply (e.g. "wait") immediate + notification | Long: waits for user to approve each turn   |
+| Relationship with `fully autonomous` | Compatible: the choice to escalate is itself autonomous        | Incompatible: by definition requires review |
+| User experience                      | Person sees reply or stall, user replies when they can         | Person sees nothing until user approves     |
 
 ## Complete flow summary
 

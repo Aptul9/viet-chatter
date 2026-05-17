@@ -78,11 +78,11 @@ async function reconcile() {
 
 ## Safety caps
 
-| Cap                                | Default | Reason                                                                                                                                                                          |
-| ---------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cap                                | Default | Reason                                                                                                                                                                                |
+| ---------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `bootMaxChatsToFetch`              | 50      | Avoids pathological boots if the user has been offline for a long time with many active chats. Chats beyond the cap will be handled when a live `message` event arrives on that chat. |
-| `fetchConcurrency`                 | 5       | No saturation of the WhatsApp Web session (Chromium puppeteered).                                                                                                              |
-| `unreadCount + 5` clamp `[10, 50]` | -       | Safety margin for timing edge cases. Never more than 50 messages per chat at boot.                                                                                              |
+| `fetchConcurrency`                 | 5       | No saturation of the WhatsApp Web session (Chromium puppeteered).                                                                                                                     |
+| `unreadCount + 5` clamp `[10, 50]` | -       | Safety margin for timing edge cases. Never more than 50 messages per chat at boot.                                                                                                    |
 
 ## Idempotency
 

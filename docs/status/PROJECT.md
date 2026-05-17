@@ -85,15 +85,15 @@ config, escalation notifier multi-canale.
   `AgentContext.schema` added: dump of `sqlite_master` + `PRAGMA table_info`
   for each non-virtual table. `generateAgentTurn` accepts `history` param,
   prompt template has `{{HISTORY}}` placeholder with last N=10 turns (prompt
-  + thinking + actions + results truncated to 800 chars). Files:
-  `src/agent/{types,context,turn}.ts`,
-  `src/agent/actions/run-read-only-sql.ts` (new),
-  `src/agent/actions/index.ts`,
-  `prompts/agent/{01_actions_catalog,02_output_schema,99_context_template}.txt`,
-  `web/lib/agent-api.ts` (new),
-  `web/app/api/dashboard/agent/route.ts`,
-  `web/app/dashboard/{layout,agent/page}.tsx`,
-  `web/components/dashboard/AgentChat.tsx`.
+  - thinking + actions + results truncated to 800 chars). Files:
+    `src/agent/{types,context,turn}.ts`,
+    `src/agent/actions/run-read-only-sql.ts` (new),
+    `src/agent/actions/index.ts`,
+    `prompts/agent/{01_actions_catalog,02_output_schema,99_context_template}.txt`,
+    `web/lib/agent-api.ts` (new),
+    `web/app/api/dashboard/agent/route.ts`,
+    `web/app/dashboard/{layout,agent/page}.tsx`,
+    `web/components/dashboard/AgentChat.tsx`.
 - 2026-05-17 14:00 - Added web-side unit coverage. Covered config merge,
   config-path discovery, and agent route request schemas without browser
   tests. Suite now 47 passing tests.

@@ -4,11 +4,11 @@
 
 ## 3-tier model
 
-| Tier        | Description                                                                                                                   | Embedding | Prompt loading     | TTL                     |
-| ----------- | ----------------------------------------------------------------------------------------------------------------------------- | --------- | ------------------ | ----------------------- |
-| `important` | Events that redefine the person (bereavements, illnesses, separations, milestones). Few per person (5-20 stable).             | NO        | Always all          | Never                   |
-| `secondary` | Interesting details (work, hobbies, tastes, recurring details). Grow over time (potentially hundreds per person).             | YES       | Top-K via RAG       | Never (unless superseded) |
-| `ephemeral` | Time-limited facts (plans, appointments, temporary states).                                                                   | NO        | Always all          | 7 days default          |
+| Tier        | Description                                                                                                       | Embedding | Prompt loading | TTL                       |
+| ----------- | ----------------------------------------------------------------------------------------------------------------- | --------- | -------------- | ------------------------- |
+| `important` | Events that redefine the person (bereavements, illnesses, separations, milestones). Few per person (5-20 stable). | NO        | Always all     | Never                     |
+| `secondary` | Interesting details (work, hobbies, tastes, recurring details). Grow over time (potentially hundreds per person). | YES       | Top-K via RAG  | Never (unless superseded) |
+| `ephemeral` | Time-limited facts (plans, appointments, temporary states).                                                       | NO        | Always all     | 7 days default            |
 
 ## Schema (Drizzle)
 

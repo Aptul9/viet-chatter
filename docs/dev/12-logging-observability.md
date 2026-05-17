@@ -88,17 +88,17 @@ Each log line is a JSON object. Standard fields:
 
 ## Privacy in the logs
 
-| Data                             | Logged in cleartext?                                                  |
-| -------------------------------- | --------------------------------------------------------------------- |
-| `chat_id` (serialized number)    | Yes (it's the primary identifier, not sensitive in itself)            |
-| `phone`                          | Yes in relevant `info` messages, omitted at `debug` if redundant      |
-| `display_name`                   | Only at `debug` level                                                 |
-| Message body                     | NEVER                                                                 |
-| Extracted fact body              | Only at `trace` level (off by default), for deep debug cases          |
-| Generated reply                  | NEVER in full (only `chars` count)                                    |
-| Escalation `summary`             | Logged only as `chars` count at `info`. Full body only at `trace`.    |
-| Telegram bot token               | NEVER. Only presence/absence of the ENV var.                          |
-| User Telegram chat_id            | NEVER. Only `chat_id_set: true/false`.                                |
+| Data                          | Logged in cleartext?                                               |
+| ----------------------------- | ------------------------------------------------------------------ |
+| `chat_id` (serialized number) | Yes (it's the primary identifier, not sensitive in itself)         |
+| `phone`                       | Yes in relevant `info` messages, omitted at `debug` if redundant   |
+| `display_name`                | Only at `debug` level                                              |
+| Message body                  | NEVER                                                              |
+| Extracted fact body           | Only at `trace` level (off by default), for deep debug cases       |
+| Generated reply               | NEVER in full (only `chars` count)                                 |
+| Escalation `summary`          | Logged only as `chars` count at `info`. Full body only at `trace`. |
+| Telegram bot token            | NEVER. Only presence/absence of the ENV var.                       |
+| User Telegram chat_id         | NEVER. Only `chat_id_set: true/false`.                             |
 
 ## `turn_log` as second observability channel
 

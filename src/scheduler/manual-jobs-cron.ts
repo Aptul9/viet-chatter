@@ -179,10 +179,7 @@ function buildRunner(
     if (!payload) {
       // Defensive: malformed retry payload → no-op so we don't crash the
       // cron. The retry chain effectively dies for this op.
-      log.warn(
-        { jobId: job.id, chatId: job.chatId },
-        'retry job has unparseable payload, skipping'
-      )
+      log.warn({ jobId: job.id, chatId: job.chatId }, 'retry job has unparseable payload, skipping')
       return async () => {}
     }
     const attempt = job.attemptCount ?? 1
