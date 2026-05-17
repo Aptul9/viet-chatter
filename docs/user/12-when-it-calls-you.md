@@ -1,144 +1,144 @@
-# Quando il bot ti chiama
+# When the bot calls you
 
-In alcune situazioni, il bot si rende conto da solo che non può rispondere al posto tuo. In questi casi non inventa, e ti avvisa fuori da WhatsApp che c'è una cosa da gestire a mano.
+In some situations, the bot realizes on its own that it cannot reply on your behalf. In these cases it does not make things up, and warns you outside WhatsApp that there is something to handle by hand.
 
-## Quando succede
+## When it happens
 
-L'AI ti chiama (cioè manda una notifica) quando il messaggio in arrivo richiede informazioni o decisioni che non può conoscere. Esempi tipici:
+The AI calls you (i.e. sends a notification) when the incoming message requires information or decisions it cannot know. Typical examples:
 
-- **Appuntamenti**: "Ci vediamo sabato alle 19?". Il bot non sa se sei libero sabato. Non vuole dirti di sì sbagliando, e nemmeno dire di no quando in realtà sei libero. Ti avvisa.
-- **Impegni**: "Mi presti 50 euro?", "Posso passare da te stasera?". Decisione che riguarda te, non il bot.
-- **Argomenti delicati**: la persona ti scrive di un lutto recente, di una rottura, di una notizia pesante. Il bot non vuole rischiare di rispondere male. Ti avvisa così rispondi tu di persona.
-- **Soldi e cose serie**: richieste finanziarie, accordi vincolanti.
-- **Opinioni personali forti**: politica, fede, scelte di vita su cui il bot non ha tracciate le tue posizioni.
+- **Appointments**: "See you Saturday at 19?". The bot does not know whether you are free on Saturday. It does not want to say yes incorrectly, nor say no when you are actually free. It warns you.
+- **Commitments**: "Can you lend me 50 euros?", "Can I drop by tonight?". A decision that concerns you, not the bot.
+- **Delicate topics**: the person writes you about a recent loss, a breakup, heavy news. The bot does not want to risk replying badly. It warns you so you reply in person.
+- **Money and serious matters**: financial requests, binding agreements.
+- **Strong personal opinions**: politics, faith, life choices on which the bot has not tracked your positions.
 
-## Cosa succede di concreto
+## What concretely happens
 
-1. La persona ti scrive una cosa "delicata" (esempio: "Sei libero domenica?").
-2. Il bot prova a generare la risposta. L'AI capisce che non lo sa.
-3. Il bot fa due cose:
-   - **Manda un messaggio "ponte"** alla persona, tipo "Aspetta che controllo, ti faccio sapere". Serve a non lasciarla nel silenzio.
-   - **Ti notifica** sul canale che hai configurato (Telegram o WhatsApp con te stesso).
-4. Tu vedi la notifica. Apri WhatsApp, leggi la chat, rispondi a mano come faresti normalmente.
-5. Il bot vede che hai risposto e segna la cosa come risolta.
+1. The person writes you something "delicate" (example: "Are you free Sunday?").
+2. The bot tries to generate the reply. The AI understands it does not know.
+3. The bot does two things:
+   - **Sends a "bridge" message** to the person, like "Wait, let me check, I'll get back to you". To avoid leaving them in silence.
+   - **Notifies you** on the channel you configured (Telegram or WhatsApp with yourself).
+4. You see the notification. Open WhatsApp, read the chat, reply by hand as you would normally.
+5. The bot sees you replied and marks the thing as resolved.
 
-## Esempio concreto
+## Concrete example
 
-**Su WhatsApp (Hoa ti scrive)**:
+**On WhatsApp (Hoa writes to you)**:
 
 ```
-Hoa: Sei libero sabato sera per cena?
-[bot dopo un po', invia da solo]
-Tu: Aspetta che controllo, ti faccio sapere
+Hoa: Are you free Saturday evening for dinner?
+[bot after a while, sends on its own]
+You: Wait, let me check, I'll get back to you
 ```
 
-**Su Telegram (notifica al volo)**:
+**On Telegram (notification on the fly)**:
 
 ```
 [viet-chatter] SCHEDULING
-Da: Hoa (+8412345)
-Riassunto: Hoa ti chiede se sei libero sabato sera per cena. Non ho informazioni sui tuoi impegni.
-Holding reply inviata: "Aspetta che controllo, ti faccio sapere"
+From: Hoa (+8412345)
+Summary: Hoa asks you if you are free Saturday evening for dinner. I have no info on your commitments.
+Holding reply sent: "Wait, let me check, I'll get back to you"
 
-Vai a rispondere su WhatsApp.
+Go reply on WhatsApp.
 ```
 
-Tu apri Telegram, vedi il messaggio, capisci, vai su WhatsApp e rispondi a mano "Sì alle 20 va bene".
+You open Telegram, see the message, get it, go to WhatsApp and reply by hand "Yes 20 is fine".
 
-## Canali disponibili
+## Available channels
 
-Puoi scegliere uno o entrambi:
+You can choose one or both:
 
 ### Telegram
 
-Setup una tantum: crei un Telegram bot personale (gratis, via @BotFather), copi il token, lo metti nel file `.env` del bot. Ti scrivi col tuo bot Telegram per recuperare il tuo `chat_id` e lo metti nello stesso `.env`.
+One-time setup: create a personal Telegram bot (free, via @BotFather), copy the token, put it in the bot's `.env` file. Write to your Telegram bot to retrieve your `chat_id` and put it in the same `.env`.
 
-Multi-destinatario supportato: `TELEGRAM_USER_CHAT_ID` accetta più chat id separati da virgola (es. `123456,789012`). Il bot manda a tutti in parallelo. Utile se vuoi le notifiche su più dispositivi o più bot Telegram diversi.
+Multi-recipient supported: `TELEGRAM_USER_CHAT_ID` accepts multiple chat ids separated by commas (e.g. `123456,789012`). The bot sends to all of them in parallel. Useful if you want notifications on multiple devices or on different Telegram bots.
 
-Pro: notifiche affidabili, separate da WhatsApp. Se WhatsApp Web smette di funzionare, Telegram continua.
+Pro: reliable notifications, separated from WhatsApp. If WhatsApp Web stops working, Telegram keeps going.
 
-Contro: 5 minuti di setup iniziale.
+Con: 5 minutes of initial setup.
 
-### WhatsApp self-chat (chat con te stesso)
+### WhatsApp self-chat (chat with yourself)
 
-Il bot ti scrive sulla tua chat personale ("Te stesso"/"You" in WhatsApp). Zero setup.
+The bot writes to your personal chat ("Yourself"/"You" in WhatsApp). Zero setup.
 
-Pro: niente da configurare.
+Pro: nothing to configure.
 
-Contro: Le notifiche WhatsApp della chat con te stesso possono non essere visibili come notifica push su tutti i telefoni e versioni di WhatsApp. Prima del primo uso, mandati un messaggio dal computer e verifica che il telefono ti faccia vedere la notifica come fai con le altre chat. Se non la vedi, conviene usare Telegram.
+Con: WhatsApp notifications on the chat with yourself may not be visible as a push notification on all phones and WhatsApp versions. Before first use, send yourself a message from the computer and verify the phone shows the notification like it does for other chats. If you do not see it, better use Telegram.
 
-### Entrambi
+### Both
 
-Se vuoi sicurezza, configura entrambi. Il bot manda su tutti e due i canali in parallelo. Una notifica arriva.
+If you want safety, configure both. The bot sends on both channels in parallel. A notification arrives.
 
-## Quanta urgenza
+## How urgent
 
-L'AI sceglie il livello di urgenza (`low`, `normal`, `high`) e te lo indica nella notifica:
+The AI picks the urgency level (`low`, `normal`, `high`) and indicates it to you in the notification:
 
-- **Normal** (default): notifica al volo, lo gestisci nel giro dei prossimi minuti/ore.
-- **High**: cose tipo "vengo da te tra 10 min, mi apri?". Il bot ti avvisa subito senza nessun delay.
-- **Low**: cose meno urgenti. In v1 funziona come Normal. In futuro confluiranno in un riepilogo giornaliero.
+- **Normal** (default): notification on the fly, you handle it within the next minutes/hours.
+- **High**: things like "I'm coming over in 10 min, can you open the door?". The bot warns you immediately with no delay.
+- **Low**: less urgent things. In v1 it works as Normal. In the future they will flow into a daily summary.
 
-## Non vai a rispondere
+## You do not go reply
 
-Se ignori la notifica e non rispondi mai a Hoa, il bot non insisterà. Hoa ha visto il "ti faccio sapere" e probabilmente ti scriverà di nuovo. A quel punto il bot vedrà il nuovo messaggio e se ancora non sa, ti rinotifica (ma evita di duplicare se la richiesta è la stessa).
+If you ignore the notification and never reply to Hoa, the bot will not insist. Hoa has seen the "I'll get back to you" and will probably write to you again. At that point the bot will see the new message and if it still does not know, it re-notifies you (but avoids duplicating if the request is the same).
 
-## Posso disabilitarlo
+## You can disable it
 
-Sì. Tre vie equivalenti:
+Yes. Three equivalent paths:
 
-- Web UI: `npm run dev` → `http://localhost:3000`, tab Escalation, toggle "Enabled" off, Save.
-- A mano nel file `config/user-config.yaml`:
+- Web UI: `npm run dev` -> `http://localhost:3000`, Escalation tab, toggle "Enabled" off, Save.
+- By hand in `config/user-config.yaml`:
   ```yaml
   escalation:
     enabled: false
   ```
 
-Hot-reload automatico, dal turn successivo il bot riprende a generare risposte autonome anche sui casi delicati. Sconsigliato: il bot inventerà appuntamenti che non hai. Meglio tenerlo on.
+Automatic hot-reload, from the next turn the bot resumes generating autonomous replies even on delicate cases. Not recommended: the bot will invent appointments you do not have. Better to keep it on.
 
-## Posso configurare per chat specifica
+## Can I configure per specific chat
 
-In v1 no. Il filtro è globale: l'AI decide turn per turn se escalare.
+In v1 no. The filter is global: the AI decides turn by turn whether to escalate.
 
-In futuro è prevista la possibilità di forzare "sempre escalation" o "mai escalation" per persona specifica. Vedi `dev/16-future-enhancements.md`.
+In the future the option to force "always escalate" or "never escalate" per specific person is planned.
 
-## Cosa NON fa il bot
+## What the bot does NOT do
 
-- Non ti chiama davvero al telefono. "Chiamare" qui è un modo di dire: ti notifica.
-- Non manda email.
-- Non scrive sul tuo calendar.
-- Non posta su Slack o Teams o altro.
+- Does not actually call you on the phone. "Call" here is a figure of speech: it notifies you.
+- Does not send email.
+- Does not write to your calendar.
+- Does not post on Slack or Teams or anything else.
 
-Solo Telegram e/o self-chat WhatsApp. Per niente di più sofisticato in v1.
+Only Telegram and/or WhatsApp self-chat. Nothing more sophisticated in v1.
 
 ## Privacy
 
-Il messaggio di notifica include:
+The notification message includes:
 
-- Nome o numero della persona che ti ha scritto.
-- Una riga di riassunto del perché stanno chiedendo (generata dall'AI).
-- Il messaggio "ponte" inviato (se inviato).
+- Name or number of the person who wrote you.
+- A one-line summary of why they are asking (generated by the AI).
+- The "bridge" message sent (if sent).
 
-Non include il body completo del messaggio originale. Ma il riassunto è di per sé sensibile: se Hoa ti ha scritto di un lutto, il riassunto lo dice.
+It does not include the full body of the original message. But the summary is itself sensitive: if Hoa wrote you about a loss, the summary says so.
 
-Telegram e WhatsApp self-chat sono entrambi su provider esterni (Telegram = server di Telegram; WhatsApp self-chat = server di WhatsApp). Tienilo presente. Se vuoi privacy massima sul canale di notifica, esiste un'opzione self-host con `ntfy.sh` o `Gotify`, ma non è in v1.
+Telegram and WhatsApp self-chat are both on external providers (Telegram = Telegram servers; WhatsApp self-chat = WhatsApp servers). Keep this in mind. If you want maximum privacy on the notification channel, a self-host option exists with `ntfy.sh` or `Gotify`, but it is not in v1.
 
-## Quando NON ti chiama
+## When it does NOT call you
 
-L'AI è istruita a essere conservativa nel chiamarti, per non spammarti:
+The AI is instructed to be conservative when calling you, to avoid spam:
 
-- Convenevoli ("come stai?", "ciao!"): risponde da sola.
-- Domande informative coperte dal diario ("dove vivi?", "che lavoro fai?"): risponde da sola.
-- Continuazioni di thread dove tu hai già chiarito la posizione nei messaggi precedenti: risponde da sola.
-- Sticker, emoji singoli, audio, immagini: stesso comportamento di prima (silenzio o risposta breve, vedi `08-quando-non-risponde.md`).
+- Pleasantries ("how are you?", "hi!"): replies on its own.
+- Informational questions covered by the journal ("where do you live?", "what do you do for work?"): replies on its own.
+- Thread continuations where you already clarified your position in previous messages: replies on its own.
+- Stickers, single emojis, audio, images: same behavior as before (silence or short reply, see `08-when-it-does-not-reply.md`).
 
-## Limite di volume
+## Volume limit
 
-Per non spammarti, c'è un cap di 12 notifiche all'ora di default (configurabile). Oltre il cap, le ulteriori escalations vengono aggregate in un'unica notifica "X cose da gestire, controlla". Le `high` urgency saltano il cap.
+To avoid spamming you, there is a cap of 12 notifications per hour by default (configurable). Beyond the cap, additional escalations are aggregated into a single notification "X things to handle, check". `high` urgency skips the cap.
 
-## Riassunto dei comportamenti
+## Behavior summary
 
-- Bot ricevuto messaggio "delicato" -> manda holding reply -> ti notifica.
-- Tu vedi notifica -> apri WhatsApp -> rispondi -> bot segna come risolto.
-- Tu non vedi notifica -> persona riscriverà più tardi -> bot rinotifica se ancora delicato.
-- Bot offline al momento del messaggio -> al ritorno online, processa normalmente, escalation parte allora.
+- Bot received "delicate" message -> sends holding reply -> notifies you.
+- You see notification -> open WhatsApp -> reply -> bot marks as resolved.
+- You do not see notification -> person will rewrite later -> bot re-notifies if still delicate.
+- Bot offline at the moment of the message -> on coming back online, processes normally, escalation fires then.

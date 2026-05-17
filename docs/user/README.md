@@ -1,31 +1,31 @@
-# Documentazione utente
+# User documentation
 
-Questa cartella spiega cosa fa il bot in modo semplice, senza gergo tecnico.
+This folder explains what the bot does in plain terms, without technical jargon.
 
-## Indice
+## Index
 
-1. [Cosa fa il bot](01-cosa-fa-il-bot.md)
-2. [Primo avvio](02-primo-avvio.md)
-3. [A chi risponde](03-a-chi-risponde.md)
-4. [Quando risponde](04-quando-risponde.md)
-5. [Cosa ricorda](05-cosa-ricorda.md)
-6. [Tono e lingua](06-tono-e-lingua.md)
-7. [Cosa fa da solo](07-cosa-fa-da-solo.md)
-8. [Quando NON risponde](08-quando-non-risponde.md)
-9. [Privacy e dati](09-privacy-dati.md)
-10. [Domande frequenti](10-domande-frequenti.md)
-11. [Workflow e casi d'uso](11-workflow-e-casi-uso.md)
-12. [Quando il bot ti chiama (escalation)](12-quando-ti-chiama.md)
+1. [What the bot does](01-what-the-bot-does.md)
+2. [First launch](02-first-launch.md)
+3. [Who it replies to](03-who-it-replies-to.md)
+4. [When it replies](04-when-it-replies.md)
+5. [What it remembers](05-what-it-remembers.md)
+6. [Tone and language](06-tone-and-language.md)
+7. [What it does on its own](07-what-it-does-on-its-own.md)
+8. [When it does NOT reply](08-when-it-does-not-reply.md)
+9. [Data privacy](09-data-privacy.md)
+10. [FAQ](10-faq.md)
+11. [Workflows and use cases](11-workflows-and-use-cases.md)
+12. [When the bot calls you (escalation)](12-when-it-calls-you.md)
 
-## In una frase
+## In one sentence
 
-Il bot risponde al posto tuo, ma solo a certe persone, a orari sensati, con un tono giusto, ricordandosi cosa ti hanno detto in passato.
+The bot replies on your behalf, but only to certain people, at sensible hours, with the right tone, remembering what they told you in the past.
 
-## Cosa NON fa
+## What it does NOT do
 
-- Non risponde a tutti.
-- Non risponde nei gruppi.
-- Non risponde di notte.
-- Non risponde subito (sembrerebbe un bot).
-- Non manda dati a servizi esterni.
-- Non ha una pagina web o un'app: gira sul tuo computer e basta.
+- Does not reply to everyone.
+- Does not reply in groups.
+- Does not reply at night.
+- Does not reply instantly (would look like a bot).
+- Does not send data to external services.
+- Does not have a web page or an app: it runs on your computer, nothing more.

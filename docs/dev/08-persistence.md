@@ -1,21 +1,21 @@
-# Persistenza
+# Persistence
 
-> Status: design; behavior implemented. See `19-implementation-notes.md` for shipped deltas.
+> Status: design; behavior implemented.
 
 ## Stack
 
-- Driver: `better-sqlite3` (sincrono, embedded, nativo).
-- Estensione: `sqlite-vec` (vector search).
+- Driver: `better-sqlite3` (synchronous, embedded, native).
+- Extension: `sqlite-vec` (vector search).
 - ORM: Drizzle (`drizzle-orm/better-sqlite3`).
 - Migrations: `drizzle-kit`.
 
-## File DB
+## DB file
 
-Default: `./viet-chatter.db` nella root del progetto. Configurabile in `config/index.ts` via campo `dbPath`.
+Default: `./viet-chatter.db` at project root. Configurable in `config/index.ts` via `dbPath` field.
 
-Backup: nessuno automatico. Vedi `09-privacy-dati.md` (utente) e `15-runbook.md` (dev).
+Backup: no automatic. See user docs and `15-runbook.md` (dev).
 
-## Apertura DB
+## DB opening
 
 ```ts
 // src/db/client.ts
@@ -35,7 +35,7 @@ export function openDb(path: string) {
 }
 ```
 
-## Schema completo
+## Complete schema
 
 ```ts
 // src/db/schema.ts
@@ -176,13 +176,13 @@ export const escalations = sqliteTable(
 )
 ```
 
-Note `escalations`:
+Notes on `escalations`:
 
-- Una escalation per `triggerMsgId` (il messaggio incoming che ha fatto scattare). Se l'AI escalla due volte sullo stesso messaggio (caso patologico), dedup applicata lato app via `repo.pendingEscalation(chatId)`.
-- `notifiedChannels` è un JSON array di stringhe canale (`['whatsapp_self','telegram']`). Vuoto se nessun canale ha confermato la consegna.
-- `status='superseded'` indica che un nuovo turn ha generato una nuova escalation o una reply autonoma, rendendo questa stale.
+- One escalation per `triggerMsgId` (the incoming message that triggered it). If the AI escalates twice on the same message (pathological case), dedup is applied on app side via `repo.pendingEscalation(chatId)`.
+- `notifiedChannels` is a JSON array of channel strings (`['whatsapp_self','telegram']`). Empty if no channel confirmed delivery.
+- `status='superseded'` indicates a new turn generated a new escalation or an autonomous reply, making this one stale.
 
-Virtual table `facts_vec` non gestita da Drizzle (Drizzle non supporta virtual tables). Definita manualmente in `drizzle/0000_init.sql`:
+Virtual table `facts_vec` is not managed by Drizzle (Drizzle does not support virtual tables). Defined manually in `drizzle/0000_init.sql`:
 
 ```sql
 CREATE VIRTUAL TABLE facts_vec USING vec0(
@@ -196,9 +196,9 @@ CREATE VIRTUAL TABLE facts_vec USING vec0(
 Workflow:
 
 ```
-npm run db:generate    # drizzle-kit generate (legge schema.ts, scrive drizzle/NNNN.sql)
-# Editare manualmente drizzle/0000_init.sql per aggiungere CREATE VIRTUAL TABLE facts_vec
-npm run db:migrate     # applica al DB
+npm run db:generate    # drizzle-kit generate (reads schema.ts, writes drizzle/NNNN.sql)
+# Manually edit drizzle/0000_init.sql to add CREATE VIRTUAL TABLE facts_vec
+npm run db:migrate     # apply to DB
 ```
 
 Drizzle config:
@@ -215,7 +215,7 @@ export default {
 } satisfies Config
 ```
 
-Migrate runner custom (perché vogliamo loadare sqlite-vec PRIMA di applicare la migration che usa la virtual table):
+Custom migrate runner (because we want to load sqlite-vec BEFORE applying the migration that uses the virtual table):
 
 ```ts
 // src/db/migrate.ts
@@ -227,11 +227,11 @@ migrate(db, { migrationsFolder: './drizzle' })
 console.log('migrations applied')
 ```
 
-## Repo (accesso semantico)
+## Repo (semantic access)
 
-`src/db/repo.ts` espone funzioni semantiche. Niente raw SQL fuori da qui (eccetto `VecStore` che ha la sua interfaccia dedicata).
+`src/db/repo.ts` exposes semantic functions. No raw SQL outside of here (except `VecStore` which has its dedicated interface).
 
-Esempi:
+Examples:
 
 ```ts
 export async function getChatState(chatId: string) { ... }
@@ -241,7 +241,7 @@ export async function transitionChatState(
   fromState: ChatState,
   toState: ChatState,
   fields?: Partial<ChatStateRow>
-): Promise<boolean> { ... }                         // restituisce changes() > 0
+): Promise<boolean> { ... }                         // returns changes() > 0
 
 export async function insertProcessedMessage(row: ProcessedMessageRow) { ... }
 export async function recentProcessedMessages(chatId: string, limit: number) { ... }
@@ -267,42 +267,42 @@ export async function insertTurnLog(row: TurnLogInsert) { ... }
 
 export async function insertEscalation(row: EscalationInsert): Promise<number> { ... }
 export async function getEscalation(id: number) { ... }
-export async function pendingEscalation(chatId: string) { ... }                  // dedup lookup, restituisce solo status='pending'
+export async function pendingEscalation(chatId: string) { ... }                  // dedup lookup, returns only status='pending'
 export async function updateEscalationSummary(id: number, summary: string, urgency: ...) { ... }
 export async function updateEscalationNotified(id: number, channels: string[]) { ... }
 export async function markEscalationsResolved(chatId: string, status: 'user_replied' | 'superseded') { ... }
-export async function pendingEscalationsForRetry(): Promise<EscalationRow[]> { ... }   // per retry job notifica
-export async function countEscalationsLastHour(): Promise<number> { ... }              // per rate limit
+export async function pendingEscalationsForRetry(): Promise<EscalationRow[]> { ... }   // for notify retry job
+export async function countEscalationsLastHour(): Promise<number> { ... }              // for rate limit
 ```
 
-## Concorrenza e WAL
+## Concurrency and WAL
 
-- WAL mode: writers e readers possono coesistere. Per la nostra app (single process), WAL serve solo per non bloccare brevi reads concorrenti dello stesso process.
-- Tutte le transizioni di stato che richiedono atomicità usano UPDATE condizionato (`WHERE state=?`) e leggono `changes()`.
-- Niente `BEGIN/COMMIT` esplicite tranne in poche operazioni multi-step (es. insert fact + insert vec). better-sqlite3 supporta transazioni come `db.transaction(() => { ... })()` sincrone.
+- WAL mode: writers and readers can coexist. For our app (single process), WAL is only needed to avoid blocking short concurrent reads of the same process.
+- All state transitions requiring atomicity use conditional UPDATE (`WHERE state=?`) and read `changes()`.
+- No explicit `BEGIN/COMMIT` except in few multi-step operations (e.g. insert fact + insert vec). better-sqlite3 supports transactions as synchronous `db.transaction(() => { ... })()`.
 
-## Pragmas attivi
+## Active pragmas
 
-| Pragma         | Valore   | Motivo                                                          |
+| Pragma         | Value    | Reason                                                          |
 | -------------- | -------- | --------------------------------------------------------------- |
 | `journal_mode` | `WAL`    | Concurrent reads, fewer fsync.                                  |
-| `synchronous`  | `NORMAL` | Bilanciato. `FULL` sarebbe per durability massima ma non serve. |
-| `foreign_keys` | `ON`     | Anche se non usiamo molte FK, abilitato per quando lo faremo.   |
-| `busy_timeout` | `5000`   | 5s di attesa su lock prima di errore.                           |
+| `synchronous`  | `NORMAL` | Balanced. `FULL` would be for max durability but not needed.    |
+| `foreign_keys` | `ON`     | Even though we don't use many FK, enabled for when we will.     |
+| `busy_timeout` | `5000`   | 5s wait on lock before error.                                   |
 
-## Gestione `facts_vec` da Drizzle
+## `facts_vec` management from Drizzle
 
-Drizzle non genera/gestisce la virtual table. Approccio:
+Drizzle does not generate/manage the virtual table. Approach:
 
-1. La migration `0000_init.sql` la crea manualmente.
-2. Il modulo `VecStore` la accede via raw SQL parametrizzato sulla connessione `better-sqlite3` diretta (fuori da Drizzle ORM, ma stesso file `.db`).
+1. The `0000_init.sql` migration creates it manually.
+2. The `VecStore` module accesses it via parametrized raw SQL on the direct `better-sqlite3` connection (outside Drizzle ORM, but same `.db` file).
 
-## Considerazioni di portabilita
+## Portability considerations
 
-Tutte le query passano per `repo.ts` o `VecStore`. Le query SQLite-specific (pragmas, virtual tables, vec_distance_cosine) sono confinate in:
+All queries pass through `repo.ts` or `VecStore`. SQLite-specific queries (pragmas, virtual tables, vec_distance_cosine) are confined to:
 
-- `db/client.ts` (apertura, pragmas, load extension).
+- `db/client.ts` (opening, pragmas, load extension).
 - `kb/vec.ts` (SqliteVecStore).
 - `drizzle/0000_init.sql` (CREATE VIRTUAL TABLE).
 
-Migrazione futura a Postgres -> swap di questi 3 punti. Vedi `14-portabilita-postgres.md`.
+Future migration to Postgres -> swap of these 3 points. See `14-postgres-portability.md`.

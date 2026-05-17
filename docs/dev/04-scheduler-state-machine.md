@@ -1,23 +1,23 @@
 # Scheduler / state machine
 
-> Status: design; behavior implemented. See `19-implementation-notes.md` for shipped deltas.
+> Status: design; behavior implemented.
 
-## Stati
+## States
 
 ```
 IDLE → ACCUMULATING → SCHEDULED → SENDING → IDLE
 ```
 
-Una sola riga in `chat_state` per chat. Stato corrente sempre persistito.
+One row in `chat_state` per chat. Current state always persisted.
 
-| Stato          | Significato                                       | Persisted fields                                      |
+| State          | Meaning                                           | Persisted fields                                      |
 | -------------- | ------------------------------------------------- | ----------------------------------------------------- |
-| `IDLE`         | Nessun incoming pendente, nessun job.             | `state='IDLE'`, altri NULL.                           |
-| `ACCUMULATING` | Almeno un incoming non risposto. Debounce attivo. | `first_msg_at`, `debounce_deadline`, `last_event_at`. |
-| `SCHEDULED`    | Debounce chiuso, fire programmato.                | `fire_at`, `last_event_at`.                           |
-| `SENDING`      | Orchestrator in esecuzione.                       | `last_event_at` (durata breve).                       |
+| `IDLE`         | No pending incoming, no job.                      | `state='IDLE'`, others NULL.                          |
+| `ACCUMULATING` | At least one unanswered incoming. Debounce active. | `first_msg_at`, `debounce_deadline`, `last_event_at`. |
+| `SCHEDULED`    | Debounce closed, fire scheduled.                  | `fire_at`, `last_event_at`.                           |
+| `SENDING`      | Orchestrator running.                             | `last_event_at` (short duration).                     |
 
-## Parametri (da `config/index.ts`)
+## Parameters (from `config/index.ts`)
 
 - `debounceMs = 120_000` (120s).
 - `hardCapMs = 600_000` (10 min).
@@ -29,28 +29,28 @@ Una sola riga in `chat_state` per chat. Stato corrente sempre persistito.
 - `fallbackDelayMs = 30 * 60_000`.
 - `postReconnectSpreadMs = { min: 30_000, max: 180_000 }`.
 
-## Transizioni
+## Transitions
 
-| Evento                        | Da             | A                       | Note                                                                                                                                                                                                                                                                       |
-| ----------------------------- | -------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Event                        | From           | To                      | Notes                                                                                                                                                                                                                                                                       |
+| ----------------------------- | -------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Incoming                      | `IDLE`         | `ACCUMULATING`          | Set `first_msg_at`, `debounce_deadline = now + debounceMs`.                                                                                                                                                                                                                |
-| Incoming                      | `ACCUMULATING` | `ACCUMULATING`          | Aggiorna `debounce_deadline`. Se `now - first_msg_at >= hardCapMs` -> chiudi subito (delegato a TickerLoop, vedi sotto).                                                                                                                                                   |
-| Incoming                      | `SCHEDULED`    | `ACCUMULATING`          | Cancella job. Set nuovo `debounce_deadline`. Mantieni `first_msg_at` originale o resetta? **Reset**: `first_msg_at = now`. Logica: arrivo durante SCHEDULED rappresenta una nuova "ondata" che si aggiunge a quella vecchia, e il delay va ricalcolato dall'ultima quiete. |
-| Incoming                      | `SENDING`      | `SENDING`               | Niente, solo persisti il messaggio. Nuovo turn nasce dopo SENDING -> IDLE -> nuovo incoming triggera ACCUMULATING.                                                                                                                                                         |
-| Out_manual                    | `ACCUMULATING` | `IDLE`                  | Tutti i campi reset.                                                                                                                                                                                                                                                       |
-| Out_manual                    | `SCHEDULED`    | `IDLE`                  | Cancella job.                                                                                                                                                                                                                                                              |
-| Out_manual                    | `SENDING`      | (state resta `SENDING`) | Abort via `InflightRegistry.get(chat_id)?.abort()`. Orchestrator vedrà signal e portera a IDLE.                                                                                                                                                                            |
-| Out_manual                    | `IDLE`         | `IDLE`                  | Solo persistenza.                                                                                                                                                                                                                                                          |
-| Debounce close (TickerLoop)   | `ACCUMULATING` | `SCHEDULED`             | Calcola `fireAt`, set.                                                                                                                                                                                                                                                     |
-| Hard cap reached (TickerLoop) | `ACCUMULATING` | `SCHEDULED`             | Idem.                                                                                                                                                                                                                                                                      |
-| Fire (TickerLoop)             | `SCHEDULED`    | `SENDING`               | Claim atomico + pre-send check.                                                                                                                                                                                                                                            |
-| Send done                     | `SENDING`      | `IDLE`                  | Reset campi.                                                                                                                                                                                                                                                               |
-| Send abort                    | `SENDING`      | `IDLE`                  | Reset campi, niente messaggio inviato.                                                                                                                                                                                                                                     |
-| Send error (post retry)       | `SENDING`      | `IDLE`                  | Log error, niente invio (no spam).                                                                                                                                                                                                                                         |
+| Incoming                      | `ACCUMULATING` | `ACCUMULATING`          | Update `debounce_deadline`. If `now - first_msg_at >= hardCapMs` -> close immediately (delegated to TickerLoop, see below).                                                                                                                                                |
+| Incoming                      | `SCHEDULED`    | `ACCUMULATING`          | Cancel job. Set new `debounce_deadline`. Keep original `first_msg_at` or reset? **Reset**: `first_msg_at = now`. Logic: arrival during SCHEDULED represents a new "wave" added to the old one, and the delay must be recomputed from the last quiet period.               |
+| Incoming                      | `SENDING`      | `SENDING`               | Nothing, just persist the message. New turn starts after SENDING -> IDLE -> new incoming triggers ACCUMULATING.                                                                                                                                                            |
+| Out_manual                    | `ACCUMULATING` | `IDLE`                  | All fields reset.                                                                                                                                                                                                                                                          |
+| Out_manual                    | `SCHEDULED`    | `IDLE`                  | Cancel job.                                                                                                                                                                                                                                                                |
+| Out_manual                    | `SENDING`      | (state stays `SENDING`) | Abort via `InflightRegistry.get(chat_id)?.abort()`. Orchestrator will see signal and bring to IDLE.                                                                                                                                                                        |
+| Out_manual                    | `IDLE`         | `IDLE`                  | Persistence only.                                                                                                                                                                                                                                                          |
+| Debounce close (TickerLoop)   | `ACCUMULATING` | `SCHEDULED`             | Compute `fireAt`, set.                                                                                                                                                                                                                                                     |
+| Hard cap reached (TickerLoop) | `ACCUMULATING` | `SCHEDULED`             | Same.                                                                                                                                                                                                                                                                      |
+| Fire (TickerLoop)             | `SCHEDULED`    | `SENDING`               | Atomic claim + pre-send check.                                                                                                                                                                                                                                             |
+| Send done                     | `SENDING`      | `IDLE`                  | Reset fields.                                                                                                                                                                                                                                                              |
+| Send abort                    | `SENDING`      | `IDLE`                  | Reset fields, no message sent.                                                                                                                                                                                                                                             |
+| Send error (post retry)       | `SENDING`      | `IDLE`                  | Log error, no send (no spam).                                                                                                                                                                                                                                              |
 
-## Atomicità delle transizioni
+## Atomicity of transitions
 
-Tutte le transizioni iniziano con un UPDATE condizionato:
+All transitions start with a conditional UPDATE:
 
 ```sql
 UPDATE chat_state
@@ -58,9 +58,9 @@ SET state = 'NEW_STATE', ...
 WHERE chat_id = ? AND state = 'EXPECTED_STATE'
 ```
 
-Se `changes() == 0`, qualcun altro è arrivato prima. Si abbandona l'azione. Mai assumere lo stato senza checkare `changes()`.
+If `changes() == 0`, someone else got there first. The action is abandoned. Never assume the state without checking `changes()`.
 
-## Calcolo `fire_at`
+## `fire_at` computation
 
 ```ts
 function computeFireAt(chatId: string, debounceCloseTs: number): number {
@@ -81,7 +81,7 @@ function computeFireAt(chatId: string, debounceCloseTs: number): number {
 
 ## Rolling avg latency
 
-Calcolata in TS, non in SQL puro. Algoritmo:
+Computed in TS, not in pure SQL. Algorithm:
 
 ```ts
 async function rollingAvgLatency(chatId: string, windowSize: number, excludeNight: boolean) {
@@ -92,24 +92,24 @@ async function rollingAvgLatency(chatId: string, windowSize: number, excludeNigh
     if (r.direction === 'in') {
       lastInTs = r.ts
     } else if (lastInTs != null) {
-      // out_manual o out_bot: questa è una "reply" che chiude la raffica precedente
+      // out_manual or out_bot: this is a "reply" that closes the previous burst
       const lat = r.ts - lastInTs
       if (!excludeNight || !crossesNight(lastInTs, r.ts, config.timezone)) {
         latencies.push(lat)
       }
-      lastInTs = null // reset, prossimo in inizia raffica nuova
+      lastInTs = null // reset, next in starts a new burst
     }
   }
   const last5 = latencies.slice(-windowSize)
-  if (last5.length < windowSize) return null // fallback applicato dal caller
+  if (last5.length < windowSize) return null // fallback applied by caller
   return last5.reduce((a, b) => a + b, 0) / last5.length
 }
 ```
 
-Note:
+Notes:
 
-- `lastInTs` rappresenta l'ultimo `in` della raffica corrente. Quando arriva un `out_*`, calcoliamo `out.ts - lastInTs` che è la latency dell'ultimo `in` (cioè quello effettivamente "chiuso" dalla risposta). Coerente con la richiesta: "latenza è per la raffica di messaggi suoi, non nostri".
-- Se ci sono multipli `in` consecutivi, `lastInTs` viene aggiornato all'ultimo. Quando arriva l'`out_*`, calcoliamo dalla finestra di silenzio reale.
+- `lastInTs` represents the last `in` of the current burst. When an `out_*` arrives, we compute `out.ts - lastInTs` which is the latency of the last `in` (the one actually "closed" by the reply). Consistent with the requirement: "latency is for their message burst, not ours".
+- If there are multiple consecutive `in`, `lastInTs` is updated to the last one. When the `out_*` arrives, we compute from the actual silence window.
 
 ## Night window
 
@@ -121,19 +121,19 @@ function isInNightWindow(tsMs: number, tz: string): boolean {
 }
 
 function nextMorningStart(tsMs: number, tz: string): number {
-  // restituisce ts ms della prossima 06:00 (config.nightWindow.endHour) in tz locale
-  // implementazione con date-fns-tz o luxon
+  // returns ts ms of the next 06:00 (config.nightWindow.endHour) in local tz
+  // implementation with date-fns-tz or luxon
 }
 
 function crossesNight(inTs: number, outTs: number, tz: string): boolean {
-  // true se l'intervallo [inTs, outTs] interseca [22-06] tz locale
-  // implementazione: itera per ore o calcola boundaries esatte
+  // true if the interval [inTs, outTs] intersects [22-06] local tz
+  // implementation: iterate by hours or compute exact boundaries
 }
 ```
 
 ## Post-reconnect spread
 
-Trigger: `ConnectionStateMachine` passa a `CONNECTED` dopo essere stato `DISCONNECTED`.
+Trigger: `ConnectionStateMachine` transitions to `CONNECTED` after being `DISCONNECTED`.
 
 ```ts
 async function applyPostReconnectSpread() {
@@ -150,24 +150,24 @@ async function applyPostReconnectSpread() {
 }
 ```
 
-## Race conditions documentate
+## Documented race conditions
 
-### R1 — TickerLoop tra due tick mentre arriva out_manual
+### R1, TickerLoop between two ticks while out_manual arrives
 
-Sicuro. `out_manual` viene processato sincronamente da MessageDispatcher (transizione UPDATE atomica). TickerLoop al prossimo tick legge lo stato aggiornato.
+Safe. `out_manual` is processed synchronously by MessageDispatcher (atomic UPDATE transition). TickerLoop on the next tick reads the updated state.
 
-### R2 — TickerLoop e out_manual quasi simultanei
+### R2, TickerLoop and out_manual nearly simultaneous
 
-UPDATE condizionato risolve. Solo uno dei due wins (o transition `ACCUMULATING->SCHEDULED` oppure `ACCUMULATING->IDLE`). L'altro si trova `changes()=0`.
+Conditional UPDATE resolves it. Only one of the two wins (either transition `ACCUMULATING->SCHEDULED` or `ACCUMULATING->IDLE`). The other finds `changes()=0`.
 
-### R3 — out_manual durante SENDING (AI call in corso)
+### R3, out_manual during SENDING (AI call in progress)
 
-Mitigato con `InflightRegistry.abort()` + 4 abort-check points nell'orchestrator. Race window residua = ms tra check #4 e arrivo del `sendMessage` ai server WhatsApp. Accettata: nel peggiore dei casi, doppio messaggio (utente + bot). Non distruttivo.
+Mitigated with `InflightRegistry.abort()` + 4 abort-check points in the orchestrator. Residual race window = ms between check #4 and arrival of the `sendMessage` at WhatsApp servers. Accepted: at worst, double message (user + bot). Non-destructive.
 
-### R4 — Fire programmato per `now`, esattamente quando arriva incoming
+### R4, Fire scheduled for `now`, exactly when incoming arrives
 
-Incoming triggera transizione `SCHEDULED->ACCUMULATING` (con cancellazione job). Se simultaneo a TickerLoop che tenta `SCHEDULED->SENDING`, una sola UPDATE wins. Se vince incoming, fire cancellato. Se vince TickerLoop, SENDING parte e poi pre-send check rileva `out_manual`? No, è un incoming, non un out. Quindi SENDING parte normalmente, l'incoming fresco è in `processed_messages` ma non incluso nel TurnContext (fetched a quel momento dovrebbe includerlo: dipende da timing fetch vs persist). In pratica: se l'incoming è nel DB, `chat.fetchMessages` lo include (è già nella sessione WW). Quindi va bene.
+Incoming triggers transition `SCHEDULED->ACCUMULATING` (with job cancellation). If simultaneous with TickerLoop trying `SCHEDULED->SENDING`, only one UPDATE wins. If incoming wins, fire cancelled. If TickerLoop wins, SENDING starts and then the pre-send check detects `out_manual`? No, it's an incoming, not an out. So SENDING starts normally, the fresh incoming is in `processed_messages` but not included in TurnContext (fetched at that moment should include it: depends on timing of fetch vs persist). In practice: if the incoming is in the DB, `chat.fetchMessages` includes it (it's already in the WW session). So it's fine.
 
-## Manual jobs e state machine
+## Manual jobs and state machine
 
-I `manual_jobs` (date_anchored / revive / re_engage) sono gestiti da `ManualJobsCron`, separato da `TickerLoop`. Vedi `10-manual-jobs.md`. Punto di intersezione: prima di firare un manual_job, si controlla `chat_state.state`. Se non `IDLE`, il manual_job è marcato `superseded` per evitare doppi turn sovrapposti.
+The `manual_jobs` (date_anchored / revive / re_engage) are managed by `ManualJobsCron`, separate from `TickerLoop`. See `10-manual-jobs.md`. Intersection point: before firing a manual_job, `chat_state.state` is checked. If not `IDLE`, the manual_job is marked `superseded` to avoid overlapping double turns.

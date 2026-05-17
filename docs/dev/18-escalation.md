@@ -1,69 +1,69 @@
-# Escalation a umano
+# Escalation to human
 
-> Status: design; behavior implemented. `TELEGRAM_USER_CHAT_ID` supporta comma-separated per broadcast multi-recipient. See `19-implementation-notes.md` §6.
+> Status: design; behavior implemented. `TELEGRAM_USER_CHAT_ID` supports comma-separated for multi-recipient broadcast.
 
-Quando il bot riceve un messaggio che richiede informazioni o decisioni che l'AI non può conoscere o sostituire (impegni futuri, decisioni delicate, scelte personali, autorizzazioni), invece di inventare una risposta o tirare a indovinare, segnala l'utente su un canale fuori-banda. L'utente risponde a mano da WhatsApp.
+When the bot receives a message requiring information or decisions that the AI cannot know or substitute (future commitments, sensitive decisions, personal choices, authorizations), instead of making up an answer or guessing, it signals the user on an out-of-band channel. The user replies manually from WhatsApp.
 
-Questa funzionalità non contraddice il design "fully autonomous" (vedi `17-out-of-scope.md`): il bot resta autonomo nel 95% dei turn, e ammette esplicitamente quando non sa nel 5% restante. Differente da un approval flow (dove ogni reply è in revisione umana): qui solo i turn dove l'AI dichiara `escalate_to_human` saltano l'invio automatico.
+This functionality does not contradict the "fully autonomous" design: the bot remains autonomous in 95% of turns, and explicitly admits when it doesn't know in the remaining 5%. Different from an approval flow (where every reply is in human review): here only turns where the AI declares `escalate_to_human` skip the automatic send.
 
-## Quando escalare
+## When to escalate
 
-L'AI nel `TurnOutput` produce `escalate_to_human` non-null quando il messaggio in arrivo cade in una delle categorie:
+The AI in the `TurnOutput` produces a non-null `escalate_to_human` when the incoming message falls into one of the categories:
 
-| `reason`     | Trigger esempio                                                                                                                                            |
+| `reason`     | Trigger example                                                                                                                                            |
 | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `scheduling` | "ci vediamo alle 16?", "sei libero martedì sera?", "vieni alla cena di sabato?"                                                                            |
-| `commitment` | "puoi farmi questo favore?", "mi presti X?", "posso passare da te?"                                                                                        |
-| `sensitive`  | argomenti emotivamente delicati dove una risposta sbagliata può ferire (lutti, malattie, conflitti recenti documentati nel KB)                             |
-| `financial`  | richieste di soldi, prestiti, contributi a regali, split di conto su cui l'AI non sa la posizione dell'utente                                              |
-| `identity`   | richiesta di parlare di un'opinione personale forte (politica, fede, scelte di vita) non documentata nel KB                                                |
-| `other`      | qualunque altra cosa che l'AI ha riconosciuto come "starei tirando a indovinare". Bar dell'AI: "se rispondessi io, l'utente potrebbe disapprovare l'esito" |
+| `scheduling` | "shall we meet at 4pm?", "are you free Tuesday evening?", "are you coming to Saturday's dinner?"                                                            |
+| `commitment` | "can you do me this favor?", "can you lend me X?", "can I stop by your place?"                                                                              |
+| `sensitive`  | emotionally sensitive topics where a wrong answer can hurt (bereavements, illnesses, recent conflicts documented in KB)                                     |
+| `financial`  | money requests, loans, gift contributions, bill splits where the AI doesn't know the user's position                                                        |
+| `identity`   | request to discuss a strong personal opinion (politics, faith, life choices) not documented in KB                                                           |
+| `other`      | anything else the AI has recognized as "I'd be guessing". AI bar: "if I were to reply, the user might disapprove of the outcome"                            |
 
-Bar generale: l'AI escalla quando una risposta autonoma rischierebbe di impegnare l'utente, ferire la persona, o esporre opinioni che non sono nel KB.
+General bar: the AI escalates when an autonomous reply would risk committing the user, hurting the person, or exposing opinions that are not in KB.
 
-L'AI NON escalla per:
+The AI does NOT escalate for:
 
-- Domande informative coperte dal KB ("dove vivi?" -> KB).
-- Convenevoli ("come stai?", "ciao!").
-- Continuazioni di thread già stabiliti (l'utente ha già risposto su questo nei messaggi precedenti).
-- Messaggi non testuali (sticker, emoji singoli) -> resta `skip` come prima.
+- Informational questions covered by KB ("where do you live?" -> KB).
+- Pleasantries ("how are you?", "hi!").
+- Continuations of already-established threads (the user has already replied on this in previous messages).
+- Non-textual messages (stickers, single emojis) -> stays `skip` as before.
 
-## Schema `escalate_to_human`
+## `escalate_to_human` schema
 
-Aggiunta al `TurnOutput` (vedi `07-ai-integration.md` per lo schema completo):
+Added to `TurnOutput` (see `07-ai-integration.md` for the complete schema):
 
 ```ts
 escalate_to_human: z.object({
   reason: z.enum(['scheduling', 'commitment', 'sensitive', 'financial', 'identity', 'other']),
   urgency: z.enum(['low', 'normal', 'high']),
-  summary: z.string().min(1).max(500), // 1-3 frasi: cosa chiede, perchè non posso rispondere
-  suggested_holding_reply: z.string().nullable(), // null = non rispondere, string = stall ("ti faccio sapere")
+  summary: z.string().min(1).max(500), // 1-3 sentences: what they're asking, why I can't reply
+  suggested_holding_reply: z.string().nullable(), // null = don't reply, string = stall ("I'll let you know")
 }).nullable()
 ```
 
-Note:
+Notes:
 
-- `urgency: 'high'` -> notifica immediata, senza accumulo.
-- `urgency: 'normal'` -> notifica subito, ma accettabile se l'utente la vede dopo qualche minuto.
-- `urgency: 'low'` -> notifica solo nel digest giornaliero (vedi `16-future-enhancements.md` #8 quando implementato; in v1 senza digest, equivale a `normal`).
-- `suggested_holding_reply` esempio: "Aspetta che controllo, ti faccio sapere". Se non-null, viene inviato a WhatsApp prima di notificare. Se null, niente reply, l'utente risponde da zero.
+- `urgency: 'high'` -> immediate notification, no accumulation.
+- `urgency: 'normal'` -> notify immediately, but acceptable if the user sees it after a few minutes.
+- `urgency: 'low'` -> notify only in daily digest (in v1 without digest, equivalent to `normal`).
+- `suggested_holding_reply` example: "Wait, let me check, I'll let you know". If non-null, sent to WhatsApp before notifying. If null, no reply, the user replies from scratch.
 
-## Comportamento del bot
+## Bot behavior
 
-Quando `TurnOutput.escalate_to_human` non è null, in `ReplyOrchestrator.generateAndSend` (vedi `03-data-flow.md` Flow C):
+When `TurnOutput.escalate_to_human` is non-null, in `ReplyOrchestrator.generateAndSend` (see `03-data-flow.md` Flow C):
 
-1. Se `suggested_holding_reply` non null:
-   - Inviare il messaggio come `out_bot` normale.
-   - Persistere in `processed_messages`.
-2. Inserire una row in `escalations` (vedi sotto) con `status='pending'`.
-3. Notificare sul canale configurato (vedi `Canali` sotto).
-4. NON eseguire le altre azioni del Flow C che dipendono dal contenuto della reply (extracted_facts, tone_update, language_update procedono comunque, sono indipendenti).
+1. If `suggested_holding_reply` non-null:
+   - Send the message as normal `out_bot`.
+   - Persist in `processed_messages`.
+2. Insert a row in `escalations` (see below) with `status='pending'`.
+3. Notify on configured channel (see `Channels` below).
+4. DO NOT execute other Flow C actions that depend on reply content (extracted_facts, tone_update, language_update proceed anyway, they are independent).
 5. `chat_state -> IDLE`.
-6. `turn_log` insert con `status='escalated'` (nuovo enum value).
+6. `turn_log` insert with `status='escalated'` (new enum value).
 
-Se `escalate_to_human` è null (caso normale), il flow resta invariato.
+If `escalate_to_human` is null (normal case), the flow stays unchanged.
 
-## Tabella `escalations`
+## `escalations` table
 
 ```ts
 export const escalations = sqliteTable(
@@ -71,7 +71,7 @@ export const escalations = sqliteTable(
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
     chatId: text('chat_id').notNull(),
-    triggerMsgId: text('trigger_msg_id').notNull(), // whatsapp_msg_id che ha fatto scattare l'escalation
+    triggerMsgId: text('trigger_msg_id').notNull(), // whatsapp_msg_id that triggered escalation
     reason: text('reason').notNull(), // scheduling | commitment | ...
     urgency: text('urgency', { enum: ['low', 'normal', 'high'] }).notNull(),
     summary: text('summary').notNull(),
@@ -92,47 +92,47 @@ export const escalations = sqliteTable(
 
 Lifecycle:
 
-- `pending` -> creata. Notifica inviata.
-- `user_replied` -> rilevato `out_manual` per quella chat dopo `createdAt`. Marker informativo, l'utente ha risposto.
-- `superseded` -> arrivato un altro messaggio dalla persona dopo l'escalation, l'AI ha generato una nuova escalation o una reply autonoma. La vecchia diventa stale.
-- `dismissed` -> manuale, non implementato in v1 (cambia row a mano in DB se necessario).
+- `pending` -> created. Notification sent.
+- `user_replied` -> detected `out_manual` for that chat after `createdAt`. Informational marker, user replied.
+- `superseded` -> another message arrived from the person after escalation, AI generated a new escalation or autonomous reply. The old one becomes stale.
+- `dismissed` -> manual, not implemented in v1 (change row by hand in DB if necessary).
 
-## Canali di notifica
+## Notification channels
 
-Configurabile tramite `config.escalation`:
+Configurable through `config.escalation`:
 
 ```ts
 escalation: {
   enabled: true,
   channels: ['whatsapp_self', 'telegram'] as Array<'whatsapp_self' | 'telegram'>,
-  whatsappSelfChatId: 'me',                             // 'me' -> usa numero proprio risolto a runtime
-  telegramBotTokenEnv: 'TELEGRAM_BOT_TOKEN',            // nome ENV var
-  telegramChatIdEnv: 'TELEGRAM_USER_CHAT_ID',           // nome ENV var
-  rateLimitPerHour: 12,                                 // safety: max 12 notifiche/ora aggregate
+  whatsappSelfChatId: 'me',                             // 'me' -> uses own number resolved at runtime
+  telegramBotTokenEnv: 'TELEGRAM_BOT_TOKEN',            // ENV var name
+  telegramChatIdEnv: 'TELEGRAM_USER_CHAT_ID',           // ENV var name
+  rateLimitPerHour: 12,                                 // safety: max 12 aggregated notifications/hour
   highUrgencyBypassRateLimit: true,
 }
 ```
 
-### Canale 1: WhatsApp self-chat
+### Channel 1: WhatsApp self-chat
 
-Il bot manda un messaggio sulla propria chat con se stesso (numero proprio = numero proprio). `whatsapp-web.js` supporta:
+The bot sends a message on its own chat with itself (own number = own number). `whatsapp-web.js` supports:
 
 ```ts
-const myWid = client.info.wid._serialized // es. '391234567@c.us'
+const myWid = client.info.wid._serialized // e.g. '391234567@c.us'
 await client.sendMessage(myWid, formattedNotification)
 ```
 
-Pro: zero infra aggiuntiva, notifica push WhatsApp standard.
+Pro: zero additional infra, standard WhatsApp push notification.
 
-Contro: dipende dalla notifica push di WhatsApp arrivare al telefono dell'utente. Le notifiche di self-chat possono essere mute dall'utente per errore o non comparire come notifica visibile su alcune versioni di WhatsApp. Verificare al setup (vedi `15-runbook.md`).
+Con: depends on WhatsApp push notification arriving at the user's phone. Self-chat notifications can be muted by the user by mistake or not appear as visible notification on some WhatsApp versions. Verify at setup (see `15-runbook.md`).
 
-Se WhatsApp Web stessa è disconnessa, l'invio fallisce e l'escalation resta `pending` finchè non torna online. Stesso destino del bot: nessuno dei due funziona.
+If WhatsApp Web itself is disconnected, the send fails and the escalation stays `pending` until it comes back online. Same fate as the bot: neither works.
 
-### Canale 2: Telegram bot
+### Channel 2: Telegram bot
 
-Il bot invia su Telegram tramite Bot API. HTTPS POST diretto a `https://api.telegram.org/bot<TOKEN>/sendMessage` con body JSON `{ chat_id, text, parse_mode: 'Markdown' }`.
+The bot sends to Telegram via Bot API. Direct HTTPS POST to `https://api.telegram.org/bot<TOKEN>/sendMessage` with JSON body `{ chat_id, text, parse_mode: 'Markdown' }`.
 
-Niente libreria necessaria, basta `fetch` (Node 20+).
+No library required, just `fetch` (Node 20+).
 
 ```ts
 async function sendTelegram(text: string) {
@@ -151,68 +151,68 @@ async function sendTelegram(text: string) {
 }
 ```
 
-Pro: indipendente da WhatsApp Web. Notifiche push Telegram sono affidabili.
+Pro: independent from WhatsApp Web. Telegram push notifications are reliable.
 
-Contro: serve setup iniziale del bot (vedi `15-runbook.md` sezione "Setup Telegram"). Token segreto, da tenere in `.env` non committato.
+Con: requires initial bot setup (see `15-runbook.md` section "Telegram setup"). Secret token, to keep in `.env` not committed.
 
-### Multi-canale e fallback
+### Multi-channel and fallback
 
-Se entrambi i canali sono attivi, il bot prova entrambi in parallelo. Almeno un successo è considerato success (escalation `notified_channels` registra quali hanno funzionato).
+If both channels are active, the bot tries both in parallel. At least one success is considered success (escalation `notified_channels` records which ones worked).
 
-Se entrambi falliscono, l'escalation resta `pending` con `notified_channels=[]`. Un retry job ogni 5 minuti tenta di rinotificare per le pendenti senza notify success. Cap 3 retry, dopo log error e basta (l'utente la vedrà comunque al boot successivo se ancora in `pending`).
+If both fail, the escalation stays `pending` with `notified_channels=[]`. A retry job every 5 minutes attempts to re-notify for pending without notify success. Cap 3 retry, after log error and that's it (the user will see it anyway at next boot if still `pending`).
 
 ### Rate limit
 
-`config.escalation.rateLimitPerHour` (default 12) limita il volume aggregato di notifiche per non spammare l'utente.
+`config.escalation.rateLimitPerHour` (default 12) limits the aggregate volume of notifications to avoid spamming the user.
 
-Implementazione: query `SELECT COUNT(*) FROM escalations WHERE created_at > now - 3600_000 AND notified_channels != '[]'`. Se > limit, aggregare in un'unica notifica "X escalations pending, vedere log/dashboard".
+Implementation: query `SELECT COUNT(*) FROM escalations WHERE created_at > now - 3600_000 AND notified_channels != '[]'`. If > limit, aggregate in a single notification "X escalations pending, see log/dashboard".
 
-`highUrgencyBypassRateLimit: true` -> `urgency='high'` non conta nel rate limit, sempre notificata individualmente.
+`highUrgencyBypassRateLimit: true` -> `urgency='high'` does not count in rate limit, always notified individually.
 
-## Formato del messaggio di notifica
+## Notification message format
 
 ```
 [viet-chatter] {urgency_emoji}{REASON}
-Da: {display_name or phone}
-Riassunto: {summary}
+From: {display_name or phone}
+Summary: {summary}
 {holding_reply_indicator}
 
-Vai a rispondere su WhatsApp.
+Go reply on WhatsApp.
 ```
 
-Esempi:
+Examples:
 
 WhatsApp self-chat (no Markdown):
 
 ```
 [viet-chatter] !! SCHEDULING
-Da: Hoa (+8412345)
-Riassunto: Hoa chiede se sei libero sabato sera per cena. Non ho informazioni sui tuoi impegni.
-Holding reply inviata: "ti faccio sapere"
+From: Hoa (+8412345)
+Summary: Hoa is asking if you're free Saturday evening for dinner. I don't have information about your commitments.
+Holding reply sent: "I'll let you know"
 
-Vai a rispondere su WhatsApp.
+Go reply on WhatsApp.
 ```
 
 Telegram (Markdown):
 
 ```
 *[viet-chatter] SCHEDULING* ⚠️
-*Da:* Hoa (+8412345)
-*Riassunto:* Hoa chiede se sei libero sabato sera per cena. Non ho informazioni sui tuoi impegni.
-*Holding reply inviata:* "ti faccio sapere"
+*From:* Hoa (+8412345)
+*Summary:* Hoa is asking if you're free Saturday evening for dinner. I don't have information about your commitments.
+*Holding reply sent:* "I'll let you know"
 
-Vai a rispondere su WhatsApp.
+Go reply on WhatsApp.
 ```
 
-`urgency_emoji` -> `low` = nessuna emoji, `normal` = `!`, `high` = `!!`. Niente emoji su WhatsApp self-chat (vincolo style del progetto: nessun emoji), su Telegram opzionali. (Decisione: niente emoji ovunque per coerenza con lo stile del progetto. Le emoji sopra sono solo nell'esempio Telegram come illustrazione, da rimuovere se si decide di mantenere la regola "no emoji" anche per Telegram.)
+`urgency_emoji` -> `low` = no emoji, `normal` = `!`, `high` = `!!`. No emoji on WhatsApp self-chat (project style constraint: no emojis), on Telegram optional. (Decision: no emoji anywhere for consistency with project style. The emojis above are only in the Telegram example as illustration, to be removed if the "no emoji" rule is kept for Telegram too.)
 
-## Dedup ed evoluzione
+## Dedup and evolution
 
-### Caso: messaggio in arrivo trigger escalation, esiste gia escalation pending per la stessa chat
+### Case: incoming message triggers escalation, pending escalation already exists for the same chat
 
-Comportamento: NON creare una nuova escalation. Aggiornare la `summary` della pendente esistente con il nuovo messaggio, e ri-notificare solo se l'urgenza sale (es. da `normal` a `high`).
+Behavior: do NOT create a new escalation. Update the `summary` of the existing pending one with the new message, and re-notify only if urgency rises (e.g. from `normal` to `high`).
 
-Implementazione:
+Implementation:
 
 ```ts
 const existing = await repo.pendingEscalation(chatId)
@@ -226,56 +226,56 @@ if (existing) {
 // else create new
 ```
 
-### Caso: utente risponde manualmente
+### Case: user replies manually
 
-`MessageDispatcher` sull'evento `out_manual` per una chat con escalation `pending`:
+`MessageDispatcher` on the `out_manual` event for a chat with `pending` escalation:
 
 ```ts
 await repo.markEscalationsResolved(chatId, 'user_replied')
 ```
 
-Niente notifica di "risolto" all'utente, solo update DB.
+No "resolved" notification to the user, just DB update.
 
-### Caso: bot stesso genera una reply autonoma (turn successivo, AI cambia idea)
+### Case: bot itself generates an autonomous reply (next turn, AI changes its mind)
 
-Stesso comportamento: la nuova reply implica che l'AI ora sa abbastanza, l'escalation precedente diventa stale. Marker `superseded` con `resolvedAt = now`.
+Same behavior: the new reply implies the AI now knows enough, the previous escalation becomes stale. Marker `superseded` with `resolvedAt = now`.
 
-## Configurazione per chat (override)
+## Per-chat configuration (override)
 
-Some chat sono OK per escalation, altre no. Esempio: una chat di lavoro dove l'utente preferisce rispondere sempre lui -> sempre escalation. Una chat amichevole dove l'utente si fida del bot al 100% -> mai escalation.
+Some chats are OK for escalation, others not. Example: a work chat where the user prefers to always reply themselves -> always escalation. A friendly chat where the user trusts the bot 100% -> never escalation.
 
-In v1, override per chat NON implementato. Il filtro è globale: l'AI decide turn-per-turn.
+In v1, per-chat override NOT implemented. The filter is global: the AI decides turn-by-turn.
 
-Override per chat è una future enhancement (vedi `16-future-enhancements.md`): aggiungere `escalation_policy` su `person_profile` con valori `'auto' | 'always' | 'never'`. L'AI legge il valore dal `TurnContext` e applica.
+Per-chat override is a future enhancement: add `escalation_policy` to `person_profile` with values `'auto' | 'always' | 'never'`. The AI reads the value from `TurnContext` and applies.
 
-## Edge case e race
+## Edge cases and races
 
-### Edge: bot offline al momento del trigger
+### Edge: bot offline at trigger moment
 
-Stesso destino del bot: il messaggio resta in WhatsApp, viene processato al ritorno online dal `BootReconciler`. Se l'AI lo classifica ancora come da escalare, parte l'escalation con un ritardo equivalente all'offline window. Niente comportamento speciale.
+Same fate as the bot: the message stays in WhatsApp, gets processed when back online by `BootReconciler`. If the AI still classifies it as to escalate, the escalation starts with a delay equivalent to the offline window. No special behavior.
 
-### Edge: utente risponde nei millisecondi tra send `holding_reply` e notifica
+### Edge: user replies in the milliseconds between `holding_reply` send and notification
 
-Identico alle race window esistenti del Flow D (`out_manual` durante `SENDING`). Mitigato dal pattern `processed_messages.ts > escalation.createdAt`. Documentato come accettabile.
+Identical to existing race windows of Flow D (`out_manual` during `SENDING`). Mitigated by the `processed_messages.ts > escalation.createdAt` pattern. Documented as acceptable.
 
-### Edge: AI emette `escalate_to_human` senza `summary`
+### Edge: AI emits `escalate_to_human` without `summary`
 
-Schema zod richiede `summary` non vuota. Se manca, validation fail, retry. Se persiste, escalation creata con `summary = "AI ha richiesto escalation senza fornire dettagli. Vai a controllare la chat."` come fallback.
+Zod schema requires non-empty `summary`. If missing, validation fail, retry. If it persists, escalation created with `summary = "AI requested escalation without providing details. Go check the chat."` as fallback.
 
-### Edge: AI emette sia `reply` non vuoto che `escalate_to_human` non null
+### Edge: AI emits both non-empty `reply` and non-null `escalate_to_human`
 
-Conflitto: l'AI ha generato una reply ma anche dichiarato escalation. Risoluzione: l'`escalate_to_human` ha precedenza. Il `reply` viene scartato (NON inviato), e si invia solo `suggested_holding_reply` se presente. Logica: se l'AI è incerta abbastanza da escalare, la sua reply non è affidabile.
+Conflict: the AI has generated a reply but also declared escalation. Resolution: `escalate_to_human` takes precedence. The `reply` is discarded (NOT sent), and only `suggested_holding_reply` is sent if present. Logic: if the AI is uncertain enough to escalate, its reply is not reliable.
 
-Documentare questo comportamento nei prompt: "se setti escalate_to_human, lascia reply vuoto o usa suggested_holding_reply".
+Document this behavior in the prompts: "if you set escalate_to_human, leave reply empty or use suggested_holding_reply".
 
-## Configurazione di esempio
+## Example configuration
 
 `config/index.ts`:
 
 ```ts
 escalation: {
   enabled: true,
-  channels: ['telegram'] as const,                      // solo Telegram, self-chat skip
+  channels: ['telegram'] as const,                      // Telegram only, self-chat skip
   whatsappSelfChatId: 'me',
   telegramBotTokenEnv: 'TELEGRAM_BOT_TOKEN',
   telegramChatIdEnv: 'TELEGRAM_USER_CHAT_ID',
@@ -291,9 +291,9 @@ TELEGRAM_BOT_TOKEN=123456789:AAA-bbb-ccc-ddd-eee
 TELEGRAM_USER_CHAT_ID=987654321
 ```
 
-Per disabilitare temporaneamente: `escalation.enabled = false`. Hot reload prende effetto al prossimo turn.
+To disable temporarily: `escalation.enabled = false`. Hot reload takes effect at the next turn.
 
-## Modulo `EscalationNotifier`
+## `EscalationNotifier` module
 
 `src/escalation/notifier.ts`:
 
@@ -336,9 +336,9 @@ export class EscalationNotifier {
 
 ## Logging
 
-Eventi nuovi (vedi `12-logging-observability.md` per il catalogo aggiornato):
+New events (see `12-logging-observability.md` for the updated catalog):
 
-| Evento                             | Level  | Campi                                      |
+| Event                              | Level  | Fields                                     |
 | ---------------------------------- | ------ | ------------------------------------------ |
 | escalation created                 | `info` | `esc_id`, `chat_id`, `reason`, `urgency`   |
 | escalation notified                | `info` | `esc_id`, `channels_ok`, `channels_failed` |
@@ -347,9 +347,9 @@ Eventi nuovi (vedi `12-logging-observability.md` per il catalogo aggiornato):
 | escalation superseded              | `info` | `esc_id`, `chat_id`, `reason`              |
 | holding reply sent                 | `info` | `esc_id`, `chat_id`                        |
 
-## Health check estensione
+## Health check extension
 
-`npm run health` aggiunge:
+`npm run health` adds:
 
 ```
 escalations: {
@@ -359,34 +359,34 @@ escalations: {
 }
 ```
 
-Permette di rilevare al volo se ci sono escalations bloccate (notifica fallita, utente non vede).
+Allows to detect on the fly if there are stuck escalations (failed notification, user doesn't see).
 
-## Sicurezza
+## Security
 
-- Token Telegram in `.env`, mai in `config/index.ts` o committato.
-- `.env` deve essere in `.gitignore` (vedi `13-progetto-layout.md`).
-- Verificare al setup che `.env` non sia tracciato (`git ls-files .env` deve essere vuoto).
-- Bot Telegram dedicato per ogni installazione, non condividerne il token.
-- `chat_id` Telegram dell'utente: trattare come PII, ma non come segreto critico (è un identificativo opaco).
-- Rotazione token: revocare il vecchio via @BotFather, generare nuovo, aggiornare `.env`, restart bot.
+- Telegram token in `.env`, never in `config/index.ts` or committed.
+- `.env` must be in `.gitignore` (see `13-project-layout.md`).
+- Verify at setup that `.env` is not tracked (`git ls-files .env` must be empty).
+- Dedicated Telegram bot for each installation, do not share its token.
+- User's Telegram `chat_id`: treat as PII, but not as critical secret (it's an opaque identifier).
+- Token rotation: revoke the old one via @BotFather, generate a new one, update `.env`, restart bot.
 
-## Differenza esplicita: escalation vs approval flow
+## Explicit difference: escalation vs approval flow
 
-| Aspetto                          | Escalation (questo)                                          | Approval flow (out-of-scope)                       |
+| Aspect                           | Escalation (this)                                            | Approval flow (out-of-scope)                       |
 | -------------------------------- | ------------------------------------------------------------ | -------------------------------------------------- |
-| Controllo umano                  | Solo turn dove l'AI dichiara incertezza                      | Su ogni reply, sempre                              |
-| Default behavior                 | Bot risponde autonomamente                                   | Bot mai risponde senza OK                          |
-| Latency utente                   | Bot manda holding reply (es. "aspetta") immediato + notifica | Lunga: aspetta che utente approvi ogni turn        |
-| Relazione con `fully autonomous` | Compatibile: la scelta di escalare è essa stessa autonoma    | Incompatibile: per definizione richiede revisione  |
-| User experience                  | Persona vede risposta o stall, l'utente risponde quando può  | Persona non vede nulla finchè l'utente non approva |
+| Human control                    | Only turns where the AI declares uncertainty                 | On every reply, always                             |
+| Default behavior                 | Bot replies autonomously                                     | Bot never replies without OK                       |
+| User latency                     | Bot sends holding reply (e.g. "wait") immediate + notification | Long: waits for user to approve each turn          |
+| Relationship with `fully autonomous` | Compatible: the choice to escalate is itself autonomous   | Incompatible: by definition requires review        |
+| User experience                  | Person sees reply or stall, user replies when they can       | Person sees nothing until user approves            |
 
-## Riepilogo flusso completo
+## Complete flow summary
 
 ```
-1. Hoa: "Sei libero sabato per cena?"
-2. Bot legge messaggio, applica filtro -> passa.
-3. Debounce 120s, raffica chiusa.
-4. Calcola fire_at, scheduled.
+1. Hoa: "Are you free Saturday for dinner?"
+2. Bot reads message, applies filter -> passes.
+3. Debounce 120s, burst closed.
+4. Compute fire_at, scheduled.
 5. fire_at hit, SENDING.
 6. Build TurnContext (history + KB + profile).
 7. AI call.
@@ -397,28 +397,28 @@ Permette di rilevare al volo se ci sono escalations bloccate (notifica fallita, 
      escalate_to_human: {
        reason: "scheduling",
        urgency: "normal",
-       summary: "Hoa chiede se sabato sera sei libero per cena.",
-       suggested_holding_reply: "Aspetta che controllo, ti faccio sapere"
+       summary: "Hoa is asking if you're free Saturday evening for dinner.",
+       suggested_holding_reply: "Wait, let me check, I'll let you know"
      },
      ...
    }
 9. Bot:
-   a. Send "Aspetta che controllo, ti faccio sapere" come out_bot.
+   a. Send "Wait, let me check, I'll let you know" as out_bot.
    b. Insert escalation in DB.
    c. EscalationNotifier.notify(escId).
-   d. Manda Telegram: "[viet-chatter] SCHEDULING - Da: Hoa - Riassunto: ..."
-10. Utente vede notifica Telegram, va su WhatsApp, legge la chat con Hoa.
-11. Utente risponde a mano: "Si, alle 20".
-12. Dispatcher rileva out_manual.
-13. Dispatcher chiama repo.markEscalationsResolved(chatId, 'user_replied').
+   d. Sends Telegram: "[viet-chatter] SCHEDULING - From: Hoa - Summary: ..."
+10. User sees Telegram notification, goes to WhatsApp, reads chat with Hoa.
+11. User replies manually: "Yes, at 8".
+12. Dispatcher detects out_manual.
+13. Dispatcher calls repo.markEscalationsResolved(chatId, 'user_replied').
 14. Escalation status -> user_replied. resolvedAt = now.
-15. Niente messaggio extra all'utente.
+15. No extra message to the user.
 ```
 
-## Future enhancement collegate
+## Related future enhancements
 
 - `escalation_policy` per chat (`auto` / `always` / `never`).
-- Snooze: ricevuta notifica, "ti ricordo tra X minuti se non ho ancora risposto".
-- Daily digest che lista tutte le escalations non risolte con tempo trascorso.
-- Aggregazione intelligente quando arrivano N escalations in 30 minuti (un'unica notifica con elenco).
-- Smart escalation: l'AI stima un calendar lookup possibile (Google/Apple Calendar via OS) per non escalare su scheduling se ha accesso.
+- Snooze: notification received, "I'll remind you in X minutes if you haven't replied yet".
+- Daily digest listing all unresolved escalations with elapsed time.
+- Smart aggregation when N escalations arrive in 30 minutes (single notification with list).
+- Smart escalation: AI estimates a possible calendar lookup (Google/Apple Calendar via OS) to avoid escalating on scheduling if it has access.

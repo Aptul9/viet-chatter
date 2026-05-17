@@ -1,10 +1,10 @@
 # Filter engine
 
-> Status: design; behavior implemented. The TypeScript predicate `shouldReply` shown below is REPLACED in v1 by a declarative `filter:` block in YAML. See `19-implementation-notes.md` §2 for the shipped form.
+> Status: design; behavior implemented. The TypeScript predicate `shouldReply` shown below is REPLACED in v1 by a declarative `filter:` block in YAML.
 
-## Modello
+## Model
 
-Il filtro è una predicate function TypeScript user-defined in `config/index.ts`:
+The filter is a user-defined TypeScript predicate function in `config/index.ts`:
 
 ```ts
 export const shouldReply = (chat: ChatContext): boolean => {
@@ -12,21 +12,21 @@ export const shouldReply = (chat: ChatContext): boolean => {
 }
 ```
 
-Tipo del parametro:
+Parameter type:
 
 ```ts
 export type ChatContext = {
-  phone: string // E.164 con +
-  name: string | undefined // nome saved-contact
+  phone: string // E.164 with +
+  name: string | undefined // saved-contact name
   isSavedContact: boolean
   lastMessageTs: number // unix ms
   unreadCount: number
 }
 ```
 
-## Costruzione del `ChatContext`
+## Construction of `ChatContext`
 
-`MessageDispatcher` la costruisce per ogni evento `message`:
+`MessageDispatcher` builds it for every `message` event:
 
 ```ts
 async function buildChatContext(chat: WAChat): Promise<ChatContext> {
@@ -42,18 +42,18 @@ async function buildChatContext(chat: WAChat): Promise<ChatContext> {
 }
 ```
 
-Nota: `whatsapp-web.js` espone i timestamp in secondi, internamente li convertiamo in ms.
+Note: `whatsapp-web.js` exposes timestamps in seconds, we convert them to ms internally.
 
 ## Hot reload
 
-`chokidar` watch su `config/index.ts`. Su event `change`:
+`chokidar` watch on `config/index.ts`. On `change` event:
 
-1. `import` dinamico con cache busting (`import('./config/index.ts?v=' + Date.now())`).
-2. Validazione zod su `config` esportato.
-3. Test-run di `shouldReply` con un `ChatContext` dummy per beccare crash sintattici.
-4. Se ok, swap atomico delle reference (`currentConfig = newConfig`, `currentShouldReply = newShouldReply`).
+1. Dynamic `import` with cache busting (`import('./config/index.ts?v=' + Date.now())`).
+2. Zod validation on exported `config`.
+3. Test-run of `shouldReply` with a dummy `ChatContext` to catch syntactic crashes.
+4. If ok, atomic swap of references (`currentConfig = newConfig`, `currentShouldReply = newShouldReply`).
 5. Log info "config reloaded".
-6. Se errore, log error, mantieni la config precedente. Niente downtime.
+6. If error, log error, keep the previous config. No downtime.
 
 ```ts
 // src/config/index.ts (loader)
@@ -81,39 +81,39 @@ chokidar.watch('config/index.ts').on('change', async () => {
 })
 ```
 
-## Vincoli e best practice della predicate function
+## Constraints and best practices for the predicate function
 
-- **Pura**: no side effects (no I/O, no DB, no network).
-- **Veloce**: deve restituire in <1ms tipicamente. È chiamata su ogni messaggio in arrivo.
-- **Deterministica**: stessa input -> stesso output sempre (no `Math.random`, no `Date.now()` nella decisione).
-- **Type-safe**: TypeScript controlla a edit time. Errori di compilazione bloccano l'hot reload (gestito dal try/catch).
+- **Pure**: no side effects (no I/O, no DB, no network).
+- **Fast**: must typically return in <1ms. Called on every incoming message.
+- **Deterministic**: same input -> same output always (no `Math.random`, no `Date.now()` in the decision).
+- **Type-safe**: TypeScript checks at edit time. Compilation errors block the hot reload (handled by the try/catch).
 
-## Pattern utili
+## Useful patterns
 
 ```ts
-// Solo numeri vietnamiti, escluso blocklist
+// Only Vietnamese numbers, excluding blocklist
 chat.phone.startsWith('+84') &&
   !['+84a', '+84b']
     .includes(chat.phone)
 
     [
-      // Whitelist esplicita
+      // Explicit whitelist
       ('+84111', '+84222', '+84333')
     ].includes(chat.phone)
 
-// Contatti saved con nome che matcha pattern
+// Saved contacts with name matching pattern
 chat.isSavedContact &&
   /viet/i.test(chat.name ?? '')(
-    // Multi-prefisso con esclusioni
+    // Multi-prefix with exclusions
     chat.phone.startsWith('+84') || chat.phone.startsWith('+39')
   ) &&
   !chat.phone.endsWith('00')
 
-// Solo se ha unread (utile in scenari particolari di triage)
+// Only if has unread (useful in particular triage scenarios)
 chat.unreadCount > 0 && chat.phone.startsWith('+84')
 ```
 
-## Decisione applicata
+## Applied decision
 
 `MessageDispatcher`:
 
@@ -122,12 +122,12 @@ const ctx = await buildChatContext(chat)
 const allowed = currentShouldReply(ctx)
 if (!allowed) {
   log.debug({ chat_id, phone: ctx.phone, passed_filter: false }, 'msg filtered out')
-  return // niente state machine, niente accumulo
+  return // no state machine, no accumulation
 }
 ```
 
-## Cosa NON è incluso nel filtro v1
+## What is NOT included in the v1 filter
 
-- Filtro su contenuto messaggio. Il filtro vede solo metadati della chat, non il body. Se serve filtraggio per parole chiave, è una modifica successiva (passare `messageBody` come campo in `ChatContext`).
-- Filtro stateful (es. "blocca temporaneamente per 24h"). Se serve, si gestisce con un campo `temporary_block_until` in `person_profile` letto dal predicate.
-- Multi-tenant / multi-rule. Una sola predicate per istanza.
+- Filter on message content. The filter only sees chat metadata, not the body. If keyword filtering is needed, it's a follow-up change (pass `messageBody` as a field in `ChatContext`).
+- Stateful filter (e.g. "temporarily block for 24h"). If needed, handle it with a `temporary_block_until` field in `person_profile` read by the predicate.
+- Multi-tenant / multi-rule. One predicate per instance.

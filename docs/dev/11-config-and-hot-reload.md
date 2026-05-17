@@ -1,15 +1,15 @@
-# Config e hot reload
+# Config and hot reload
 
-> **Source of truth**: `config/user-config.example.yaml` (committato) e `config/defaults.ts` (defaults TS tipati). Comportamento canonico in `19-implementation-notes.md` §2.
+> **Source of truth**: `config/user-config.example.yaml` (committed) and `config/defaults.ts` (typed TS defaults).
 
 ## Source of truth
 
-Lo stato runtime e' definito da due file:
+The runtime state is defined by two files:
 
-- `config/defaults.ts`: defaults TypeScript (un solo `export const defaults = { ... }`, niente IO, niente filter logic).
-- `config/user-config.yaml`: overrides utente in YAML (opzionale, gitignored). Se assente si tenta `config/user-config.example.yaml`; se anche questo manca si usano i defaults nudi.
+- `config/defaults.ts`: TypeScript defaults (single `export const defaults = { ... }`, no IO, no filter logic).
+- `config/user-config.yaml`: user overrides in YAML (optional, gitignored). If absent, `config/user-config.example.yaml` is tried; if that's also missing, bare defaults are used.
 
-Il file `config/index.ts` (root) carica defaults + YAML, fa deep-merge (arrays REPLACE, objects merge ricorsivo) ed espone `config` + `shouldReply`. La predicate e' generata 100% dal blocco `filter` del YAML: non esiste piu' un escape hatch TS.
+The `config/index.ts` file (root) loads defaults + YAML, performs deep-merge (arrays REPLACE, objects merge recursively) and exposes `config` + `shouldReply`. The predicate is generated 100% from the `filter` block of the YAML: there is no longer a TS escape hatch.
 
 ## `config/defaults.ts`
 
@@ -30,7 +30,7 @@ export const defaults = {
   fallbackDelayMs: 30 * 60_000,
   postReconnectSpreadMs: { min: 30_000, max: 180_000 },
 
-  // ... (vedi file per il blocco completo: boot, tick, KB, AI, logging, manual jobs, escalation, dbPath)
+  // ... (see file for the complete block: boot, tick, KB, AI, logging, manual jobs, escalation, dbPath)
 
   // Filter (declarative)
   filter: {
@@ -46,16 +46,16 @@ export type Defaults = typeof defaults
 
 ## `config/user-config.example.yaml`
 
-YAML pienamente popolato con commenti inline per ogni campo: unita' (`ms`, `seconds`, `days`, `chars`), descrizione one-liner, marker `# RESTART REQUIRED` sui campi che richiedono restart del processo (`sessionDir`, `dbPath`, `embeddingModel`, `aiModel`, `logFile`, `logRotation`).
+YAML fully populated with inline comments for each field: units (`ms`, `seconds`, `days`, `chars`), one-liner description, `# RESTART REQUIRED` marker on fields that require process restart (`sessionDir`, `dbPath`, `embeddingModel`, `aiModel`, `logFile`, `logRotation`).
 
-Estratto (vedi file per il dump completo):
+Extract (see file for the complete dump):
 
 ```yaml
 # viet-chatter user config. Overrides defaults from `config/defaults.ts`.
 # Hot-reloaded by the bot via chokidar. Saved by the web UI (`npm run dev:web`)
 # but safe to edit by hand too. Copy this file to `user-config.yaml` to enable.
 
-sessionDir: './.wwebjs_auth' # directory wweb.js auth state; RESTART REQUIRED
+sessionDir: './.wwebjs_auth' # wweb.js auth state directory; RESTART REQUIRED
 timezone: 'Europe/Rome' # IANA tz for night-window and scheduling math
 
 debounceMs: 120000 # ms; quiet window before considering a burst closed
@@ -69,9 +69,9 @@ filter:
   unreadOnly: false
 ```
 
-## Schema zod (`src/config/schema.ts`)
+## Zod schema (`src/config/schema.ts`)
 
-Validazione runtime di tutto il config, incluso il blocco `filter`:
+Runtime validation of all config, including the `filter` block:
 
 ```ts
 filter: z.object({
@@ -82,9 +82,9 @@ filter: z.object({
 }),
 ```
 
-Lo schema completo include tutti gli altri campi (scheduler, KB, AI, logging, escalation, ecc.).
+The complete schema includes all other fields (scheduler, KB, AI, logging, escalation, etc.).
 
-## Loader con hot reload (`src/config/index.ts`)
+## Loader with hot reload (`src/config/index.ts`)
 
 ```ts
 import chokidar from 'chokidar'
@@ -102,7 +102,7 @@ function loadFromYaml() {
   const merged = deepMerge(defaults, overrides)
   ConfigSchema.parse(merged)
   const pred = (chat) => {
-    /* generato dal blocco filter */
+    /* generated from the filter block */
   }
   return { config: merged, shouldReply: pred }
 }
@@ -111,7 +111,7 @@ export async function initConfig() {
   const fresh = loadFromYaml()
   _config = fresh.config
   _shouldReply = fresh.shouldReply
-  chokidar.watch(USER_YAML_ABS).on('change' /* re-load + swap atomico */)
+  chokidar.watch(USER_YAML_ABS).on('change' /* re-load + atomic swap */)
 }
 
 export const config = new Proxy({} as typeof defaults, {
@@ -119,72 +119,72 @@ export const config = new Proxy({} as typeof defaults, {
 })
 ```
 
-## Pattern di consumo
+## Consumption pattern
 
-Tutto il codice business legge tramite `config.X` (il proxy), mai catturare in closure:
+All business code reads through `config.X` (the proxy), never capture in closure:
 
 ```ts
-// SI
+// YES
 function tick() {
   if (Date.now() < lastTick + config.tickIntervalMs) return
 }
 
-// NO (cattura il valore al boot, niente hot reload)
+// NO (captures the value at boot, no hot reload)
 const interval = config.tickIntervalMs
 function tick() {
   if (Date.now() < lastTick + interval) return
 }
 ```
 
-## Edge case dell'hot reload
+## Hot reload edge cases
 
-| Caso                                                              | Comportamento                                                                                                                                                                                                     |
+| Case                                                              | Behavior                                                                                                                                                                                                          |
 | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Edit di `config/user-config.yaml` con YAML invalido               | Parse fallisce, log error, config precedente resta in memoria.                                                                                                                                                    |
-| Edit con valore zod-invalido                                      | `ConfigSchema.parse` throw, log error, config precedente resta.                                                                                                                                                   |
-| Edit del blocco `filter`                                          | Hot reload prende effetto al prossimo evento `message`. Le chat gia' in stato `ACCUMULATING`/`SCHEDULED` continuano normalmente (non si ri-applica filtro retroattivo).                                           |
-| Cambio di `dbPath` o `sessionDir`                                 | NON ha effetto runtime (il DB e' gia' aperto). Richiede restart. Marker `# RESTART REQUIRED` nel YAML.                                                                                                            |
-| Cambio di `embeddingModel`                                        | NON ha effetto runtime se il modello e' gia' caricato. Restart richiesto.                                                                                                                                         |
-| Cambio di `tickIntervalMs`                                        | Effetto al prossimo tick (legge live).                                                                                                                                                                            |
-| Cambio di `nightWindow`                                           | Effetto immediato sui calcoli successivi.                                                                                                                                                                         |
-| Cambio di `escalation.enabled` (true → false)                     | Effetto immediato: escalations gia' pendenti restano in DB ma non vengono piu' rinotificate. Nuovi turn non emettono escalation (l'AI riceve hint nel context per disattivare).                                   |
-| Cambio di `escalation.channels`                                   | Effetto immediato sul prossimo notify. Escalations gia' notificate non si rinotificano automaticamente sul nuovo canale.                                                                                          |
-| Cambio di `escalation.telegramBotTokenEnv`                        | NON ha effetto: la ENV var viene letta a ogni notify dal nome configurato, ma il nome stesso cambia solo a hot-reload, e poi viene letto live. Funziona se aggiungi una nuova ENV var prima di salvare il config. |
-| Salvataggio del file `user-config.yaml` da parte della UI Next.js | chokidar vede il change, re-parse + re-validate + swap. La UI mostra toast "Bot will hot-reload from YAML.".                                                                                                      |
+| Edit of `config/user-config.yaml` with invalid YAML               | Parse fails, log error, previous config stays in memory.                                                                                                                                                          |
+| Edit with zod-invalid value                                       | `ConfigSchema.parse` throws, log error, previous config stays.                                                                                                                                                    |
+| Edit of `filter` block                                            | Hot reload takes effect at next `message` event. Chats already in `ACCUMULATING`/`SCHEDULED` state continue normally (no retroactive filter re-application).                                                      |
+| Change of `dbPath` or `sessionDir`                                | NO runtime effect (the DB is already open). Requires restart. `# RESTART REQUIRED` marker in YAML.                                                                                                                |
+| Change of `embeddingModel`                                        | NO runtime effect if the model is already loaded. Restart required.                                                                                                                                               |
+| Change of `tickIntervalMs`                                        | Effect at next tick (read live).                                                                                                                                                                                  |
+| Change of `nightWindow`                                           | Immediate effect on subsequent calculations.                                                                                                                                                                      |
+| Change of `escalation.enabled` (true -> false)                    | Immediate effect: already pending escalations stay in DB but are no longer re-notified. New turns don't emit escalation (the AI receives hint in context to disable).                                             |
+| Change of `escalation.channels`                                   | Immediate effect on next notify. Already-notified escalations are not automatically re-notified on the new channel.                                                                                               |
+| Change of `escalation.telegramBotTokenEnv`                        | NO effect: the ENV var is read at each notify from the configured name, but the name itself changes only on hot-reload, and then is read live. Works if you add a new ENV var before saving the config.           |
+| File `user-config.yaml` saved by the Next.js UI                   | chokidar sees the change, re-parse + re-validate + swap. The UI shows "Bot will hot-reload from YAML." toast.                                                                                                     |
 
 ## Restart-required parameters
 
-Marker `# RESTART REQUIRED` inline nel YAML su:
+`# RESTART REQUIRED` marker inline in YAML on:
 
 - `sessionDir`, `dbPath`, `embeddingModel`, `aiModel`
-- `logFile`, `logRotation` (file handle aperto al boot)
+- `logFile`, `logRotation` (file handle opened at boot)
 
-Tutti gli altri sono hot-reloadable.
+All others are hot-reloadable.
 
 ## ENV vars
 
-Niente `.env` per la config principale (tutto in `config/defaults.ts` + `config/user-config.yaml`).
+No `.env` for the main config (everything in `config/defaults.ts` + `config/user-config.yaml`).
 
-Le ENV vars sono usate per:
+ENV vars are used for:
 
 - **OpenCode**:
-  - `OPENCODE_DISABLE_CLAUDE_CODE=1` (default true: blocca CLAUDE.md / AGENTS.md auto-injection).
-  - `OPENCODE_DISABLE_DEFAULT_PLUGINS=false` (NON flippare a `1`: rompe i provider plugin. Vedi `19-implementation-notes.md` §8).
+  - `OPENCODE_DISABLE_CLAUDE_CODE=1` (default true: blocks CLAUDE.md / AGENTS.md auto-injection).
+  - `OPENCODE_DISABLE_DEFAULT_PLUGINS=false` (do NOT flip to `1`: breaks provider plugins).
   - `OPENCODE_DISABLE_AUTOUPDATE`, `OPENCODE_DISABLE_LSP`.
-  - Settate dal modulo `src/ai/opencode.ts` automaticamente prima di lanciare il server.
+  - Set automatically by `src/ai/opencode.ts` module before launching the server.
 - **Escalation (Telegram)**:
-  - `TELEGRAM_BOT_TOKEN`: token del bot Telegram.
-  - `TELEGRAM_USER_CHAT_ID`: chat_id Telegram dell'utente. Supporta comma-separated per broadcast multi-recipient (vedi `19-implementation-notes.md` §6).
-  - Lette a ogni notify (live, non cached).
+  - `TELEGRAM_BOT_TOKEN`: Telegram bot token.
+  - `TELEGRAM_USER_CHAT_ID`: user's Telegram chat_id. Supports comma-separated for multi-recipient broadcast.
+  - Read at each notify (live, not cached).
 
-`.env` (gitignored) di esempio:
+Example `.env` (gitignored):
 
 ```
 TELEGRAM_BOT_TOKEN=123456789:AAA-bbb-ccc-ddd-eee
 TELEGRAM_USER_CHAT_ID=987654321
-# Oppure broadcast: TELEGRAM_USER_CHAT_ID=987654321,123456,789012
+# Or broadcast: TELEGRAM_USER_CHAT_ID=987654321,123456,789012
 ```
 
-`.env` viene caricato automaticamente via `import 'dotenv/config'` in cima a `src/index.ts` e `src/scripts/{health,test-e2e}.ts`.
+`.env` is loaded automatically via `import 'dotenv/config'` at the top of `src/index.ts` and `src/scripts/{health,test-e2e}.ts`.
 
-Vedi anche `15-runbook.md` per setup Telegram step-by-step.
+See also `15-runbook.md` for step-by-step Telegram setup.

@@ -9,9 +9,13 @@ import { activeStates, recentProcessedMessages } from '../db/repo.js'
 import { config } from '../config/index.js'
 import { log } from '../log.js'
 import { PRE_SEND_OUT_MANUAL_WINDOW_MS } from '../config/constants.js'
-import type { ChatId } from '../types.js'
+import type { ChatId, RetryContextDTO } from '../types.js'
 
-export type TurnRunner = (chatId: ChatId, signal: AbortSignal) => Promise<void>
+export type TurnRunner = (
+  chatId: ChatId,
+  signal: AbortSignal,
+  retryCtx?: RetryContextDTO
+) => Promise<void>
 
 export interface TickerDeps {
   sqlite: Sqlite

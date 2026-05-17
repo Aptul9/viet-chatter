@@ -1,4 +1,4 @@
-// Media-policy resolver (Spec A).
+// Media-policy resolver.
 //
 // Decides whether an incoming non-text WhatsApp message should:
 //   - 'vision'   → flow into the AI pipeline as multimodal input
@@ -8,8 +8,6 @@
 // The mapping comes from the user-config `media:` block (see
 // `config/user-config.example.yaml`). Vision is downgraded to the configured
 // `visionFallback` when the active `aiModel` is not in `VISION_CAPABLE_MODELS`.
-//
-// Reference: docs/dev/specs/2026-05-16-spec-a-media.md.
 
 import { config } from '../config/index.js'
 import { VISION_CAPABLE_MODELS } from '../config/constants.js'

@@ -1,6 +1,6 @@
-# Logging e observability
+# Logging and observability
 
-> Status: design; behavior implemented. Eventi aggiuntivi `wweb event`, `whatsapp paired account`, `whatsapp heartbeat` shippati. Diversi eventi dispatcher promossi da `debug` a `info`. See `19-implementation-notes.md` §16 + §18.
+> Status: design; behavior implemented. Additional events `wweb event`, `whatsapp paired account`, `whatsapp heartbeat` shipped. Several dispatcher events promoted from `debug` to `info`.
 
 ## Logger: pino
 
@@ -37,31 +37,31 @@ export const log = pino({
 })
 ```
 
-File: `./logs/viet-chatter.log`. Rotation giornaliera, cap 50MB per file. La cartella `logs/` è gitignored.
+File: `./logs/viet-chatter.log`. Daily rotation, cap 50MB per file. The `logs/` folder is gitignored.
 
-## Convenzione campi
+## Field convention
 
-Ogni log line è un oggetto JSON. Campi standard:
+Each log line is a JSON object. Standard fields:
 
 - `level`: trace/debug/info/warn/error.
 - `time`: ISO8601.
-- `msg`: descrizione human-readable.
-- `chat_id`: presente quando applicabile.
-- `whatsapp_msg_id`: presente per eventi su singolo messaggio.
-- `state_from` / `state_to`: per transizioni state machine.
-- `fire_at`: per eventi scheduler.
-- `duration_ms`: per operazioni misurate.
-- `attempt`: per retry.
-- `err`: oggetto error completo (stack, code).
+- `msg`: human-readable description.
+- `chat_id`: present when applicable.
+- `whatsapp_msg_id`: present for events on single message.
+- `state_from` / `state_to`: for state machine transitions.
+- `fire_at`: for scheduler events.
+- `duration_ms`: for measured operations.
+- `attempt`: for retry.
+- `err`: complete error object (stack, code).
 
-## Eventi loggati (catalogo)
+## Logged events (catalog)
 
-| Evento                     | Level   | Campi specifici                                                                         |
+| Event                      | Level   | Specific fields                                                                         |
 | -------------------------- | ------- | --------------------------------------------------------------------------------------- |
 | boot start                 | `info`  | `pid`, `node_version`, `db_path`                                                        |
 | boot done                  | `info`  | `chats_seen`, `chats_processed`, `duration_ms`                                          |
 | connection state change    | `info`  | `from`, `to`, `reason`                                                                  |
-| QR pairing required        | `warn`  | (QR text in stdout, NON in file)                                                        |
+| QR pairing required        | `warn`  | (QR text in stdout, NOT in file)                                                        |
 | incoming msg processed     | `debug` | `chat_id`, `msg_id`, `passed_filter`                                                    |
 | state transition           | `debug` | `chat_id`, `state_from`, `state_to`, `fire_at?`                                         |
 | reply turn started         | `info`  | `chat_id`, `history_size`, `kb_facts_total`, `triggered_by` (`reactive` / `manual_job`) |
@@ -86,35 +86,35 @@ Ogni log line è un oggetto JSON. Campi standard:
 | config reload              | `info`  | `valid` (true/false)                                                                    |
 | AI call                    | `debug` | `prompt_chars`, `response_chars`, `duration_ms`, `attempt`                              |
 
-## Privacy nei log
+## Privacy in the logs
 
-| Dato                            | Loggato in chiaro?                                                    |
-| ------------------------------- | --------------------------------------------------------------------- |
-| `chat_id` (numero serializzato) | Sì (è l'identificatore primario, non sensibile in sé)                 |
-| `phone`                         | Sì in messaggi `info` rilevanti, omesso a `debug` se ridondante       |
-| `display_name`                  | Solo a level `debug`                                                  |
-| Body messaggio                  | MAI                                                                   |
-| Body fact estratto              | Solo a level `trace` (off di default), in casi di debug profondo      |
-| Reply generata                  | MAI per intero (solo `chars` count)                                   |
-| Escalation `summary`            | Loggata solo come `chars` count a `info`. Body intero solo a `trace`. |
-| Telegram bot token              | MAI. Solo presenza/assenza della ENV var.                             |
-| Telegram chat_id utente         | MAI. Solo `chat_id_set: true/false`.                                  |
+| Data                             | Logged in cleartext?                                                  |
+| -------------------------------- | --------------------------------------------------------------------- |
+| `chat_id` (serialized number)    | Yes (it's the primary identifier, not sensitive in itself)            |
+| `phone`                          | Yes in relevant `info` messages, omitted at `debug` if redundant      |
+| `display_name`                   | Only at `debug` level                                                 |
+| Message body                     | NEVER                                                                 |
+| Extracted fact body              | Only at `trace` level (off by default), for deep debug cases          |
+| Generated reply                  | NEVER in full (only `chars` count)                                    |
+| Escalation `summary`             | Logged only as `chars` count at `info`. Full body only at `trace`.    |
+| Telegram bot token               | NEVER. Only presence/absence of the ENV var.                          |
+| User Telegram chat_id            | NEVER. Only `chat_id_set: true/false`.                                |
 
-## `turn_log` come secondo canale di observability
+## `turn_log` as second observability channel
 
-Tabella DB `turn_log` traccia ogni turn (reactive o manual_job-driven):
+DB table `turn_log` traces every turn (reactive or manual_job-driven):
 
 ```ts
 turnLog(id, chatId, ts, status, languageUsed, factsExtracted, durationMs, errorMsg, triggeredBy)
 ```
 
-Utile per:
+Useful for:
 
-- Audit storico ("perchè il bot non ha risposto a Hoa il 5 maggio?").
-- Analytics aggregate (`SELECT chat_id, AVG(duration_ms), COUNT(*) FROM turn_log GROUP BY chat_id`).
-- Detect drift di failure rate (`SELECT date(ts/1000, 'unixepoch'), SUM(status='failed') FROM turn_log GROUP BY 1`).
+- Historical audit ("why didn't the bot reply to Hoa on May 5?").
+- Aggregate analytics (`SELECT chat_id, AVG(duration_ms), COUNT(*) FROM turn_log GROUP BY chat_id`).
+- Detect drift of failure rate (`SELECT date(ts/1000, 'unixepoch'), SUM(status='failed') FROM turn_log GROUP BY 1`).
 
-## Comando di self-check (`npm run health`)
+## Self-check command (`npm run health`)
 
 Script `src/scripts/health.ts`:
 
@@ -130,7 +130,7 @@ console.log({
   manual_jobs_pending: /* count */ ,
   last_turn: /* SELECT * FROM turn_log ORDER BY ts DESC LIMIT 1 */ ,
   facts_total: /* count */ ,
-  embedding_model_present: /* fs check su .cache/transformers */ ,
+  embedding_model_present: /* fs check on .cache/transformers */ ,
   escalations: {
     pending: /* count where status='pending' */ ,
     resolved_24h: /* count user_replied + superseded last 24h */ ,
@@ -141,28 +141,28 @@ console.log({
 })
 ```
 
-## Nessun endpoint HTTP in v1
+## No HTTP endpoint in v1
 
-- Niente `/health` HTTP.
-- Niente `/metrics`.
-- Niente Prometheus, niente Grafana integration.
+- No `/health` HTTP.
+- No `/metrics`.
+- No Prometheus, no Grafana integration.
 
-Self-check è only via CLI script. Future enhancement: dashboard Next.js (vedi `16-future-enhancements.md`).
+Self-check is only via CLI script. Future enhancement: Next.js dashboard.
 
-## Debug avanzato
+## Advanced debug
 
-Per investigazioni:
+For investigations:
 
-- Set `logLevel: 'debug'` o `'trace'` in `config/index.ts`. Hot reload prende effetto immediato.
-- Tail dei log: `tail -f logs/viet-chatter.log | jq`.
-- Filtri JSON via `jq`: `cat logs/viet-chatter.log | jq 'select(.chat_id == "84xxx")'`.
+- Set `logLevel: 'debug'` or `'trace'` in `config/index.ts`. Hot reload takes immediate effect.
+- Tail logs: `tail -f logs/viet-chatter.log | jq`.
+- JSON filters via `jq`: `cat logs/viet-chatter.log | jq 'select(.chat_id == "84xxx")'`.
 
-## Rotazione log
+## Log rotation
 
-`pino-roll` gestisce:
+`pino-roll` handles:
 
-- Nuovo file ogni giorno (`viet-chatter.log` -> `viet-chatter.YYYY-MM-DD.log`).
-- Cap 50MB per file. Se superato, rotazione anticipata.
-- Vecchi file restano in cartella `logs/`. Niente cleanup automatico in v1: l'utente li gestisce manualmente.
+- New file every day (`viet-chatter.log` -> `viet-chatter.YYYY-MM-DD.log`).
+- Cap 50MB per file. If exceeded, anticipated rotation.
+- Old files stay in `logs/` folder. No automatic cleanup in v1: the user manages them manually.
 
-Future enhancement: cleanup retention dei log oltre N giorni.
+Future enhancement: log retention cleanup beyond N days.

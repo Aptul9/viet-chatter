@@ -1,53 +1,53 @@
 # Boot reconciler
 
-> Status: design; behavior implemented. The reconciler runs at boot AND on a delayed schedule (15s / 45s / 120s) to catch wweb's late-loading chats. `@lid` resolution applied before filter. See `19-implementation-notes.md` §13 + §15.
+> Status: design; behavior implemented. The reconciler runs at boot AND on a delayed schedule (15s / 45s / 120s) to catch wweb's late-loading chats. `@lid` resolution applied before filter.
 
-## Scopo
+## Purpose
 
-Catch-up dei messaggi WhatsApp che sono arrivati mentre il bot era offline o non connesso. Idempotente, deterministico, scalabile su account con molte chat.
+Catch-up of WhatsApp messages that arrived while the bot was offline or not connected. Idempotent, deterministic, scalable on accounts with many chats.
 
-## Quando viene eseguito
+## When it runs
 
-- Una volta all'avvio (`BOOTING -> CONNECTING -> CONNECTED`).
-- Ogni volta che la connessione passa da `DISCONNECTED` a `CONNECTED` durante l'esecuzione.
+- Once at startup (`BOOTING -> CONNECTING -> CONNECTED`).
+- Every time the connection transitions from `DISCONNECTED` to `CONNECTED` during execution.
 
-## Algoritmo
+## Algorithm
 
 ```ts
 async function reconcile() {
-  const allChats = await client.getChats() // lettura locale, gratis
+  const allChats = await client.getChats() // local read, free
   const candidates = allChats
-    .filter((c) => !c.isGroup) // 1. drop gruppi
-    .filter((c) => c.lastMessage) // 2. drop chat senza alcun messaggio
+    .filter((c) => !c.isGroup) // 1. drop groups
+    .filter((c) => c.lastMessage) // 2. drop chats with no message
     .map((c) => ({
       chat: c,
       lastWhatsAppTs: c.lastMessage!.timestamp * 1000,
-      lastSeenInDb: null as number | null, // riempito sotto
+      lastSeenInDb: null as number | null, // filled below
     }))
 
-  // 3. resolve last_seen per ogni candidate (single batched query)
+  // 3. resolve last_seen for each candidate (single batched query)
   const chatIds = candidates.map((c) => c.chat.id._serialized)
   const lastSeenMap = await repo.getLastSeenForChats(chatIds)
   for (const c of candidates) {
     c.lastSeenInDb = lastSeenMap.get(c.chat.id._serialized) ?? null
   }
 
-  // 4. filter chat che hanno qualcosa di nuovo
+  // 4. filter chats that have something new
   const toFetch = candidates.filter((c) => {
     if (c.lastSeenInDb === null) {
-      return c.chat.unreadCount > 0 // chat sconosciuta: solo se unread
+      return c.chat.unreadCount > 0 // unknown chat: only if unread
     }
-    return c.lastWhatsAppTs > c.lastSeenInDb // chat nota: nuovo materiale
+    return c.lastWhatsAppTs > c.lastSeenInDb // known chat: new material
   })
 
-  // 5. ordina per recency e cap
+  // 5. sort by recency and cap
   toFetch.sort((a, b) => b.lastWhatsAppTs - a.lastWhatsAppTs)
   const capped = toFetch.slice(0, config.bootMaxChatsToFetch)
   if (toFetch.length > config.bootMaxChatsToFetch) {
     log.warn({ skipped: toFetch.length - capped.length }, 'boot cap reached, older chats skipped')
   }
 
-  // 6. apply filter (shouldReply) prima di fetch
+  // 6. apply filter (shouldReply) before fetch
   const filtered: typeof capped = []
   for (const c of capped) {
     const ctx = await buildChatContext(c.chat)
@@ -56,7 +56,7 @@ async function reconcile() {
     }
   }
 
-  // 7. fetch + dispatch con concurrency limit
+  // 7. fetch + dispatch with concurrency limit
   await pAll(
     filtered.map((c) => async () => {
       const limit = clamp((c.chat.unreadCount || 0) + 5, 10, 50)
@@ -76,58 +76,58 @@ async function reconcile() {
 }
 ```
 
-## Caps di sicurezza
+## Safety caps
 
-| Cap                                | Default | Motivo                                                                                                                                                                         |
-| ---------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `bootMaxChatsToFetch`              | 50      | Evita boot patologici se l'utente è stato offline a lungo con molte chat attive. Le chat oltre il cap saranno gestite quando arriverà un evento `message` live su quella chat. |
-| `fetchConcurrency`                 | 5       | Niente saturazione della sessione WhatsApp Web (Chromium puppeteered).                                                                                                         |
-| `unreadCount + 5` clamp `[10, 50]` | -       | Margine di sicurezza per timing edge case. Mai oltre 50 messaggi per chat al boot.                                                                                             |
+| Cap                                | Default | Reason                                                                                                                                                                          |
+| ---------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bootMaxChatsToFetch`              | 50      | Avoids pathological boots if the user has been offline for a long time with many active chats. Chats beyond the cap will be handled when a live `message` event arrives on that chat. |
+| `fetchConcurrency`                 | 5       | No saturation of the WhatsApp Web session (Chromium puppeteered).                                                                                                              |
+| `unreadCount + 5` clamp `[10, 50]` | -       | Safety margin for timing edge cases. Never more than 50 messages per chat at boot.                                                                                              |
 
-## Idempotenza
+## Idempotency
 
-Garantita dal `processed_messages.whatsapp_msg_id` come PRIMARY KEY. INSERT con `INSERT OR IGNORE` (o equivalente Drizzle). Lo stesso messaggio processato due volte (es. boot subito dopo evento live) viene scartato dal DB e non triggera state machine.
+Guaranteed by `processed_messages.whatsapp_msg_id` as PRIMARY KEY. INSERT with `INSERT OR IGNORE` (or equivalent Drizzle). The same message processed twice (e.g. boot immediately after live event) is discarded by the DB and does not trigger the state machine.
 
-## Comportamento per chat ancora MAI processata
+## Behavior for chat never processed
 
-- `lastSeenInDb === null` -> dipende da `unreadCount`.
-- Se `unreadCount > 0`: fetch ultimi `unreadCount + 5` messaggi (cap 10-50). Dispatch.
-- Se `unreadCount === 0`: skip. Quando arriverà il primo evento live, la chat sarà processata normalmente.
+- `lastSeenInDb === null` -> depends on `unreadCount`.
+- If `unreadCount > 0`: fetch last `unreadCount + 5` messages (cap 10-50). Dispatch.
+- If `unreadCount === 0`: skip. When the first live event arrives, the chat will be processed normally.
 
-## Comportamento per chat con state machine non-IDLE al boot
+## Behavior for chat with non-IDLE state machine at boot
 
-`BootReconciler` precede l'avvio del `TickerLoop`. Quindi le righe in `chat_state` con state non-IDLE possono essere "stale" (es. `SCHEDULED` con `fire_at` ormai passato).
+`BootReconciler` precedes the `TickerLoop` startup. So `chat_state` rows with non-IDLE state may be "stale" (e.g. `SCHEDULED` with `fire_at` long past).
 
-Strategia post-reconcile:
+Post-reconcile strategy:
 
-1. Reconcile messaggi (sezione sopra).
+1. Reconcile messages (section above).
 2. Pre-tick recovery:
-   - `ACCUMULATING` con `debounce_deadline < now` o `now - first_msg_at >= hardCapMs` -> verra processato dal primo tick (gestione naturale).
-   - `SCHEDULED` con `fire_at < now` -> applica post-reconnect spread (vedi `04-scheduler-state-machine.md`).
-   - `SENDING` -> ambiguo (crash mid-sending). Recovery conservativa:
-     - Leggi ultimo messaggio della chat in `processed_messages`.
-     - Se `direction = 'out_bot'` con ts negli ultimi 60 secondi -> assumi inviato, `state = 'IDLE'`.
-     - Altrimenti `state = 'ACCUMULATING'` con `debounce_deadline = now + debounceMs`. Il prossimo tick gestirà.
-3. Avvia `TickerLoop`.
+   - `ACCUMULATING` with `debounce_deadline < now` or `now - first_msg_at >= hardCapMs` -> will be processed by the first tick (natural handling).
+   - `SCHEDULED` with `fire_at < now` -> apply post-reconnect spread (see `04-scheduler-state-machine.md`).
+   - `SENDING` -> ambiguous (mid-sending crash). Conservative recovery:
+     - Read last message of the chat in `processed_messages`.
+     - If `direction = 'out_bot'` with ts in last 60 seconds -> assume sent, `state = 'IDLE'`.
+     - Otherwise `state = 'ACCUMULATING'` with `debounce_deadline = now + debounceMs`. The next tick will handle it.
+3. Start `TickerLoop`.
 
-## Boot scenario di esempio
+## Example boot scenario
 
-Account con 800 chat. Bot offline 2 ore.
+Account with 800 chats. Bot offline 2 hours.
 
-1. `getChats()` -> 800 oggetti (lettura locale Chromium, ~ms).
-2. Filter gruppi -> 350 chat 1:1.
-3. Filter `lastMessage.timestamp > lastSeenInDb` (per chat note) o `unreadCount > 0` (per nuove) -> 12 chat con qualcosa di nuovo.
-4. Sort per recency, cap 50 -> 12 (sotto cap).
-5. Apply shouldReply -> 8 passano.
-6. Fetch parallelo (concurrency 5) -> ~10 secondi totali.
-7. Dispatch -> 8 chat in `ACCUMULATING`.
-8. TickerLoop parte.
+1. `getChats()` -> 800 objects (local Chromium read, ~ms).
+2. Filter groups -> 350 1:1 chats.
+3. Filter `lastMessage.timestamp > lastSeenInDb` (for known chats) or `unreadCount > 0` (for new) -> 12 chats with something new.
+4. Sort by recency, cap 50 -> 12 (below cap).
+5. Apply shouldReply -> 8 pass.
+6. Parallel fetch (concurrency 5) -> ~10 seconds total.
+7. Dispatch -> 8 chats in `ACCUMULATING`.
+8. TickerLoop starts.
 
-## Flow dei messaggi durante boot
+## Message flow during boot
 
-`MessageDispatcher.handleMessage(msg, { fromBoot: true })` ha logica leggermente diversa da `{ fromBoot: false }`:
+`MessageDispatcher.handleMessage(msg, { fromBoot: true })` has slightly different logic from `{ fromBoot: false }`:
 
-- `fromBoot=true`: niente differenza in v1 nelle azioni. Resta come hook per future ottimizzazioni (es. log differente, batch persist).
+- `fromBoot=true`: no difference in v1 in actions. Kept as a hook for future optimizations (e.g. different log, batch persist).
 
 ## Logging
 

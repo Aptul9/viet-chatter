@@ -1,14 +1,14 @@
 # Manual jobs
 
-> Status: design; behavior implemented. See `19-implementation-notes.md` for shipped deltas.
+> Status: design; behavior implemented.
 
-Tre tipi di job non-reattivi che il bot fa partire da solo:
+Three types of non-reactive jobs the bot starts on its own:
 
-- `date_anchored`: messaggi su date specifiche/ricorrenti (compleanni, anniversari).
-- `revive`: ravvivamento conversazione dopo finale "secco" (cuore solo, emoji solo).
-- `re_engage`: re-engage dopo silenzio prolungato (default 14 giorni).
+- `date_anchored`: messages on specific/recurring dates (birthdays, anniversaries).
+- `revive`: conversation revival after a "dry" ending (heart only, emoji only).
+- `re_engage`: re-engagement after prolonged silence (default 14 days).
 
-## Tabella `manual_jobs`
+## `manual_jobs` table
 
 ```ts
 manualJobs(id, chatId, kind, fireAt, payload(JSON), status, firedAt, createdAt)
@@ -16,21 +16,21 @@ manualJobs(id, chatId, kind, fireAt, payload(JSON), status, firedAt, createdAt)
 
 `status`: `pending` -> `firing` -> `fired` | `superseded` | `cancelled`.
 
-## Cron `ManualJobsCron`
+## `ManualJobsCron`
 
-Frequenza: ogni 30 secondi (più alta del TickerLoop perché i job hanno `fire_at` esatti, non rolling).
+Frequency: every 30 seconds (higher than TickerLoop because jobs have exact `fire_at`, not rolling).
 
 Pseudocode:
 
 ```ts
 async function tick() {
   if (!client.isConnected()) return
-  if (isInNightWindow(Date.now(), config.timezone)) return // niente fire notturni
+  if (isInNightWindow(Date.now(), config.timezone)) return // no night fires
 
   const due = await repo.pendingManualJobs(Date.now())
   for (const job of due) {
     const claimed = await repo.transitionManualJob(job.id, 'pending', 'firing')
-    if (!claimed) continue // qualcun altro
+    if (!claimed) continue // someone else
 
     if (await preFireCheckSupersedes(job)) {
       await repo.transitionManualJob(job.id, 'firing', 'superseded')
@@ -53,7 +53,7 @@ async function tick() {
 
 ```ts
 async function preFireCheckSupersedes(job: ManualJob): Promise<boolean> {
-  // 1. ultimi 12h: c'è stato out_bot o out_manual verso questa chat?
+  // 1. last 12h: was there an out_bot or out_manual towards this chat?
   const recent = await repo.recentProcessedMessages(job.chatId, /*limit=*/ 30)
   const cutoff = Date.now() - 12 * 3600_000
   const hasRecentOut = recent.some(
@@ -61,7 +61,7 @@ async function preFireCheckSupersedes(job: ManualJob): Promise<boolean> {
   )
   if (hasRecentOut) return true
 
-  // 2. chat_state in stato attivo (non-IDLE)?
+  // 2. chat_state in active state (non-IDLE)?
   const cs = await repo.getChatState(job.chatId)
   if (cs && cs.state !== 'IDLE') return true
 
@@ -69,24 +69,24 @@ async function preFireCheckSupersedes(job: ManualJob): Promise<boolean> {
 }
 ```
 
-## Invocazione job
+## Job invocation
 
-Per tutti e tre i kind, l'invocazione passa attraverso `ReplyOrchestrator.generateAndSendForManualJob(chatId, manualJobContext)`. La pipeline è la stessa di un turn reattivo, ma il `TurnContext` include `manualJobContext`:
+For all three kinds, the invocation goes through `ReplyOrchestrator.generateAndSendForManualJob(chatId, manualJobContext)`. The pipeline is the same as a reactive turn, but the `TurnContext` includes `manualJobContext`:
 
 ```ts
 manualJobContext = {
   kind: 'date_anchored' | 'revive' | 're_engage',
-  hint: string, // testo per AI: "today is birthday", "user sent only ❤️ after long chat", etc.
+  hint: string, // text for AI: "today is birthday", "user sent only ❤️ after long chat", etc.
 }
 ```
 
-L'AI nel prompt è istruita a tener conto del `manualJobContext` quando presente.
+The AI in the prompt is instructed to take `manualJobContext` into account when present.
 
 ## `date_anchored`
 
-### Origine
+### Origin
 
-L'AI durante un turn estrae un fact con `anchor_date` e/o `anchor_recurring`. Esempio:
+The AI during a turn extracts a fact with `anchor_date` and/or `anchor_recurring`. Example:
 
 ```json
 {
@@ -98,7 +98,7 @@ L'AI durante un turn estrae un fact con `anchor_date` e/o `anchor_recurring`. Es
 }
 ```
 
-Il bot crea automaticamente un `manual_jobs(kind='date_anchored', fire_at=nextOccurrence(02-22, yearly), payload={action, fact_id})`.
+The bot automatically creates a `manual_jobs(kind='date_anchored', fire_at=nextOccurrence(02-22, yearly), payload={action, fact_id})`.
 
 ### `nextOccurrence`
 
@@ -107,27 +107,27 @@ function nextOccurrence(anchorDate: string, recurring: 'yearly' | null): number 
   const now = new Date()
   let target: Date
   if (anchorDate.length === 10) {
-    // YYYY-MM-DD: data fissa
+    // YYYY-MM-DD: fixed date
     target = new Date(anchorDate + 'T09:00:00')
   } else {
-    // MM-DD: ricorrente
+    // MM-DD: recurring
     const [m, d] = anchorDate.split('-').map(Number)
     target = new Date(now.getFullYear(), m - 1, d, 9, 0, 0)
     if (target.getTime() <= now.getTime()) {
       target.setFullYear(target.getFullYear() + 1)
     }
   }
-  // jitter sul minuto
+  // jitter on the minute
   target.setMinutes(target.getMinutes() + Math.floor(Math.random() * 60))
   return target.getTime()
 }
 ```
 
-Orario fisso 09:00 + jitter 0-60 minuti per non essere troppo "a punto fisso".
+Fixed time 09:00 + jitter 0-60 minutes to avoid being too "punctual".
 
 ### Fire
 
-Al `fire_at`, l'AI riceve nel prompt:
+At `fire_at`, the AI receives in the prompt:
 
 ```
 manualJobContext: {
@@ -136,13 +136,13 @@ manualJobContext: {
 }
 ```
 
-L'AI genera un opener coerente. Il bot manda. Se `recurring=yearly`, viene creato un nuovo job per l'anno successivo.
+The AI generates a consistent opener. The bot sends it. If `recurring=yearly`, a new job for the following year is created.
 
 ## `revive`
 
-### Origine
+### Origin
 
-L'AI nel `TurnOutput` produce `revive_hint`:
+The AI in the `TurnOutput` produces `revive_hint`:
 
 ```json
 {
@@ -154,16 +154,16 @@ L'AI nel `TurnOutput` produce `revive_hint`:
 }
 ```
 
-Il bot, processando il TurnOutput, controlla:
+The bot, processing the TurnOutput, checks:
 
-- C'è già un revive `pending` per questa chat? Se sì, skip (max 1 revive per chat).
-- Se no, crea `manual_jobs(kind='revive', fire_at=now + attempt_in_minutes * 60_000, payload={context})`.
+- Is there already a `pending` revive for this chat? If yes, skip (max 1 revive per chat).
+- If no, create `manual_jobs(kind='revive', fire_at=now + attempt_in_minutes * 60_000, payload={context})`.
 
-### Constraint
+### Constraints
 
-- Massimo 1 revive `pending` per chat alla volta.
-- Massimo 1 revive `fired` per giornata di conversazione (controllo: `SELECT COUNT(*) FROM manual_jobs WHERE chat_id=? AND kind='revive' AND fired_at >= start_of_today`).
-- Niente revive notturni (cron skippa night window).
+- Maximum 1 `pending` revive per chat at a time.
+- Maximum 1 `fired` revive per conversation day (check: `SELECT COUNT(*) FROM manual_jobs WHERE chat_id=? AND kind='revive' AND fired_at >= start_of_today`).
+- No night revives (cron skips night window).
 
 ### Fire
 
@@ -174,24 +174,24 @@ manualJobContext: {
 }
 ```
 
-Se la persona non risponde entro le successive 24h, il revive resta come `fired` ma niente secondo tentativo.
+If the person does not reply within the next 24h, the revive stays as `fired` but no second attempt.
 
 ## `re_engage`
 
-### Origine
+### Origin
 
-Cron giornaliero (al mattino), separato da `ManualJobsCron`:
+Daily cron (in the morning), separate from `ManualJobsCron`:
 
 ```ts
 async function reEngageScan() {
-  const cutoffByChat = await repo.cutoffPerChat()              // legge re_engage_threshold_days da person_profile
+  const cutoffByChat = await repo.cutoffPerChat()              // reads re_engage_threshold_days from person_profile
   const candidates = await repo.chatsWithSilenceLongerThan(cutoffByChat)
   for (const chatId of candidates) {
     const profile = await repo.getPersonProfile(chatId)
     if (profile.engagementState === 'cold') continue
     if (await repo.hasPendingManualJob(chatId, 're_engage')) continue
-    if (await repo.countOutgoing(chatId) < 3) continue           // serve storia con questa persona
-    const fireAt = nextMorningSlotWithJitter()                   // 09:00-11:00 oggi o domani
+    if (await repo.countOutgoing(chatId) < 3) continue           // need history with this person
+    const fireAt = nextMorningSlotWithJitter()                   // 09:00-11:00 today or tomorrow
     await repo.insertManualJob({
       chatId, kind: 're_engage', fireAt,
       payload: JSON.stringify({ days_silent: ..., last_seen_iso: ... }),
@@ -201,20 +201,20 @@ async function reEngageScan() {
 }
 ```
 
-Il cron gira una volta al giorno (es. al boot, poi ogni 24h).
+The cron runs once a day (e.g. at boot, then every 24h).
 
-### Constraint
+### Constraints
 
-- Default soglia: 14 giorni.
-- Override per persona: `person_profile.re_engage_threshold_days` (modificabile dall'AI tramite TurnOutput, futura enhancement).
-- Massimo 1 `re_engage` `pending` per chat.
-- Solo per chat con almeno 3 outgoing nello storico (esclude conoscenze sporadiche con cui non c'è una vera relazione).
-- Dopo `fired`, se la persona non risponde in 7 giorni, marcare `engagement_state='cold'`.
+- Default threshold: 14 days.
+- Per-person override: `person_profile.re_engage_threshold_days` (modifiable by the AI through TurnOutput, future enhancement).
+- Maximum 1 `pending` `re_engage` per chat.
+- Only for chats with at least 3 outgoing in history (excludes sporadic acquaintances with whom there is no real relationship).
+- After `fired`, if the person doesn't reply in 7 days, mark `engagement_state='cold'`.
 
-Cleanup post-fired:
+Post-fired cleanup:
 
 ```ts
-// cron periodico
+// periodic cron
 async function markColdAfterReEngageNoReply() {
   const stale = await repo.recentReEngagesWithoutReply(/*olderThanDays=*/ 7)
   for (const job of stale) {
@@ -232,14 +232,14 @@ manualJobContext: {
 }
 ```
 
-## Collision rules con flow reattivo
+## Collision rules with reactive flow
 
-Quando arriva un `incoming` per una chat con `manual_jobs.pending`:
+When an `incoming` arrives for a chat with `manual_jobs.pending`:
 
 ```ts
 async function onIncoming(chatId: string) {
   // ...
-  await repo.cancelPendingManualJobsForChat(chatId) // qualunque kind
+  await repo.cancelPendingManualJobsForChat(chatId) // any kind
   // proceed with state machine
 }
 ```
@@ -250,17 +250,17 @@ async function onIncoming(chatId: string) {
 UPDATE manual_jobs SET status = 'cancelled' WHERE chat_id = ? AND status = 'pending'
 ```
 
-Stesso per `out_manual`.
+Same for `out_manual`.
 
-## Edge: persona scrive nell'ora prima del fire
+## Edge: person writes in the hour before the fire
 
-Coperto. Il `preFireCheckSupersedes` rileva l'`out_bot`/`out_manual` recente e marca `superseded`. Niente messaggio doppio.
+Covered. The `preFireCheckSupersedes` detects the recent `out_bot`/`out_manual` and marks `superseded`. No double message.
 
-## Edge: bot offline al fire_at di un manual_job
+## Edge: bot offline at fire_at of a manual_job
 
-`ManualJobsCron` controlla `client.isConnected()`. Se offline, skip. Quando torna online, il job è ancora `pending` e verrà processato. Se `fire_at` è ormai molto vecchio (es. >12h), il `preFireCheckSupersedes` probabilmente lo marcherà `superseded` perché nel frattempo è successo qualcosa, oppure il bot lo eseguirà con un delay accettato (un re-engage in ritardo è ancora valido; un compleanno il giorno dopo no, ma in quel caso la chat ha probabilmente già scambiato messaggi quel giorno -> superseded).
+`ManualJobsCron` checks `client.isConnected()`. If offline, skip. When back online, the job is still `pending` and will be processed. If `fire_at` is now very old (e.g. >12h), `preFireCheckSupersedes` will probably mark it `superseded` because something happened in the meantime, or the bot will execute it with an accepted delay (a late re-engage is still valid; a birthday the day after is not, but in that case the chat has probably already exchanged messages that day -> superseded).
 
 ## Future enhancement
 
-- Parametri ML-driven per thresholds (vedi `16-future-enhancements.md`).
-- Engagement state più granulare (`dormant`, `breakup`, `do_not_re_engage`).
+- ML-driven parameters for thresholds.
+- More granular engagement state (`dormant`, `breakup`, `do_not_re_engage`).

@@ -23,21 +23,39 @@ import { config } from '../config/index.js'
 import { isInNightWindow, nextMorningStart } from './latency.js'
 import { log } from '../log.js'
 import { ONE_DAY_MS, ONE_YEAR_MS, PRE_FIRE_OUT_RECENT_WINDOW_MS } from '../config/constants.js'
-import type { ChatId, ManualJobContext, ManualJobRow } from '../types.js'
+import type { ChatId, ManualJobContext, ManualJobRow, RetryContextDTO } from '../types.js'
+import { parseRetryPayload } from '../utils/retry.js'
 
 export type ManualJobRunner = (
   chatId: ChatId,
   context: ManualJobContext,
-  signal: AbortSignal
+  signal: AbortSignal,
+  retryCtx?: RetryContextDTO
+) => Promise<void>
+
+export type ReactiveRunner = (
+  chatId: ChatId,
+  signal: AbortSignal,
+  retryCtx?: RetryContextDTO
 ) => Promise<void>
 
 export interface ManualCronDeps {
   sqlite: Sqlite
   state: ChatStateMachine
   isConnected: () => boolean
+  /** Used for kind in ['date_anchored','revive','re_engage'] and for retry
+   * jobs whose original trigger was 'manual_job'. */
   runManualJob: ManualJobRunner
+  /** Used for retry jobs whose original trigger was 'reactive' — re-fires
+   * the reactive orchestrator path (same as the ticker uses). */
+  runReactiveTurn: ReactiveRunner
   registerInflight: (chatId: ChatId) => AbortSignal
 }
+
+/** Hard ceiling on concurrent AI/wweb operations the cron will spawn.
+ * Prevents post-outage burst when many retries are due at the same tick. */
+const MAX_CONCURRENT_FIRES = 2
+let inflightFires = 0
 
 let mainHandle: ReturnType<typeof setInterval> | null = null
 let dailyHandle: ReturnType<typeof setInterval> | null = null
@@ -91,6 +109,13 @@ function processOnce(deps: ManualCronDeps): void {
 
   const due = pendingManualJobs(deps.sqlite, now)
   for (const job of due) {
+    if (inflightFires >= MAX_CONCURRENT_FIRES) {
+      log.debug(
+        { inflight: inflightFires, cap: MAX_CONCURRENT_FIRES, deferred: due.length - 0 },
+        'concurrency cap reached, deferring remaining due jobs to next tick'
+      )
+      return
+    }
     if (!transitionManualJob(deps.sqlite, job.id, 'pending', 'firing')) continue
     if (preFireSupersedes(deps.sqlite, job, now)) {
       transitionManualJob(deps.sqlite, job.id, 'firing', 'superseded')
@@ -98,16 +123,21 @@ function processOnce(deps: ManualCronDeps): void {
       continue
     }
 
-    const hint = buildHint(job)
-    const ctx: ManualJobContext = { kind: job.kind, hint }
     const signal = deps.registerInflight(job.chatId)
     log.info(
-      { jobId: job.id, chatId: job.chatId, kind: job.kind, fireAt: job.fireAt },
+      {
+        jobId: job.id,
+        chatId: job.chatId,
+        kind: job.kind,
+        fireAt: job.fireAt,
+        attempt: job.attemptCount ?? 1,
+      },
       'manual job fired'
     )
 
-    deps
-      .runManualJob(job.chatId, ctx, signal)
+    const runner = buildRunner(deps, job)
+    inflightFires++
+    runner(signal)
       .then(() => {
         if (job.kind === 'date_anchored' && extractRecurring(job) === 'yearly') {
           insertManualJob(deps.sqlite, {
@@ -117,16 +147,76 @@ function processOnce(deps: ManualCronDeps): void {
             payload: job.payload,
             status: 'pending',
             createdAt: Date.now(),
+            attemptCount: null,
           })
         }
       })
       .catch((err) => {
         log.error({ err, jobId: job.id, chatId: job.chatId }, 'manual job runner failed')
+        // Failure → orchestrator already scheduled the retry via
+        // src/utils/retry.ts. We just mark this job 'fired' (no separate
+        // 'failed' status in v1; the retry row is the recovery signal).
       })
       .finally(() => {
+        inflightFires = Math.max(0, inflightFires - 1)
         transitionManualJob(deps.sqlite, job.id, 'firing', 'fired', { firedAt: Date.now() })
       })
   }
+}
+
+/** Returns a closure that calls the right orchestrator path for the job.
+ * - `retry` jobs dispatch on `payload.trigger` to either reactive or
+ *   manual_job orchestrator entry points; the prior turn's hint is
+ *   re-used so the model has the same instruction as the failed try.
+ * - All other kinds (date_anchored, revive, re_engage) go through
+ *   `runManualJob` with the hint built from `payload`. */
+function buildRunner(
+  deps: ManualCronDeps,
+  job: ManualJobRow
+): (signal: AbortSignal) => Promise<void> {
+  if (job.kind === 'retry') {
+    const payload = parseRetryPayload(job.payload)
+    if (!payload) {
+      // Defensive: malformed retry payload → no-op so we don't crash the
+      // cron. The retry chain effectively dies for this op.
+      log.warn(
+        { jobId: job.id, chatId: job.chatId },
+        'retry job has unparseable payload, skipping'
+      )
+      return async () => {}
+    }
+    const attempt = job.attemptCount ?? 1
+    if (payload.trigger === 'reactive') {
+      const retryCtx: RetryContextDTO = { trigger: 'reactive', attempt }
+      return (signal) => deps.runReactiveTurn(job.chatId, signal, retryCtx)
+    }
+    if (payload.trigger === 'manual_job') {
+      const mjctx = payload.manualJobContext ?? {
+        kind: 'revive',
+        hint: 'Retry of a previously failed manual job. No additional context available.',
+      }
+      const ctx: ManualJobContext = {
+        kind: mjctx.kind as ManualJobContext['kind'],
+        hint: mjctx.hint,
+      }
+      const retryCtx: RetryContextDTO = {
+        trigger: 'manual_job',
+        attempt,
+        manualJobContext: ctx,
+      }
+      return (signal) => deps.runManualJob(job.chatId, ctx, signal, retryCtx)
+    }
+    // 'escalation_notify' retries are handled by escalation/retry.ts, not
+    // by this cron. Should not appear here.
+    log.warn(
+      { jobId: job.id, trigger: payload.trigger },
+      'retry job with unexpected trigger landed in manual-jobs-cron'
+    )
+    return async () => {}
+  }
+  const hint = buildHint(job)
+  const ctx: ManualJobContext = { kind: job.kind, hint }
+  return (signal) => deps.runManualJob(job.chatId, ctx, signal)
 }
 
 function preFireSupersedes(sqlite: Sqlite, job: ManualJobRow, now: number): boolean {
@@ -209,6 +299,7 @@ function reEngageScan(deps: ManualCronDeps): void {
       payload: JSON.stringify({ scheduled_at: now }),
       status: 'pending',
       createdAt: now,
+      attemptCount: null,
     })
     log.info({ chatId, fireAt }, 'manual job created (re_engage)')
   }

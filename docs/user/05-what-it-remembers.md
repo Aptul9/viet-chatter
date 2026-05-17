@@ -1,64 +1,64 @@
-# Cosa ricorda
+# What it remembers
 
-Il bot tiene un piccolo "diario" per ogni persona con cui parla. Non salva i messaggi, salva i fatti che servono per rispondere meglio la prossima volta.
+The bot keeps a small "journal" for every person it talks to. It does not save messages, it saves the facts that help it reply better next time.
 
-## I tre livelli di memoria
+## The three memory levels
 
-### Importanti
+### Important
 
-Cose grosse, che restano. Eventi che cambiano come ti rapporti a quella persona:
+Big things, that stay. Events that change how you relate to that person:
 
-- "Suo padre sta male di cancro."
-- "Si è separata da Marco a marzo."
-- "Le è morto il cane."
-- "Ha avuto una promozione importante."
-- "Compleanno: 22 febbraio."
+- "Her father is sick with cancer."
+- "She separated from Marco in March."
+- "Her dog died."
+- "She got an important promotion."
+- "Birthday: February 22."
 
-Questi fatti restano sempre. Non scadono. Vengono usati ogni volta per dare contesto alla risposta.
+These facts always stay. They do not expire. They are used every time to give context to the reply.
 
-### Secondari
+### Secondary
 
-Dettagli interessanti ma non critici:
+Interesting but not critical details:
 
-- "Lavora come grafica a Hanoi."
-- "Ha un cane di nome Pluto."
-- "Le piace il sushi."
-- "Tifa Inter."
+- "Works as a graphic designer in Hanoi."
+- "Has a dog named Pluto."
+- "Likes sushi."
+- "Inter fan."
 
-Crescono nel tempo, possono essere tanti. Il bot pesca quelli pertinenti al momento, non li usa tutti insieme.
+They grow over time, can be many. The bot picks those relevant to the moment, does not use all of them together.
 
-### Effimeri
+### Ephemeral
 
-Cose temporanee, di passaggio. Scadono dopo 7 giorni.
+Temporary, passing things. They expire after 7 days.
 
-- "Giovedì va a fare le unghie."
-- "Stasera cena con la sorella."
-- "Questa settimana è stressata dal lavoro."
-- "Domani parte per Da Nang."
+- "Thursday she is getting her nails done."
+- "Tonight dinner with her sister."
+- "This week she is stressed by work."
+- "Tomorrow she leaves for Da Nang."
 
-Dopo una settimana spariscono in automatico. Logica: dopo 7 giorni quel piano è già passato, non serve più ricordarlo.
+After a week they disappear automatically. Logic: after 7 days that plan has already passed, no point remembering it anymore.
 
-## Come si riempie il diario
+## How the journal fills up
 
-Automaticamente. Dopo ogni risposta che il bot manda, l'AI legge la conversazione e decide se ci sono fatti nuovi da ricordare. Li mette nel livello giusto da sola.
+Automatically. After every reply the bot sends, the AI reads the conversation and decides whether there are new facts to remember. It places them in the right level on its own.
 
-Non serve scrivere nulla a mano.
+No need to write anything by hand.
 
-## Posso vedere il diario?
+## Can I see the journal?
 
-I dati stanno in un singolo file sul computer (un database). Non c'è ancora un'interfaccia per consultarlo comodamente. In futuro è prevista una piccola pagina web di sola lettura per vederli.
+The data lives in a single file on the computer (a database). There is no UI to consult it comfortably yet. A small read-only web page to view it is planned for the future.
 
-## Posso correggere o cancellare un fatto?
+## Can I correct or delete a fact?
 
-Non c'è uno strumento dedicato. La via prevista è scriverlo nella conversazione stessa (es. "in realtà mio padre sta benissimo, ti ho detto un'altra cosa") e l'AI dovrebbe correggere il fatto vecchio sostituendolo con quello nuovo.
+There is no dedicated tool. The intended path is to write it in the conversation itself (e.g. "actually my father is fine, I told you something else") and the AI should correct the old fact by replacing it with the new one.
 
-In casi limite (errore grave, fatto delicato che il bot non deve usare), si interviene a mano sul database. Non è la via normale.
+In edge cases (serious error, delicate fact the bot must not use), intervene by hand on the database. Not the normal path.
 
-## Vengono usati ogni volta?
+## Are they used every time?
 
-- Importanti e effimeri: sempre, ogni risposta.
-- Secondari: solo quelli pertinenti al messaggio in arrivo. Esempio: se lei ti scrive di cibo, il bot tira fuori "le piace il sushi" e ignora "tifa Inter".
+- Important and ephemeral: always, every reply.
+- Secondary: only those relevant to the incoming message. Example: if she writes about food, the bot pulls out "likes sushi" and ignores "Inter fan".
 
 ## Privacy
 
-Tutto resta sul tuo computer. Niente cloud, niente backup automatico, nessun servizio esterno conosce questi fatti. Vedi `09-privacy-dati.md`.
+Everything stays on your computer. No cloud, no automatic backup, no external service knows these facts. See `09-data-privacy.md`.

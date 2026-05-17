@@ -1,59 +1,59 @@
-# Quando risponde
+# When it replies
 
-Il bot non risponde subito. Aspetta. È fatto apposta per non sembrare automatico.
+The bot does not reply right away. It waits. It is designed that way to avoid looking automated.
 
-## Le tre regole sui tempi
+## The three timing rules
 
-### 1. Niente di notte
+### 1. Nothing at night
 
-Dalle 22:00 alle 06:00 il bot sta zitto. Se una persona ti scrive di notte, la risposta parte la mattina dopo, in un orario sensato (intorno alle 06:00 con piccolo margine casuale).
+From 22:00 to 06:00 the bot stays silent. If a person writes to you at night, the reply goes out the next morning, at a sensible time (around 06:00 with a small random margin).
 
-### 2. Aspetta che finisca di scrivere
+### 2. Wait until they finish writing
 
-Se la persona ti manda 4 messaggi in fila ("ciao", "come stai", "ti volevo dire", "hai un attimo?"), il bot non risponde dopo il primo. Aspetta circa 2 minuti di silenzio totale, poi considera la "raffica" chiusa e prepara una risposta che tiene conto di tutti e 4.
+If the person sends you 4 messages in a row ("hi", "how are you", "I wanted to tell you", "got a minute?"), the bot does not reply after the first one. It waits about 2 minutes of total silence, then considers the "burst" closed and prepares a reply that accounts for all 4.
 
-C'è anche un limite di sicurezza: se la persona continua a scrivere ogni minuto senza fermarsi, dopo 10 minuti dal primo messaggio il bot considera comunque la raffica chiusa (altrimenti aspetterebbe per sempre).
+There is also a safety limit: if the person keeps writing every minute without stopping, after 10 minutes from the first message the bot considers the burst closed anyway (otherwise it would wait forever).
 
-### 3. Imita il tuo tempo medio di risposta
+### 3. Mimic your average response time
 
-Quando la raffica è chiusa, il bot calcola quanto tempo ci metti tu di solito a rispondere a quella persona, e usa una media simile. Esempio:
+When the burst is closed, the bot computes how long you usually take to reply to that person, and uses a similar average. Example:
 
-- Se di solito ci metti circa 30 minuti a rispondere a Maria, anche il bot aspetta circa 30 minuti prima di mandare la risposta.
-- Se rispondi in fretta a Luigi (5 minuti), il bot è veloce con Luigi.
-- Aggiunge un po' di casualità (più o meno 20%) per non essere troppo prevedibile.
+- If you usually take about 30 minutes to reply to Maria, the bot also waits about 30 minutes before sending the reply.
+- If you reply quickly to Luigi (5 minutes), the bot is quick with Luigi.
+- It adds a bit of randomness (plus or minus 20%) so it is not too predictable.
 
-## I limiti
+## The limits
 
-- Minimo 5 minuti dal momento in cui la raffica si chiude.
-- Massimo 2 ore.
+- Minimum 5 minutes from the moment the burst closes.
+- Maximum 2 hours.
 
-Se la media calcolata dice "1 minuto" il bot usa comunque 5 minuti (sotto sembrerebbe un bot). Se la media dice "8 ore", il bot usa 2 ore (oltre sarebbe scortese).
+If the computed average says "1 minute" the bot still uses 5 minutes (anything below would look like a bot). If the average says "8 hours", the bot uses 2 hours (longer would be rude).
 
-## Esempio temporale completo
+## Full timing example
 
 ```
-14:00  Maria ti scrive "ciao"
-14:00  bot vede, parte il timer di silenzio (2 min)
-14:01  Maria scrive "come stai?"
-14:01  timer di silenzio rimesso a zero (lei ha scritto ancora)
-14:03  due minuti di silenzio, bot considera raffica chiusa
-       calcolo del delay: media risposte recenti a Maria = 30 min
-       con casualita +/-20%: per esempio 33 min
-       risposta programmata per le 14:36
+14:00  Maria writes "hi"
+14:00  bot sees, silence timer starts (2 min)
+14:01  Maria writes "how are you?"
+14:01  silence timer reset to zero (she wrote again)
+14:03  two minutes of silence, bot considers burst closed
+       delay calc: avg recent reply to Maria = 30 min
+       with randomness +/-20%: say 33 min
+       reply scheduled for 14:36
 ...
-14:36  bot manda la risposta
+14:36  bot sends the reply
 ```
 
-## Cosa succede se rispondi tu in mezzo
+## What happens if you reply in the middle
 
-Se mentre il bot sta aspettando (o sta per partire), rispondi tu manualmente, lui se ne accorge e annulla. Non manda nulla.
+If, while the bot is waiting (or about to fire), you reply manually, it notices and cancels. It does not send anything.
 
-L'unica eccezione è se rispondi proprio nel millisecondo esatto in cui il bot sta per inviare. In quel caso possono partire entrambi. Raro, non distruttivo.
+The only exception is if you reply in the exact millisecond when the bot is about to send. In that case both can go out. Rare, not destructive.
 
-## Cosa succede se hai 5 chat in attesa quando torni online
+## What happens if you have 5 chats pending when you come back online
 
-Il bot non spara 5 risposte in 5 secondi. Le distribuisce nel tempo (con ritardi casuali tra una e l'altra) per non far sembrare che è ripartito un robot.
+The bot does not fire 5 replies in 5 seconds. It spreads them over time (with random delays between one and the next) so it does not look like a robot just restarted.
 
-## Eccezioni al "no notte"
+## Exceptions to "no night"
 
-Nessuna. Anche se la persona scrive un messaggio drammatico alle 02:00, il bot risponde comunque la mattina. Se tu vuoi rispondere subito, lo fai a mano da telefono.
+None. Even if the person writes a dramatic message at 02:00, the bot still replies in the morning. If you want to reply right away, you do it by hand from the phone.

@@ -1,5 +1,5 @@
 // Daily cron: delete expired ephemeral facts from both `facts` and `facts_vec`.
-// See docs/dev/06-kb-e-rag.md "Pruner ephemeral".
+// See docs/dev/06-kb-and-rag.md "Pruner ephemeral".
 
 import type { Sqlite } from '../db/client.js'
 import { deleteFact, expiredEphemeralIds } from '../db/repo.js'

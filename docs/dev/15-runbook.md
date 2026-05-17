@@ -1,57 +1,57 @@
 # Runbook
 
-> Status: design; behavior implemented. Quick-start canonico in `README.md` root. `.env` ora autoload via `dotenv`; non serve piu' export manuale prima di `npm start`. `TELEGRAM_USER_CHAT_ID` supporta comma-separated per broadcast. See `19-implementation-notes.md` §5-6.
+> Status: design; behavior implemented. Canonical quick-start in root `README.md`. `.env` now auto-loaded via `dotenv`; no need for manual export before `npm start`. `TELEGRAM_USER_CHAT_ID` supports comma-separated for broadcast.
 
-## Setup iniziale
+## Initial setup
 
 ```bash
 git clone <repo>
 cd viet-chatter
 npm install
-npm run db:migrate     # crea ./viet-chatter.db con schema iniziale
-# (opzionale) setup Telegram per le escalations: vedi sezione "Setup Telegram" sotto
-npm start              # primo run, mostra QR code
+npm run db:migrate     # creates ./viet-chatter.db with initial schema
+# (optional) Telegram setup for escalations: see "Telegram setup" section below
+npm start              # first run, shows QR code
 ```
 
-Scansiona il QR code da WhatsApp mobile (`Impostazioni > Dispositivi collegati > Collega un dispositivo`).
+Scan the QR code from WhatsApp mobile (`Settings > Linked devices > Link a device`).
 
-## Setup Telegram (canale escalation)
+## Telegram setup (escalation channel)
 
-Necessario solo se `config.escalation.channels` include `'telegram'`. Se usi solo `'whatsapp_self'`, skip questa sezione.
+Needed only if `config.escalation.channels` includes `'telegram'`. If you only use `'whatsapp_self'`, skip this section.
 
-### Creare un bot Telegram
+### Create a Telegram bot
 
-1. Su Telegram, cerca il contatto `@BotFather`.
-2. Avvia chat e invia `/newbot`.
-3. Scegli un display name (es. `viet-chatter notifier`).
-4. Scegli uno username (deve finire con `bot`, es. `viet_chatter_notify_bot`).
-5. BotFather risponde con il token: lo registri in `.env`:
+1. On Telegram, search for the `@BotFather` contact.
+2. Start chat and send `/newbot`.
+3. Choose a display name (e.g. `viet-chatter notifier`).
+4. Choose a username (must end with `bot`, e.g. `viet_chatter_notify_bot`).
+5. BotFather responds with the token: register it in `.env`:
 
    ```
    TELEGRAM_BOT_TOKEN=123456789:AAA-bbb-ccc-ddd-eee
    ```
 
-   ATTENZIONE: chiunque abbia il token controlla il bot. Se trapela, revoca via `/revoke` su BotFather e genera nuovo.
+   ATTENTION: anyone with the token controls the bot. If it leaks, revoke via `/revoke` on BotFather and generate a new one.
 
-### Recuperare il proprio chat_id
+### Retrieve your own chat_id
 
-1. Da Telegram, scrivi un messaggio qualunque al bot appena creato (es. "ciao").
-2. Apri nel browser:
+1. From Telegram, write any message to the bot just created (e.g. "hi").
+2. Open in browser:
 
    ```
-   https://api.telegram.org/bot<IL_TUO_TOKEN>/getUpdates
+   https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates
    ```
 
-3. Cerca nel JSON `"chat":{"id": NNNNNNNN, ...}`. Il numero è il tuo `chat_id`.
-4. Lo registri in `.env`:
+3. Search in JSON for `"chat":{"id": NNNNNNNN, ...}`. The number is your `chat_id`.
+4. Register it in `.env`:
 
    ```
    TELEGRAM_USER_CHAT_ID=987654321
    ```
 
-### Verifica setup
+### Setup verification
 
-Da terminale:
+From terminal:
 
 ```bash
 curl -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
@@ -59,11 +59,11 @@ curl -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
   -d "{\"chat_id\": $TELEGRAM_USER_CHAT_ID, \"text\": \"viet-chatter test ok\"}"
 ```
 
-Deve arrivare il messaggio "viet-chatter test ok" sul tuo Telegram. Se sì, setup completato.
+The message "viet-chatter test ok" must arrive on your Telegram. If so, setup completed.
 
-### Caricamento ENV vars
+### Loading ENV vars
 
-Le ENV vars devono essere visibili al processo Node che lancia il bot.
+ENV vars must be visible to the Node process that launches the bot.
 
 Linux/macOS:
 
@@ -91,39 +91,39 @@ for /f "tokens=1,* delims==" %a in (.env) do set %a=%b
 npm start
 ```
 
-In v1 il bot non auto-carica `.env` (per scelta di minimal dependency). Vedi `11-config-e-hot-reload.md` per opzione futura con `dotenv`.
+In v1 the bot does not auto-load `.env` (by choice of minimal dependency). See `11-config-and-hot-reload.md` for future option with `dotenv`.
 
-## Setup WhatsApp self-chat
+## WhatsApp self-chat setup
 
-Niente da configurare a livello bot. Tre cose da fare lato utente per assicurarti che le notifiche ti arrivino:
+Nothing to configure at bot level. Three things to do on the user side to make sure notifications arrive:
 
-1. Sul telefono, apri WhatsApp -> chat con te stesso (numero "Te stesso" / "You").
-2. Aprire le impostazioni della chat e verifica che "Notifiche" siano attive (non muted).
-3. Test: dal computer (con bot fermo, oppure manualmente da WhatsApp Web), mandati un messaggio nella self-chat. Deve apparire come notifica push sul telefono come per le altre chat.
+1. On phone, open WhatsApp -> chat with yourself ("Yourself" / "You" number).
+2. Open chat settings and verify that "Notifications" are active (not muted).
+3. Test: from computer (with bot stopped, or manually from WhatsApp Web), send yourself a message in self-chat. It must appear as a push notification on the phone like for other chats.
 
-Se la notifica NON appare, il telefono / la versione di WhatsApp potrebbe non supportare bene le notifiche di self-chat. In quel caso usare Telegram come canale primario.
+If the notification does NOT appear, the phone / WhatsApp version may not support self-chat notifications well. In that case use Telegram as primary channel.
 
-## Avvio normale
+## Normal startup
 
 ```bash
 npm start
 ```
 
-Il bot:
+The bot:
 
-1. Carica config.
-2. Apre SQLite + sqlite-vec.
-3. Avvia OpenCode server (auto, port libera).
-4. Si connette a WhatsApp Web (sessione cached in `.wwebjs_auth/`).
-5. Esegue `BootReconciler`.
-6. Avvia `TickerLoop`, `ManualJobsCron`, `EphemeralPruner`.
-7. Stampa "boot done" su stdout.
+1. Loads config.
+2. Opens SQLite + sqlite-vec.
+3. Starts OpenCode server (auto, free port).
+4. Connects to WhatsApp Web (session cached in `.wwebjs_auth/`).
+5. Runs `BootReconciler`.
+6. Starts `TickerLoop`, `ManualJobsCron`, `EphemeralPruner`.
+7. Prints "boot done" on stdout.
 
-Da questo momento il terminale resta aperto, il bot gira finché non lo fermi (`Ctrl+C`).
+From this moment the terminal stays open, the bot runs until you stop it (`Ctrl+C`).
 
 ## Stop
 
-`Ctrl+C` nel terminale. Lo handler `SIGINT` chiude WhatsApp client, OpenCode server, DB pulitamente.
+`Ctrl+C` in the terminal. The `SIGINT` handler cleanly closes WhatsApp client, OpenCode server, DB.
 
 ## Health check
 
@@ -131,7 +131,7 @@ Da questo momento il terminale resta aperto, il bot gira finché non lo fermi (`
 npm run health
 ```
 
-Stampa:
+Prints:
 
 ```
 {
@@ -145,61 +145,61 @@ Stampa:
 }
 ```
 
-## Restart dopo crash
+## Restart after crash
 
-Stesso comando: `npm start`. Il bot:
+Same command: `npm start`. The bot:
 
-- Recupera lo stato dal DB (state machine ricostruita).
-- BootReconciler cattura messaggi arrivati durante il downtime.
-- Post-reconnect spread se ci sono `SCHEDULED` overdue.
+- Recovers state from DB (state machine rebuilt).
+- BootReconciler catches messages arrived during downtime.
+- Post-reconnect spread if there are `SCHEDULED` overdue.
 
-Niente perdita di dati persistenti. Eventuali turn `SENDING` interrotti vengono gestiti dalla recovery in `09-boot-reconciler.md`.
+No persistent data loss. Any interrupted `SENDING` turns are handled by the recovery in `09-boot-reconciler.md`.
 
-## Configurazione live
+## Live configuration
 
-Modifica `config/index.ts` con un editor. Salva. Il bot ricarica in automatico (chokidar + zod validation). Vedi `11-config-e-hot-reload.md`.
+Edit `config/index.ts` with an editor. Save. The bot reloads automatically (chokidar + zod validation). See `11-config-and-hot-reload.md`.
 
-Campi che richiedono restart per avere effetto: `sessionDir`, `dbPath`, `embeddingModel`, `aiModel`, `logFile`. Tutti gli altri sono hot-reloadable.
+Fields requiring restart to take effect: `sessionDir`, `dbPath`, `embeddingModel`, `aiModel`, `logFile`. All others are hot-reloadable.
 
-## Aggiornare il filtro
+## Update the filter
 
-Modifica la funzione `shouldReply` in `config/index.ts`. Salva. Hot reload.
+Modify the `shouldReply` function in `config/index.ts`. Save. Hot reload.
 
 ```ts
-// esempio: aggiungere un numero alla blacklist
+// example: add a number to the blacklist
 export const shouldReply = (chat) =>
-  chat.phone.startsWith('+84') && !['+84111', '+84222', '+84NUOVO'].includes(chat.phone)
+  chat.phone.startsWith('+84') && !['+84111', '+84222', '+84NEW'].includes(chat.phone)
 ```
 
-## Rinnovare la sessione WhatsApp
+## Renew the WhatsApp session
 
-Se WhatsApp Web ha scollegato il dispositivo (succede dopo lunghi periodi di inattività):
+If WhatsApp Web has disconnected the device (happens after long inactivity periods):
 
 1. Stop bot.
-2. Cancella `.wwebjs_auth/`.
+2. Delete `.wwebjs_auth/`.
 3. `npm start`.
-4. Riscansiona il QR code.
+4. Re-scan the QR code.
 
-## Backup manuale
+## Manual backup
 
 ```bash
-# bot fermo
+# bot stopped
 cp viet-chatter.db viet-chatter-backup-$(date +%F).db
 ```
 
-Backup su DB live (bot acceso): possibile grazie a WAL mode, ma sconsigliato senza fermare. Per snapshot consistenti:
+Backup on live DB (bot running): possible thanks to WAL mode, but discouraged without stopping. For consistent snapshots:
 
 ```bash
 sqlite3 viet-chatter.db ".backup viet-chatter-backup.db"
 ```
 
-Niente cron automatico in v1.
+No automatic cron in v1.
 
-## Troubleshoot: il bot non risponde a chi dovrebbe
+## Troubleshoot: bot doesn't reply to who it should
 
-Possibili cause:
+Possible causes:
 
-1. **Filtro non passa**: verifica `shouldReply` con un test rapido. Aggiungi un log temporaneo:
+1. **Filter doesn't pass**: verify `shouldReply` with a quick test. Add a temporary log:
    ```ts
    export const shouldReply = (chat) => {
      const ok = chat.phone.startsWith('+84') && !blacklist.includes(chat.phone)
@@ -207,45 +207,45 @@ Possibili cause:
      return ok
    }
    ```
-2. **Bot in night window**: controlla l'ora locale.
-3. **`chat_state` bloccato**: query DB.
+2. **Bot in night window**: check local time.
+3. **`chat_state` stuck**: query DB.
    ```bash
-   npm run db:studio    # apre Drizzle Studio
-   # oppure
+   npm run db:studio    # opens Drizzle Studio
+   # or
    sqlite3 viet-chatter.db "SELECT * FROM chat_state WHERE chat_id LIKE '%...%';"
    ```
-4. **OpenCode non funziona**: verifica `npm run health`. Se `embedding_model_present` o pipeline AI non OK, controlla i log.
-5. **Connessione WhatsApp persa**: log "DISCONNECTED". Sessione persa, riscansiona QR.
+4. **OpenCode doesn't work**: verify `npm run health`. If `embedding_model_present` or AI pipeline not OK, check logs.
+5. **WhatsApp connection lost**: "DISCONNECTED" log. Session lost, re-scan QR.
 
-## Troubleshoot: il bot manda messaggi sbagliati
+## Troubleshoot: bot sends wrong messages
 
 1. Stop bot.
-2. Modifica config: `logLevel: 'debug'`.
-3. Riavvia.
-4. Aspetta che si verifichi il problema.
-5. Cerca nel log:
+2. Modify config: `logLevel: 'debug'`.
+3. Restart.
+4. Wait for the problem to occur.
+5. Search in log:
    ```bash
    cat logs/viet-chatter.log | jq 'select(.chat_id == "84xxx")' > debug.txt
    ```
-6. Cerca il `turn started` -> `turn completed` rilevante. Vedi `kb_facts_total`, `language_used`, `duration_ms`.
-7. Se necessario, leggi anche `turn_log` table.
+6. Search for the relevant `turn started` -> `turn completed`. See `kb_facts_total`, `language_used`, `duration_ms`.
+7. If necessary, also read `turn_log` table.
 
-## Troubleshoot: AI sempre fallisce parse JSON
+## Troubleshoot: AI always fails JSON parse
 
-1. Modifica config: `logLevel: 'trace'`.
+1. Modify config: `logLevel: 'trace'`.
 2. Restart.
-3. Log raw output dell'AI (campi `prompt_chars`, `response_chars`).
-4. Probabili cause:
-   - Modello LLM scelto non rispetta lo schema (cambiare `aiModel`).
-   - Prompt template corrotto (rivedi `prompts/turn/06_output_schema.txt`).
-   - Token limit raggiunto e output troncato (ridurre `aiHistoryLimit` o `ragTopK`).
+3. Log raw AI output (fields `prompt_chars`, `response_chars`).
+4. Probable causes:
+   - Chosen LLM model doesn't respect the schema (change `aiModel`).
+   - Corrupt prompt template (review `prompts/turn/06_output_schema.txt`).
+   - Token limit reached and output truncated (reduce `aiHistoryLimit` or `ragTopK`).
 
-## Troubleshoot: state machine bloccata in SENDING
+## Troubleshoot: state machine stuck in SENDING
 
-Indica un crash mid-sending non recuperato. Recovery manuale:
+Indicates a non-recovered mid-sending crash. Manual recovery:
 
 ```sql
--- riporta a IDLE le righe in SENDING piu vecchie di 5 min
+-- bring back to IDLE the rows in SENDING older than 5 min
 UPDATE chat_state
 SET state = 'IDLE',
     first_msg_at = NULL,
@@ -256,44 +256,44 @@ WHERE state = 'SENDING'
   AND last_event_at < strftime('%s','now') * 1000 - 300000;
 ```
 
-In v1 non c'è un job automatico di unstuck. Future enhancement possibile.
+In v1 there is no automatic unstuck job. Future enhancement possible.
 
-## Troubleshoot: embedding model non si scarica
+## Troubleshoot: embedding model doesn't download
 
-`@xenova/transformers` scarica il modello al primo `embed()` in `.cache/transformers/`. Se il download fallisce:
+`@xenova/transformers` downloads the model at first `embed()` to `.cache/transformers/`. If download fails:
 
-- Verifica connessione internet.
-- Verifica spazio disco (~80MB richiesti).
-- Cancella `.cache/transformers/` e riprova.
+- Verify internet connection.
+- Verify disk space (~80MB required).
+- Delete `.cache/transformers/` and retry.
 
-## Troubleshoot: OpenCode server non parte
+## Troubleshoot: OpenCode server doesn't start
 
 ```bash
-# verifica installazione
+# verify installation
 which opencode
 opencode --version
 ```
 
-Se non installato globalmente, installalo via il loro guide. La config `opencode.json` richiede plugin specifici (vedi `07-ai-integration.md`); installa anche quelli.
+If not installed globally, install it via their guide. The `opencode.json` config requires specific plugins (see `07-ai-integration.md`); install those too.
 
-Verifica porte libere:
+Verify free ports:
 
 ```bash
 netstat -an | grep 3456
 ```
 
-## Troubleshoot: escalation non arriva su Telegram
+## Troubleshoot: escalation doesn't arrive on Telegram
 
-1. Verifica ENV vars caricate:
+1. Verify loaded ENV vars:
 
    ```bash
-   echo $TELEGRAM_BOT_TOKEN | head -c 20    # deve mostrare prefisso del token
-   echo $TELEGRAM_USER_CHAT_ID              # deve mostrare il numero
+   echo $TELEGRAM_BOT_TOKEN | head -c 20    # must show token prefix
+   echo $TELEGRAM_USER_CHAT_ID              # must show the number
    ```
 
-   Se sono vuote, le ENV vars non sono visibili al processo. Ricarica `.env` come da sezione "Caricamento ENV vars".
+   If empty, ENV vars are not visible to the process. Reload `.env` as per "Loading ENV vars" section.
 
-2. Test diretto API Telegram:
+2. Direct Telegram API test:
 
    ```bash
    curl -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
@@ -301,32 +301,32 @@ netstat -an | grep 3456
      -d "{\"chat_id\": $TELEGRAM_USER_CHAT_ID, \"text\": \"manual test\"}"
    ```
 
-   Se la risposta JSON ha `"ok": false`:
-   - `"description":"Unauthorized"` -> token sbagliato o revocato.
-   - `"description":"chat not found"` -> chat_id sbagliato. Rifai `getUpdates`.
-   - `"description":"Forbidden: bot was blocked by the user"` -> hai bloccato il bot, sbloccalo da Telegram.
+   If the JSON response has `"ok": false`:
+   - `"description":"Unauthorized"` -> wrong or revoked token.
+   - `"description":"chat not found"` -> wrong chat_id. Redo `getUpdates`.
+   - `"description":"Forbidden: bot was blocked by the user"` -> you blocked the bot, unblock from Telegram.
 
-3. Verifica log del bot:
+3. Verify bot logs:
 
    ```bash
    cat logs/viet-chatter.log | jq 'select(.msg | test("escalation"))'
    ```
 
-   Cerca `escalation notified` con `channels_failed` includente `telegram`. Vedi il messaggio errore.
+   Look for `escalation notified` with `channels_failed` including `telegram`. See the error message.
 
-4. Rate limit raggiunto: cerca `escalation rate limited` nei log. Aumenta `config.escalation.rateLimitPerHour`.
+4. Rate limit reached: search for `escalation rate limited` in logs. Increase `config.escalation.rateLimitPerHour`.
 
-5. Bot Telegram disabilitato: BotFather può disabilitare bot per inattività prolungata. Verifica con `/mybots` su BotFather.
+5. Telegram bot disabled: BotFather may disable bots for prolonged inactivity. Verify with `/mybots` on BotFather.
 
-## Troubleshoot: escalation non arriva su WhatsApp self-chat
+## Troubleshoot: escalation doesn't arrive on WhatsApp self-chat
 
-1. Verifica che il bot sia connesso a WhatsApp Web (`npm run health`, vedi `chats_total > 0`).
+1. Verify that the bot is connected to WhatsApp Web (`npm run health`, see `chats_total > 0`).
 
-2. Verifica che `client.info.wid` sia disponibile. Il modulo `WhatsAppSelfChannel` dovrebbe loggare al primo invio "self chat resolved to <wid>". Se non logga, problema lato `whatsapp-web.js`.
+2. Verify that `client.info.wid` is available. The `WhatsAppSelfChannel` module should log "self chat resolved to <wid>" at first send. If it doesn't log, problem on `whatsapp-web.js` side.
 
-3. Verifica notifiche WhatsApp self-chat sul telefono: alcune versioni di WhatsApp non emettono notifica push per messaggi inviati a se stesso da WhatsApp Web. Test manuale: mandati un messaggio dalla chat self-chat su WhatsApp Web stesso. Vedi se la notifica appare sul telefono.
+3. Verify WhatsApp self-chat notifications on phone: some WhatsApp versions don't emit push notification for messages sent to oneself from WhatsApp Web. Manual test: send yourself a message from self-chat on WhatsApp Web itself. See if the notification appears on the phone.
 
-4. Se il telefono non riceve push per self-chat, switcha a Telegram (più affidabile per use case "chiamami quando serve").
+4. If the phone doesn't receive push for self-chat, switch to Telegram (more reliable for "call me when needed" use case).
 
 ## Troubleshoot: escalations stuck in pending
 
@@ -339,20 +339,20 @@ WHERE status = 'pending' AND created_at < strftime('%s','now') * 1000 - 3600000
 ORDER BY created_at DESC;
 ```
 
-Cause possibili:
+Possible causes:
 
-- `notified_channels='[]'`: nessun canale ha funzionato. Il retry job (ogni 5 min, max 3 attempts) potrebbe averli esauriti. Riavvia il bot per resettare retry counter (in v1 retry counter è in-memory).
-- `notified_channels=['whatsapp_self']` ma utente non vede: notifica self-chat non recapitata correttamente, vedi sopra.
-- `notified_channels=['telegram']` ma utente non vede: bot Telegram bloccato o muted.
+- `notified_channels='[]'`: no channel worked. The retry job (every 5 min, max 3 attempts) may have exhausted them. Restart the bot to reset retry counter (in v1 retry counter is in-memory).
+- `notified_channels=['whatsapp_self']` but user doesn't see: self-chat notification not delivered correctly, see above.
+- `notified_channels=['telegram']` but user doesn't see: Telegram bot blocked or muted.
 
-Per risolvere manualmente una escalation senza che l'utente abbia risposto:
+To manually resolve an escalation without the user having responded:
 
 ```sql
 UPDATE escalations SET status='dismissed', resolved_at = strftime('%s','now') * 1000
 WHERE id = ?;
 ```
 
-## Disabilitare temporaneamente escalation
+## Temporarily disable escalation
 
 ```ts
 // config/index.ts
@@ -362,21 +362,21 @@ escalation: {
 }
 ```
 
-Salva, hot reload prende effetto immediato. Le escalations già pendenti restano in DB ma non vengono rinotificate. Quando riabiliti, il retry riprende.
+Save, hot reload takes immediate effect. Already pending escalations stay in DB but are no longer re-notified. When you re-enable, retry resumes.
 
-## Cancellazione totale del bot
+## Total bot deletion
 
 ```bash
 rm -rf node_modules logs viet-chatter.db* .wwebjs_auth .cache
-# da WhatsApp mobile: scollega il dispositivo
+# from WhatsApp mobile: unlink the device
 ```
 
-## Aggiornamento dipendenze
+## Dependency updates
 
 ```bash
 npm outdated
 npm update
-# rebuild se necessario
+# rebuild if necessary
 ```
 
-Attenzione a `whatsapp-web.js`: aggiornamenti frequenti. Testare che la sessione non si rompa dopo upgrade.
+Watch out for `whatsapp-web.js`: frequent updates. Test that the session doesn't break after upgrade.

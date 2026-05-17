@@ -1,62 +1,55 @@
 # viet-chatter
 
-Bot WhatsApp che risponde in modo autonomo a un sottoinsieme filtrato di chat 1:1, con timing umano-simile, memoria per persona, tono adattivo, lingua dinamica.
+WhatsApp bot that autonomously replies to a filtered subset of 1:1 chats, with human-like timing, per-person memory, adaptive tone, and dynamic language.
 
-## Stato
+## Status
 
-v1 shipped (2026-05-16). Single Node project, YAML config + web UI, OpenCode AI backend, escalation Telegram multi-recipient. `npm run health` ok, `npm run test:e2e` ok, smoke test #61 (reply base) verificato manualmente. Smoke test live #62 / #63 / #64 ancora da eseguire (vedi `docs/status/board.md`).
-
-Per dettagli su tutto cio' che e' shippato (incluso cosa diverge dal design iniziale), vedi [`docs/dev/19-implementation-notes.md`](docs/dev/19-implementation-notes.md).
+v1 shipped (2026-05-16). Single Node project, YAML config + web UI, OpenCode AI backend, Telegram multi-recipient escalation. `npm run health` ok, `npm run test:e2e` ok, smoke test #61 (base reply) manually verified. Live smoke tests #62 / #63 / #64 still to be executed.
 
 ## Quick start
 
 ```bash
-npm install                # una volta, dalla root
-npm run db:migrate         # crea viet-chatter.db con schema iniziale
-npm run dev                # avvia bot + web UI in parallelo
+npm install                # once, from the root
+npm run db:migrate         # creates viet-chatter.db with the initial schema
+npm run dev                # starts bot + web UI in parallel
 ```
 
-Al primo run il bot stampa un QR code: scansionalo da `WhatsApp > Impostazioni > Dispositivi collegati`. UI di configurazione su `http://localhost:3000`.
+On the first run the bot prints a QR code: scan it from `WhatsApp > Settings > Linked devices`. Configuration UI on `http://localhost:3000`.
 
-Altri comandi utili:
+Other useful commands:
 
-- `npm start` — bot only (la UI e' dev-only).
-- `npm run health` — self-check JSON: counter DB, escalations pending, modello embedding presente.
-- `npm run test:e2e` — smoke pipeline end-to-end con WhatsApp mockato.
-- `npm run format` / `format:check` — Prettier.
+- `npm start` - bot only (the UI is dev-only).
+- `npm run health` - JSON self-check: DB counters, pending escalations, embedding model present.
+- `npm run test:e2e` - end-to-end smoke pipeline with mocked WhatsApp.
+- `npm run format` / `format:check` - Prettier.
 
-## Configurazione
+## Configuration
 
-Single source of truth runtime: `config/user-config.yaml` (gitignored). Hot-reload via chokidar al salvataggio (tranne campi `RESTART REQUIRED` come `dbPath`, `aiModel`, `sessionDir`, `embeddingModel`, `logFile`, `logRotation`).
+Runtime single source of truth: `config/user-config.yaml` (gitignored). Hot-reload via chokidar on save (except for `RESTART REQUIRED` fields like `dbPath`, `aiModel`, `sessionDir`, `embeddingModel`, `logFile`, `logRotation`).
 
-Si edita a mano oppure via web UI (`npm run dev` → `http://localhost:3000`, 8 tab con tooltip per campo). Defaults in `config/defaults.ts`.
+Edited by hand or via the web UI (`npm run dev` -> `http://localhost:3000`, 8 tabs with per-field tooltips). Defaults in `config/defaults.ts`.
 
-Filter declarative (no piu' predicate TS): blocco `filter` in YAML con `allowedPrefixes`, `blockedNumbers`, `savedContactsOnly`, `unreadOnly`.
+Declarative filter (no more TS predicates): `filter` block in YAML with `allowedPrefixes`, `blockedNumbers`, `savedContactsOnly`, `unreadOnly`.
 
 ## ENV vars
 
-Caricate automaticamente da `.env` (gitignored) via `dotenv/config`:
+Loaded automatically from `.env` (gitignored) via `dotenv/config`:
 
-- `TELEGRAM_BOT_TOKEN` — token bot Telegram per escalation. Vedi `docs/dev/15-runbook.md`.
-- `TELEGRAM_USER_CHAT_ID` — chat id Telegram destinatario. Supporta comma-separated (`123,456,789`) per broadcast.
-- `LOG_LEVEL` — override boot del livello log (poi il YAML/UI puo' sovrascrivere a runtime).
+- `TELEGRAM_BOT_TOKEN` - Telegram bot token for escalation. See `docs/dev/15-runbook.md`.
+- `TELEGRAM_USER_CHAT_ID` - destination Telegram chat id. Supports comma-separated (`123,456,789`) for broadcast.
+- `LOG_LEVEL` - boot override of the log level (the YAML/UI can then override at runtime).
 
-`.env.example` versionato come template.
+`.env.example` versioned as a template.
 
-## Tracking sviluppo
+## Documentation
 
-Lo stato operativo (kanban, done log, parallel plan) vive in `docs/status/`. Nessuna persistenza esterna.
-
-## Documentazione
-
-- [Documentazione utente](docs/utente/README.md) — non tecnica, cosa fa e come si usa.
-- [Documentazione tecnica](docs/dev/README.md) — architettura, schema DB, scheduler, prompt, edge case.
-- [Implementation notes (shipped v1)](docs/dev/19-implementation-notes.md) — comportamento attuale, deltas rispetto al design.
+- [User documentation](docs/user/README.md) - non-technical, what it does and how it is used.
+- [Technical documentation](docs/dev/README.md) - architecture, DB schema, scheduler, prompts, edge cases.
 
 ## Stack
 
-TypeScript, `whatsapp-web.js@1.34.7`, SQLite + `sqlite-vec`, Drizzle ORM, `@xenova/transformers` (embedding locale), OpenCode CLI (modello default `opencode:github-copilot/gpt-5-mini`), pino + pino-roll per logging, Next.js 15 + Tailwind + shadcn/ui per la web UI.
+TypeScript, `whatsapp-web.js@1.34.7`, SQLite + `sqlite-vec`, Drizzle ORM, `@xenova/transformers` (local embedding), OpenCode CLI (default model `opencode:github-copilot/gpt-5-mini`), pino + pino-roll for logging, Next.js 15 + Tailwind + shadcn/ui for the web UI.
 
-## Licenza
+## License
 
-Non specificata.
+Not specified.

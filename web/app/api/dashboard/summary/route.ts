@@ -84,7 +84,7 @@ export async function POST(req: Request) {
     }))
     // NOTE: processed_messages does NOT store body in v1 (privacy). The summary
     // works from timestamps + KB facts only. This is a known v1 limitation
-    // documented in docs/dev/08-persistenza.md.
+    // documented in docs/dev/08-persistence.md.
 
     const factsImportant = (
       sqlite

@@ -43,8 +43,7 @@ export const DATE_ANCHORED_JITTER_MAX_MIN = 60
  * OpenCode model ids known to support image input. The media-policy resolver
  * uses this list at boot to decide whether `media.image.strategy = 'vision'`
  * can actually run with the configured `aiModel`, or whether it must fall
- * back to `media.visionFallback`. Keep aligned with provider capabilities;
- * see Spec A (`docs/dev/specs/2026-05-16-spec-a-media.md`).
+ * back to `media.visionFallback`. Keep aligned with provider capabilities.
  */
 export const VISION_CAPABLE_MODELS: readonly string[] = [
   'opencode:github-copilot/gpt-5-mini',

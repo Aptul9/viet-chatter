@@ -1,46 +1,46 @@
-# A chi risponde
+# Who it replies to
 
-## L'idea base
+## The basic idea
 
-Tu definisci delle "regole" che decidono, per ogni chat, se il bot deve gestirla o ignorarla. Le regole sono dichiarative: liste di prefissi numerici ammessi, numeri bloccati, flag "solo contatti salvati", flag "solo chat con messaggi non letti". Si editano via web UI (`http://localhost:3000`, tab Filter) oppure a mano nel file `config/user-config.yaml` (blocco `filter`).
+You define "rules" that decide, for each chat, whether the bot should handle it or ignore it. The rules are declarative: lists of allowed numeric prefixes, blocked numbers, "saved contacts only" flag, "only chats with unread messages" flag. They are edited via the web UI (`http://localhost:3000`, Filter tab) or by hand in `config/user-config.yaml` (`filter` block).
 
-## Esempio tipico
+## Typical example
 
-Esempio realistico: vuoi che il bot risponda solo a chi ha numero vietnamita, escludendo due numeri specifici (la zia, il commercialista) e ignorando i contatti salvati in rubrica.
+Realistic example: you want the bot to reply only to people with a Vietnamese number, excluding two specific numbers (the aunt, the accountant) and ignoring contacts saved in the address book.
 
-Espresso a parole:
+Expressed in words:
 
-> Risponde se il numero inizia con +84 E non è uno dei due numeri della blacklist.
+> Reply if the number starts with +84 AND it is not one of the two blacklisted numbers.
 
-## Tipi di regole possibili
+## Possible rule types
 
-Le regole sono 4 (combinabili: passa solo se TUTTI i check applicabili passano):
+There are 4 rules (combinable: passes only if ALL applicable checks pass):
 
-- **Prefissi ammessi** (`allowedPrefixes`): lista di prefissi E.164 (es. `+84`, `+39`). Vuota = nessun filtro per prefisso. Logica OR tra prefissi.
-- **Numeri bloccati** (`blockedNumbers`): lista di numeri E.164 specifici da escludere. Vince sempre sulla allow list.
-- **Solo contatti salvati** (`savedContactsOnly`, on/off): se attivo, risponde solo a chi è in rubrica sul telefono paired.
-- **Solo non letti** (`unreadOnly`, on/off): se attivo, risponde solo se la chat ha messaggi non letti.
+- **Allowed prefixes** (`allowedPrefixes`): list of E.164 prefixes (e.g. `+84`, `+39`). Empty = no prefix filter. OR logic between prefixes.
+- **Blocked numbers** (`blockedNumbers`): list of specific E.164 numbers to exclude. Always wins over the allow list.
+- **Saved contacts only** (`savedContactsOnly`, on/off): if on, replies only to those in the address book on the paired phone.
+- **Unread only** (`unreadOnly`, on/off): if on, replies only if the chat has unread messages.
 
-Per filtri più complessi (su contenuto messaggio, su nome contatto, ecc.) non c'è supporto in v1: rules sono solo metadata della chat.
+For more complex filters (on message content, on contact name, etc.) there is no support in v1: rules are only chat metadata.
 
-## Modifica delle regole
+## Editing the rules
 
-Due vie equivalenti:
+Two equivalent paths:
 
-- **Web UI**: `http://localhost:3000`, tab "Filter", modifica e Save.
-- **A mano**: edita `config/user-config.yaml`, blocco `filter`, salva.
+- **Web UI**: `http://localhost:3000`, "Filter" tab, edit and Save.
+- **By hand**: edit `config/user-config.yaml`, `filter` block, save.
 
-Non serve riavviare il bot: hot-reload automatico al salvataggio. Se la modifica contiene un errore (YAML invalido, valore fuori schema), il bot lo segnala nei log e tiene la versione precedente attiva. Niente downtime.
+No need to restart the bot: automatic hot-reload on save. If the change contains an error (invalid YAML, value out of schema), the bot reports it in the logs and keeps the previous version active. No downtime.
 
-## Cosa succede a chi NON è nella regola
+## What happens to those NOT in the rule
 
-Niente. Il bot vede arrivare il messaggio, controlla, decide "non in lista", lo lascia stare. Tu lo vedrai normalmente sul telefono come sempre.
+Nothing. The bot sees the message arrive, checks, decides "not on the list", leaves it alone. You will see it normally on the phone as always.
 
-## Aggiungere o rimuovere una persona
+## Adding or removing a person
 
-Aggiungi/togli il numero da "Allowed prefixes" o "Blocked numbers" via web UI, oppure edita la lista corrispondente nel YAML. Salva. Funziona.
+Add/remove the number from "Allowed prefixes" or "Blocked numbers" via the web UI, or edit the corresponding list in the YAML. Save. It works.
 
-## Esempio di regola scritta (YAML)
+## Example of a written rule (YAML)
 
 ```yaml
 filter:
@@ -53,9 +53,9 @@ filter:
   unreadOnly: false
 ```
 
-Tradotto: solo numeri vietnamiti, escluse due eccezioni.
+Translated: only Vietnamese numbers, with two exceptions excluded.
 
-## Limiti
+## Limits
 
-- Il bot non gestisce mai chat di gruppo, indipendentemente dalla regola.
-- La regola si applica al numero, non al contenuto del messaggio. Se vuoi un filtro su parole chiave nel messaggio (es. "rispondi solo se chiede aiuto"), questa è una funzionalità non prevista in questa versione.
+- The bot never handles group chats, regardless of the rule.
+- The rule applies to the number, not the message content. If you want a filter on keywords in the message (e.g. "reply only if she asks for help"), this is a feature not planned for this version.

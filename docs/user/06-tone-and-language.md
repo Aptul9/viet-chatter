@@ -1,48 +1,48 @@
-# Tono e lingua
+# Tone and language
 
-Il bot adatta come parla a chi ha davanti.
+The bot adapts how it speaks to whoever it is facing.
 
-## Tono
+## Tone
 
-Per ogni persona, il bot mantiene una "nota di tono" che descrive come si pone con lei.
+For every person, the bot keeps a "tone note" that describes how it positions itself with her.
 
-Esempi:
+Examples:
 
-- "Casuale, ironico, battute frequenti."
-- "Affettuoso e attento, lei sta vivendo un momento difficile per il padre."
-- "Diretto, conversazione di lavoro, niente fronzoli."
-- "Flirt leggero, chiacchiere serali."
+- "Casual, ironic, frequent jokes."
+- "Affectionate and attentive, she is going through a hard time because of her father."
+- "Direct, work conversation, no fluff."
+- "Light flirt, evening chats."
 
-Questa nota viene aggiornata da sola dall'AI mano a mano che la conversazione va avanti. Se cambia qualcosa di importante (lutti, momenti difficili, fasi di entusiasmo), il tono si adatta.
+This note is updated automatically by the AI as the conversation moves forward. If something important changes (bereavements, hard times, phases of enthusiasm), the tone adapts.
 
-Non bisogna scriverla a mano. Non c'è un menu di "personalita predefinite": il tono nasce dalla conversazione stessa.
+It does not have to be written by hand. There is no menu of "preset personalities": the tone arises from the conversation itself.
 
-## Lingua
+## Language
 
-Per ogni persona, il bot tiene una lista di lingue ammesse. Esempi:
+For every person, the bot keeps a list of allowed languages. Examples:
 
-- `[en]`: solo inglese.
-- `[vi]`: solo vietnamita.
-- `[en, vi]`: usa quella che gli sembra più giusta in base agli ultimi messaggi della persona.
+- `[en]`: English only.
+- `[vi]`: Vietnamese only.
+- `[en, vi]`: uses whichever seems right based on the person's most recent messages.
 
-L'AI sceglie ogni volta la lingua "giusta" per quel turno specifico. Se la persona ti scrive in vietnamita, lui risponde in vietnamita. Se passa all'inglese, lui passa all'inglese. Tutto naturale.
+The AI picks the "right" language for each specific turn. If the person writes to you in Vietnamese, it replies in Vietnamese. If she switches to English, it switches to English. All natural.
 
-### Caso "illusione di traduzione"
+### "Translation illusion" case
 
-Per persone con poco inglese si configura `[vi]`. Il bot risponde sempre in vietnamita. Lei pensa che tu parli vietnamita o che usi un traduttore. La conversazione fila liscia.
+For people with little English you configure `[vi]`. The bot always replies in Vietnamese. She thinks you speak Vietnamese or are using a translator. The conversation flows smoothly.
 
-### Cambio lingua suggerito dall'AI
+### Language change suggested by the AI
 
-Se l'AI nota che una persona inizia a usare consistentemente una lingua diversa da quella configurata (es. configurata `[en]` ma lei scrive solo in vietnamita da 5 messaggi), aggiorna da sola la lista lingue includendo l'altra. Tu non devi fare nulla.
+If the AI notices that a person consistently starts using a language different from the configured one (e.g. configured `[en]` but she writes only in Vietnamese for 5 messages), it updates the language list itself by including the other one. You do not have to do anything.
 
-## Sentiment (umore del messaggio in arrivo)
+## Sentiment (mood of the incoming message)
 
-Il bot tiene conto dell'umore del messaggio per scegliere il tono della risposta. Senza farne un caso scientifico: legge la conversazione, capisce se la persona è arrabbiata, triste, contenta, scherzosa, e risponde di conseguenza.
+The bot takes the message mood into account when choosing the tone of the reply. Without making a science of it: it reads the conversation, figures out whether the person is angry, sad, happy, joking, and replies accordingly.
 
-Non ci sono etichette esplicite memorizzate per ogni messaggio (questo è previsto come funzionalita futura). Il sentiment è "sentito" al volo dall'AI ad ogni risposta.
+There are no explicit labels stored for every message (this is planned as a future feature). Sentiment is "felt" on the fly by the AI at every reply.
 
-## Memoria di tono nel tempo
+## Tone memory over time
 
-Quando inizi a parlare con una persona nuova, il tono parte neutro. Dopo qualche scambio, il bot ha già una nota di tono iniziale. Dopo settimane, la nota è precisa e personalizzata.
+When you start talking to a new person, the tone starts neutral. After a few exchanges, the bot already has an initial tone note. After weeks, the note is precise and personalized.
 
-Se la conversazione cambia drasticamente direzione (litigio, riconciliazione, momento drammatico), la nota di tono si adatta.
+If the conversation drastically changes direction (argument, reconciliation, dramatic moment), the tone note adapts.

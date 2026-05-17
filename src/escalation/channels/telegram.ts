@@ -12,6 +12,38 @@ const TELEGRAM_API = 'https://api.telegram.org/bot'
 export class TelegramChannel implements EscalationChannel {
   readonly name: EscalationChannelName = 'telegram'
 
+  /** Free-form system alert (failure tracker, watchdogs). Uses the same
+   * bot token + chat ids as escalations; no Markdown formatting. Returns
+   * true iff at least one recipient was reached. */
+  async sendSystemAlert(text: string): Promise<boolean> {
+    const tokenEnv = config.escalation.telegramBotTokenEnv
+    const chatIdEnv = config.escalation.telegramChatIdEnv
+    const token = process.env[tokenEnv]
+    const chatIdsRaw = process.env[chatIdEnv]
+    if (!token || !chatIdsRaw) {
+      log.warn(
+        { tokenEnv, chatIdEnv, tokenPresent: !!token, chatIdPresent: !!chatIdsRaw },
+        'telegram credentials missing, system alert dropped'
+      )
+      return false
+    }
+    const chatIds = chatIdsRaw
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0)
+    if (chatIds.length === 0) return false
+    const results = await Promise.allSettled(
+      chatIds.map((chatId) =>
+        fetch(`${TELEGRAM_API}${token}/sendMessage`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ chat_id: chatId, text }),
+        }).then((res) => res.ok)
+      )
+    )
+    return results.some((r) => r.status === 'fulfilled' && r.value === true)
+  }
+
   async send(payload: EscalationPayload): Promise<boolean> {
     const tokenEnv = config.escalation.telegramBotTokenEnv
     const chatIdEnv = config.escalation.telegramChatIdEnv

@@ -1,4 +1,4 @@
-// Entry point. Wires all modules in the order required by docs/dev/13-progetto-layout.md.
+// Entry point. Wires all modules in the order required by docs/dev/13-project-layout.md.
 
 // Load .env at the very top so process.env is populated before any module that
 // reads from it (e.g. escalation/channels/telegram.ts reads TELEGRAM_BOT_TOKEN
@@ -27,8 +27,10 @@ import { startEphemeralPruner, stopEphemeralPruner } from './kb/pruner.js'
 import { runReconciler } from './boot/reconciler.js'
 import { ensureOpencodeServer, stopOpencodeServer } from './ai/opencode.js'
 import { buildEscalationChannels } from './escalation/channels/index.js'
+import { TelegramChannel } from './escalation/channels/telegram.js'
 import { EscalationNotifier } from './escalation/notifier.js'
 import { startEscalationRetry, stopEscalationRetry } from './escalation/retry.js'
+import { getFailureTracker } from './utils/failure-tracker.js'
 
 async function main(): Promise<void> {
   log.info({ pid: process.pid, nodeVersion: process.version }, 'boot start')
@@ -67,6 +69,21 @@ async function main(): Promise<void> {
 
   const escalationChannels = buildEscalationChannels({ wa })
   const escalationNotifier = new EscalationNotifier({ sqlite, channels: escalationChannels, wa })
+
+  // Hook failure-tracker alerts to Telegram. If telegram channel isn't
+  // configured (or fails to initialize), alerts still log via the warn path
+  // inside the tracker — they just don't make it to your phone.
+  const telegramChannel = escalationChannels.find((c) => c.name === 'telegram') as
+    | TelegramChannel
+    | undefined
+  if (telegramChannel) {
+    getFailureTracker().setAlertSink(async (payload) => {
+      const ok = await telegramChannel.sendSystemAlert(payload.text)
+      if (!ok) log.warn({ reason: payload.reason }, 'failure alert: telegram send failed')
+    })
+  } else {
+    log.warn('telegram channel not configured; failure alerts will only hit logs')
+  }
 
   const orchestrator = new ReplyOrchestrator({
     sqlite,
@@ -109,15 +126,17 @@ async function main(): Promise<void> {
   const registerInflight = (chatId: string): AbortSignal => inflight.register(chatId).signal
   const isConnected = (): boolean => connection.getState() === 'CONNECTED'
 
-  const turnRunner: TurnRunner = (chatId, signal) => orchestrator.generateAndSend(chatId, signal)
-  const manualJobRunner: ManualJobRunner = (chatId, ctx, signal) =>
-    orchestrator.generateAndSendForManualJob(chatId, ctx, signal)
+  const turnRunner: TurnRunner = (chatId, signal, retryCtx) =>
+    orchestrator.generateAndSend(chatId, signal, retryCtx)
+  const manualJobRunner: ManualJobRunner = (chatId, ctx, signal, retryCtx) =>
+    orchestrator.generateAndSendForManualJob(chatId, ctx, signal, retryCtx)
 
   startTicker({ sqlite, state, runTurn: turnRunner, registerInflight, isConnected })
   startManualJobsCron({
     sqlite,
     state,
     runManualJob: manualJobRunner,
+    runReactiveTurn: turnRunner,
     registerInflight,
     isConnected,
   })

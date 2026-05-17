@@ -1,20 +1,20 @@
 # AI integration
 
-> Status: design; behavior implemented. Default model is now `opencode:github-copilot/gpt-5-mini` (was `claude-sonnet-4-6`). `OPENCODE_DISABLE_DEFAULT_PLUGINS` must stay `false`. See `19-implementation-notes.md` §7-8 for shipped deltas.
+> Status: design; behavior implemented. Default model is now `opencode:github-copilot/gpt-5-mini` (was `claude-sonnet-4-6`). `OPENCODE_DISABLE_DEFAULT_PLUGINS` must stay `false`.
 
-## Filosofia
+## Philosophy
 
-Single-call per turn: una sola invocazione AI produce reply, extracted_facts, tone_update, languages_update. Niente chiamate separate per estrazione (raddoppierebbe costi e latenza).
+Single-call per turn: a single AI invocation produces reply, extracted_facts, tone_update, languages_update. No separate calls for extraction (would double costs and latency).
 
-Output enforced JSON via prompt engineering, parsing + zod validation lato bot. Niente API JSON-mode (non disponibile su tutti i backend OpenCode).
+Output enforced JSON via prompt engineering, parsing + zod validation on the bot side. No JSON-mode API (not available on all OpenCode backends).
 
-## Backend in v1: solo OpenCode
+## Backend in v1: OpenCode only
 
-Configurazione di sicurezza ereditata 1:1 da `linkedin-autoapply`:
+Security configuration inherited 1:1 from `linkedin-autoapply`:
 
-### `opencode.json` (root del progetto)
+### `opencode.json` (project root)
 
-Copia identica:
+Identical copy:
 
 ```json
 {
@@ -51,28 +51,28 @@ Copia identica:
 }
 ```
 
-### Vincoli di sicurezza
+### Security constraints
 
-L'agent `direct-reply` con tutti i permessi a `deny` è una **dipendenza di sicurezza testata**. Modifiche a questo blocco richiedono validazione separata, non sono aggiornamenti di routine.
+The `direct-reply` agent with all permissions set to `deny` is a **tested security dependency**. Changes to this block require separate validation, they are not routine updates.
 
-Senza i `deny`, OpenCode tenterebbe:
+Without the `deny`, OpenCode would attempt to:
 
-- Connettersi a server MCP eventualmente registrati nel sistema dell'utente.
-- Leggere `CLAUDE.md` / `AGENTS.md` / `OPENCODE.md` / istruzioni custom dalla cwd e dalle parent.
-- Caricare plugin di default che possono triggerare tool use, file write, websearch.
-- Esporre il bot a code execution accidentale del LLM.
+- Connect to any MCP servers registered in the user's system.
+- Read `CLAUDE.md` / `AGENTS.md` / `OPENCODE.md` / custom instructions from cwd and parents.
+- Load default plugins that can trigger tool use, file write, websearch.
+- Expose the bot to accidental code execution from the LLM.
 
-Anche se il prompt dell'agent dice "single-shot answer engine", senza i permessi negati a livello di config alcuni LLM tentano comunque tool use. I `deny` sono il vero meccanismo di sicurezza.
+Even though the agent prompt says "single-shot answer engine", without permissions denied at config level some LLMs still attempt tool use. The `deny`s are the real security mechanism.
 
 ### `src/ai/opencode.ts`
 
-Copia 1:1 di `src/models/cli/opencodeCli.ts` da `linkedin-autoapply`. Espone:
+1:1 copy of `src/models/cli/opencodeCli.ts` from `linkedin-autoapply`. Exposes:
 
 ```ts
 export async function callOpencodeCli(
   prompt: string,
   logPrefix: string,
-  model: OpencodeAiModel, // formato: "opencode:provider/modelId" o "opencode/provider/modelId"
+  model: OpencodeAiModel, // format: "opencode:provider/modelId" or "opencode/provider/modelId"
   signal?: AbortSignal
 ): Promise<string | undefined>
 
@@ -81,17 +81,17 @@ export async function stopOpencodeServer(): Promise<void>
 export function isOpencodeAiModel(model: string): model is OpencodeAiModel
 ```
 
-Il modulo gestisce:
+The module handles:
 
-- Auto-start del server OpenCode (`opencode serve`) all'occorrenza.
+- Auto-start of OpenCode server (`opencode serve`) when needed.
 - Health check.
-- Find free port se quella default è occupata.
+- Find free port if the default is occupied.
 - Session create + message + abort + delete.
-- Variabili d'ambiente per disabilitare claude-code wrapper e default plugins.
+- Environment variables to disable claude-code wrapper and default plugins.
 
 ### `src/ai/router.ts`
 
-Wrapper minimo sopra `callOpencodeCli`. In v1 ha un solo backend. Definito per essere estensibile in futuro (vedi `16-future-enhancements.md`).
+Minimal wrapper above `callOpencodeCli`. In v1 has only one backend. Defined to be extensible in the future.
 
 ```ts
 import { callOpencodeCli, ensureOpencodeServer } from './opencode'
@@ -119,11 +119,11 @@ export async function callAiApi(
 }
 ```
 
-`DEFAULT_MODEL` è configurabile in `config/index.ts` (es. `aiModel: 'opencode:anthropic/claude-sonnet-4-6'`).
+`DEFAULT_MODEL` is configurable in `config/index.ts` (e.g. `aiModel: 'opencode:anthropic/claude-sonnet-4-6'`).
 
 ### `src/ai/turn.ts`
 
-Layer applicativo: build prompt, call, parse, validate.
+Application layer: build prompt, call, parse, validate.
 
 ````ts
 export async function generateTurn(
@@ -168,9 +168,9 @@ export interface TurnContext {
   toneSummary: string | null
   recentMessages: Array<{ direction: 'in' | 'out_manual' | 'out_bot'; body: string; ts: number }>
   kb: { important: string[]; ephemeral: string[]; secondary: string[] }
-  nowIso: string // ISO8601 con tz utente
+  nowIso: string // ISO8601 with user tz
   manualJobContext?: {
-    // presente solo se invocato da manual_job fire
+    // present only if invoked by manual_job fire
     kind: 'date_anchored' | 'revive' | 're_engage'
     hint: string
   }
@@ -200,7 +200,7 @@ const TurnOutputSchema = z.object({
   ),
   tone_update: z.string().nullable(),
   languages_update: z.array(z.string()).nullable(),
-  language_used: z.string(), // lingua usata in questa reply, per log
+  language_used: z.string(), // language used in this reply, for log
   revive_hint: z
     .object({
       attempt_in_minutes: z.number().int().positive(),
@@ -219,68 +219,68 @@ const TurnOutputSchema = z.object({
 export type TurnOutput = z.infer<typeof TurnOutputSchema>
 ```
 
-Vedi `18-escalation.md` per il flusso completo di gestione di `escalate_to_human` e i criteri usati dall'AI per emetterlo.
+See `18-escalation.md` for the complete flow of `escalate_to_human` handling and the criteria used by the AI to emit it.
 
 ## Prompt structure
 
-Cartella `prompts/turn/`, file `.txt` numerati:
+Folder `prompts/turn/`, numbered `.txt` files:
 
-| File                      | Contenuto                                                                                                                                                |
+| File                      | Content                                                                                                                                                  |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `00_role.txt`             | Ruolo: AI ghostwriter di chat WhatsApp per conto di un utente. Single-shot, no tool.                                                                     |
-| `01_persona_kb.txt`       | Schema KB (3 tier). Come usarlo.                                                                                                                         |
-| `02_tone_guidance.txt`    | Adapt tone basato su `toneSummary` + sentiment del messaggio. Conservativo.                                                                              |
-| `03_language_rules.txt`   | Scegli da `personLanguages`. Adatta per turn. Suggerisci `languages_update` solo se drift consistente.                                                   |
-| `04_extraction_rules.txt` | Regole tier (important/secondary/ephemeral). Anti-duplicate. Use `supersedes_id`. Anchor date format.                                                    |
-| `05_revive_and_skip.txt`  | Quando emettere `revive_hint`. Quando settare `skip: true`.                                                                                              |
-| `06_escalation_rules.txt` | Quando emettere `escalate_to_human` (categorie reason, livelli urgency, criteri di ingaggio, regole su `suggested_holding_reply`, conflict con `reply`). |
-| `07_output_schema.txt`    | Schema JSON esatto. Output ONLY JSON. No prose, no fences (ma il bot li striscia comunque).                                                              |
-| `08_examples.txt`         | Few-shot: 3-4 esempi input/output completi, di cui almeno uno con escalation.                                                                            |
+| `00_role.txt`             | Role: AI ghostwriter of WhatsApp chats on behalf of a user. Single-shot, no tool.                                                                        |
+| `01_persona_kb.txt`       | KB schema (3 tier). How to use it.                                                                                                                       |
+| `02_tone_guidance.txt`    | Adapt tone based on `toneSummary` + message sentiment. Conservative.                                                                                     |
+| `03_language_rules.txt`   | Pick from `personLanguages`. Adapt per turn. Suggest `languages_update` only if consistent drift.                                                        |
+| `04_extraction_rules.txt` | Tier rules (important/secondary/ephemeral). Anti-duplicate. Use `supersedes_id`. Anchor date format.                                                     |
+| `05_revive_and_skip.txt`  | When to emit `revive_hint`. When to set `skip: true`.                                                                                                    |
+| `06_escalation_rules.txt` | When to emit `escalate_to_human` (reason categories, urgency levels, engagement criteria, rules on `suggested_holding_reply`, conflict with `reply`).    |
+| `07_output_schema.txt`    | Exact JSON schema. Output ONLY JSON. No prose, no fences (but the bot strips them anyway).                                                               |
+| `08_examples.txt`         | Few-shot: 3-4 complete input/output examples, of which at least one with escalation.                                                                     |
 | `99_context_template.txt` | `{{CONTEXT}}` placeholder.                                                                                                                               |
 
-Concatenati via `loadAndCombinePrompts` (riusato da linkedin-autoapply).
+Concatenated via `loadAndCombinePrompts` (reused from linkedin-autoapply).
 
-### Note specifiche per `06_escalation_rules.txt`
+### Specific notes for `06_escalation_rules.txt`
 
-Contenuto chiave del file:
+Key content of the file:
 
-- **Quando escalare**: scheduling con date/orari futuri, commitment (favori, prestiti, visite), sensitive (lutti, malattie, conflitti recenti), financial, identity (opinioni forti non nel KB), other (qualunque caso dove "tirare a indovinare" rischia di impegnare l'utente o ferire la persona).
-- **Quando NON escalare**: convenevoli, info nel KB, continuazioni di thread già chiariti, sticker / emoji / non-text.
-- **Conflict rule**: se setti `escalate_to_human` non-null, lascia `reply` vuoto o usa solo `suggested_holding_reply`. Il bot scarta eventuali `reply` simultanee.
-- **Holding reply linguaggio**: se viene impostato, dev'essere nella lingua scelta per la persona (`language_used`).
-- **Urgency**: `high` solo se la persona necessita risposta entro minuti ("vengo da te tra 10 min, mi apri?"). `normal` di default. `low` per cose dilazionabili (in v1 trattata come normal).
-- **Summary**: 1-3 frasi che descrivono cosa chiede e perchè non posso rispondere. In italiano (la summary è leggibile dall'utente, non dalla persona).
+- **When to escalate**: scheduling with future dates/times, commitment (favors, loans, visits), sensitive (bereavements, illnesses, recent conflicts), financial, identity (strong opinions not in KB), other (any case where "guessing" risks committing the user or hurting the person).
+- **When NOT to escalate**: pleasantries, info in KB, continuations of already-clarified threads, sticker / emoji / non-text.
+- **Conflict rule**: if you set `escalate_to_human` non-null, leave `reply` empty or use only `suggested_holding_reply`. The bot discards any simultaneous `reply`.
+- **Holding reply language**: if set, it must be in the language chosen for the person (`language_used`).
+- **Urgency**: `high` only if the person needs a reply within minutes ("I'm coming to your place in 10 min, will you open?"). `normal` by default. `low` for things that can be deferred (in v1 treated as normal).
+- **Summary**: 1-3 sentences describing what they're asking and why I can't answer. In Italian (the summary is readable by the user, not by the person).
 
 ## Token budget
 
-- `recentMessages` cap a 30 (config: `aiHistoryLimit`).
-- Body messaggi tipici 50-200 chars -> ~6KB chat history.
-- KB tipica: 5-15 important, 5-10 ephemeral, 8 secondary -> ~3KB.
-- Prompt base (template + schema + examples): ~3KB.
-- Totale tipico: ~12KB -> ~3-4K token. Sotto qualunque limite ragionevole.
+- `recentMessages` cap at 30 (config: `aiHistoryLimit`).
+- Typical message bodies 50-200 chars -> ~6KB chat history.
+- Typical KB: 5-15 important, 5-10 ephemeral, 8 secondary -> ~3KB.
+- Base prompt (template + schema + examples): ~3KB.
+- Typical total: ~12KB -> ~3-4K token. Below any reasonable limit.
 
-Cap di sicurezza:
+Safety cap:
 
-- Se context > 6K token, taglia `recentMessages` a 20 e `secondary` a `ragTopK / 2`.
+- If context > 6K token, trim `recentMessages` to 20 and `secondary` to `ragTopK / 2`.
 
-## Retry e error handling
+## Retry and error handling
 
-| Caso                                               | Azione                                                                                                                                                                             |
+| Case                                               | Action                                                                                                                                                                             |
 | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| OpenCode server non parte                          | Crash app, intervento manuale.                                                                                                                                                     |
-| HTTP error 5xx                                     | Retry up to 3 volte (gestito in `router.ts`).                                                                                                                                      |
-| Output empty                                       | Retry.                                                                                                                                                                             |
-| JSON parse fail                                    | Strip code fences + retry. Se di nuovo fail dopo aiMaxRetryParseFail, log error, return null.                                                                                      |
-| zod validation fail                                | Retry una volta con prompt corretto. Se di nuovo fail, return null.                                                                                                                |
-| AbortSignal triggered                              | Return early null, niente persist niente send.                                                                                                                                     |
-| `signal` aborted mid-network                       | OpenCode supporta abort della session. La fetch viene cancellata.                                                                                                                  |
-| `escalate_to_human` con `summary` mancante o vuota | zod fallisce, retry. Se persiste, fallback summary "AI ha richiesto escalation senza fornire dettagli. Vai a controllare la chat." applicata lato bot, escalation creata comunque. |
-| `escalate_to_human` non null + `reply` non vuoto   | Conflict resolved: la reply viene scartata, solo `suggested_holding_reply` (se non null) viene inviato. Log warn.                                                                  |
+| OpenCode server doesn't start                      | App crash, manual intervention.                                                                                                                                                    |
+| HTTP error 5xx                                     | Retry up to 3 times (handled in `router.ts`).                                                                                                                                      |
+| Empty output                                       | Retry.                                                                                                                                                                             |
+| JSON parse fail                                    | Strip code fences + retry. If fails again after aiMaxRetryParseFail, log error, return null.                                                                                       |
+| zod validation fail                                | Retry once with corrected prompt. If fails again, return null.                                                                                                                     |
+| AbortSignal triggered                              | Return early null, no persist no send.                                                                                                                                             |
+| `signal` aborted mid-network                       | OpenCode supports session abort. The fetch is cancelled.                                                                                                                           |
+| `escalate_to_human` with missing or empty `summary` | zod fails, retry. If it persists, fallback summary "AI requested escalation without providing details. Go check the chat." applied on bot side, escalation created anyway.        |
+| `escalate_to_human` not null + `reply` non-empty   | Conflict resolved: the reply is discarded, only `suggested_holding_reply` (if not null) is sent. Log warn.                                                                         |
 
-Quando `generateTurn` ritorna `null`:
+When `generateTurn` returns `null`:
 
-- Niente send.
-- Niente persist `extracted_facts`.
-- `turn_log` insert con `status='failed'`.
+- No send.
+- No persist of `extracted_facts`.
+- `turn_log` insert with `status='failed'`.
 - `state -> IDLE`.
 - No spam.

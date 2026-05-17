@@ -27,13 +27,20 @@ import { generateTurn, type TurnOutput } from '../ai/turn.js'
 import type { OpenCodeFilePart } from '../ai/opencode.js'
 import { config } from '../config/index.js'
 import { log } from '../log.js'
+import { scheduleRetry, type RetryTrigger } from '../utils/retry.js'
+import { getFailureTracker } from '../utils/failure-tracker.js'
 import type {
   ChatId,
   EscalationUrgency,
   ManualJobContext,
+  RetryContextDTO,
   TurnLogStatus,
   TurnTriggeredBy,
 } from '../types.js'
+
+/** Re-exported alias so callers outside this file can keep using
+ * `RetryContext` while the DTO definition lives in types.ts. */
+export type RetryContext = RetryContextDTO
 
 export interface OrchestratorDeps {
   sqlite: Sqlite
@@ -51,23 +58,29 @@ const URGENCY_RANK: Record<EscalationUrgency, number> = { low: 0, normal: 1, hig
 export class ReplyOrchestrator {
   constructor(private readonly deps: OrchestratorDeps) {}
 
-  async generateAndSend(chatId: ChatId, signal: AbortSignal): Promise<void> {
-    return this.runTurn(chatId, signal, 'reactive', undefined)
+  async generateAndSend(
+    chatId: ChatId,
+    signal: AbortSignal,
+    retryCtx?: RetryContext
+  ): Promise<void> {
+    return this.runTurn(chatId, signal, 'reactive', undefined, retryCtx)
   }
 
   async generateAndSendForManualJob(
     chatId: ChatId,
     manualJobContext: ManualJobContext,
-    signal: AbortSignal
+    signal: AbortSignal,
+    retryCtx?: RetryContext
   ): Promise<void> {
-    return this.runTurn(chatId, signal, 'manual_job', manualJobContext)
+    return this.runTurn(chatId, signal, 'manual_job', manualJobContext, retryCtx)
   }
 
   private async runTurn(
     chatId: ChatId,
     signal: AbortSignal,
     triggeredBy: TurnTriggeredBy,
-    manualJobContext: ManualJobContext | undefined
+    manualJobContext: ManualJobContext | undefined,
+    retryCtx: RetryContext | undefined
   ): Promise<void> {
     const startedAt = Date.now()
     log.info({ chatId, triggeredBy }, 'reply turn started')
@@ -105,7 +118,14 @@ export class ReplyOrchestrator {
       if (signal.aborted) return this.finishAborted(chatId, startedAt, triggeredBy)
 
       if (!out) {
-        this.finishFailed(chatId, startedAt, triggeredBy, 'AI returned null')
+        this.finishFailed(
+          chatId,
+          startedAt,
+          triggeredBy,
+          'AI returned null',
+          manualJobContext,
+          retryCtx
+        )
         return
       }
 
@@ -133,14 +153,31 @@ export class ReplyOrchestrator {
           ts: sent.timestamp * 1000,
         })
       } catch (err) {
-        this.finishFailed(chatId, startedAt, triggeredBy, `send failed: ${(err as Error).message}`)
+        this.finishFailed(
+          chatId,
+          startedAt,
+          triggeredBy,
+          `send failed: ${(err as Error).message}`,
+          manualJobContext,
+          retryCtx
+        )
         return
       }
 
       await this.persistSideEffects(chatId, out, startedAt)
       this.finalizeTurn(chatId, startedAt, triggeredBy, 'sent', out)
+      // Success → clear per-op alert flag so a future failure on this same
+      // op can re-trigger after threshold is hit again.
+      getFailureTracker().recordSuccess(`${triggeredBy}:${chatId}`)
     } catch (err) {
-      this.finishFailed(chatId, startedAt, triggeredBy, (err as Error).message)
+      this.finishFailed(
+        chatId,
+        startedAt,
+        triggeredBy,
+        (err as Error).message,
+        manualJobContext,
+        retryCtx
+      )
     } finally {
       this.deps.inflight.unregister(chatId)
     }
@@ -339,7 +376,9 @@ export class ReplyOrchestrator {
     chatId: ChatId,
     startedAt: number,
     triggeredBy: TurnTriggeredBy,
-    errorMsg: string
+    errorMsg: string,
+    manualJobContext: ManualJobContext | undefined,
+    retryCtx: RetryContext | undefined
   ): void {
     const durationMs = Date.now() - startedAt
     insertTurnLog(this.deps.sqlite, {
@@ -354,5 +393,35 @@ export class ReplyOrchestrator {
     })
     log.error({ chatId, errorMsg, durationMs }, 'reply turn failed')
     this.deps.state.finishSending(chatId, 'failed')
+
+    // Persistent retry: insert a manual_jobs row of kind='retry' so the
+    // cron picks the next attempt up after backoff. Survives process
+    // restart. Reactive turns always use trigger='reactive'; manual_job
+    // fires preserve their context so the same hint is used next time.
+    const trigger: RetryTrigger = retryCtx?.trigger ?? triggeredBy
+    const previousAttempt = retryCtx?.attempt ?? 1
+    try {
+      scheduleRetry({
+        sqlite: this.deps.sqlite,
+        chatId,
+        trigger,
+        errorSummary: errorMsg,
+        previousAttempt,
+        ...(manualJobContext ? { manualJobContext } : {}),
+      })
+    } catch (err) {
+      log.error(
+        { err: (err as Error).message, chatId, trigger },
+        'failed to schedule retry job — turn lost'
+      )
+    }
+
+    // Feed the failure tracker so per-op + global thresholds can fire alerts.
+    getFailureTracker().recordFailure({
+      opId: `${trigger}:${chatId}`,
+      label: `${trigger} turn for ${chatId}`,
+      attempt: previousAttempt,
+      error: errorMsg,
+    })
   }
 }

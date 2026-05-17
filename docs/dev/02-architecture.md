@@ -1,8 +1,8 @@
-# Architettura
+# Architecture
 
-> Status: design; behavior implemented. See `19-implementation-notes.md` for shipped deltas.
+> Status: design; behavior implemented.
 
-## Diagramma componenti
+## Component diagram
 
 ```
                     ┌──────────────────────┐
@@ -51,50 +51,50 @@
    └──────────────────────┘    └─────────────────────┘
 ```
 
-## Moduli
+## Modules
 
-| Modulo                   | File principale                                              | Responsabilità                                                                                                                                                            |
+| Module                   | Main file                                                    | Responsibility                                                                                                                                                            |
 | ------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `WhatsAppClient`         | `src/whatsapp/client.ts`                                     | Init `whatsapp-web.js`, gestione QR, eventi, `sendMessage`, `fetchMessages`.                                                                                              |
-| `ConnectionStateMachine` | `src/whatsapp/connection.ts`                                 | Stati `BOOTING`/`CONNECTING`/`CONNECTED`/`DISCONNECTED`, retry con backoff.                                                                                               |
-| `MessageDispatcher`      | `src/dispatcher/index.ts`                                    | Classify direction, dedup via `processed_messages`, applica filtro, instrada.                                                                                             |
-| `FilterEngine`           | `src/dispatcher/filter.ts`                                   | Wrapper su `shouldReply` predicate user-defined, hot-reload via chokidar.                                                                                                 |
-| `ChatStateMachine`       | `src/scheduler/state.ts`                                     | Transizioni `IDLE` -> `ACCUMULATING` -> `SCHEDULED` -> `SENDING`, debounce/cap.                                                                                           |
-| `LatencyEstimator`       | `src/scheduler/latency.ts`                                   | Rolling avg latency, esclusione night-window, jitter.                                                                                                                     |
-| `TickerLoop`             | `src/scheduler/ticker.ts`                                    | Cron interno 10s, scansiona `chat_state`, processa transizioni dovute.                                                                                                    |
-| `ReplyOrchestrator`      | `src/orchestrator/index.ts`                                  | Pipeline reply: fetch history -> build context -> AI -> parse -> send -> persist.                                                                                         |
-| `InflightRegistry`       | `src/orchestrator/inflight.ts`                               | `Map<chat_id, AbortController>` per cancellazione cooperativa.                                                                                                            |
+| `WhatsAppClient`         | `src/whatsapp/client.ts`                                     | Init `whatsapp-web.js`, QR management, events, `sendMessage`, `fetchMessages`.                                                                                            |
+| `ConnectionStateMachine` | `src/whatsapp/connection.ts`                                 | States `BOOTING`/`CONNECTING`/`CONNECTED`/`DISCONNECTED`, retry with backoff.                                                                                             |
+| `MessageDispatcher`      | `src/dispatcher/index.ts`                                    | Classify direction, dedup via `processed_messages`, apply filter, route.                                                                                                  |
+| `FilterEngine`           | `src/dispatcher/filter.ts`                                   | Wrapper on user-defined `shouldReply` predicate, hot-reload via chokidar.                                                                                                 |
+| `ChatStateMachine`       | `src/scheduler/state.ts`                                     | Transitions `IDLE` -> `ACCUMULATING` -> `SCHEDULED` -> `SENDING`, debounce/cap.                                                                                           |
+| `LatencyEstimator`       | `src/scheduler/latency.ts`                                   | Rolling avg latency, night-window exclusion, jitter.                                                                                                                      |
+| `TickerLoop`             | `src/scheduler/ticker.ts`                                    | Internal 10s cron, scans `chat_state`, processes due transitions.                                                                                                         |
+| `ReplyOrchestrator`      | `src/orchestrator/index.ts`                                  | Reply pipeline: fetch history -> build context -> AI -> parse -> send -> persist.                                                                                         |
+| `InflightRegistry`       | `src/orchestrator/inflight.ts`                               | `Map<chat_id, AbortController>` for cooperative cancellation.                                                                                                             |
 | `KBStore`                | `src/kb/store.ts`                                            | CRUD `facts`, retrieval per tier, supersede.                                                                                                                              |
-| `VecStore`               | `src/kb/vec.ts`                                              | Interfaccia astratta + impl `SqliteVecStore`.                                                                                                                             |
-| `EmbeddingService`       | `src/kb/embedding.ts`                                        | `@xenova/transformers` lazy-load, cache LRU.                                                                                                                              |
-| `EphemeralPruner`        | `src/kb/pruner.ts`                                           | Cron giornaliero TTL ephemeral.                                                                                                                                           |
-| `PersonProfileStore`     | `src/persona/profile.ts`                                     | CRUD `person_profile`, lingue, tone_summary.                                                                                                                              |
-| `AIClient`               | `src/ai/turn.ts` + `src/ai/router.ts` + `src/ai/opencode.ts` | Wrapper su OpenCode, prompt builder, parse + zod validation.                                                                                                              |
-| `Repo`                   | `src/db/repo.ts`                                             | Tutte le funzioni semantiche di accesso DB. Niente SQL inline fuori da qui.                                                                                               |
-| `BootReconciler`         | `src/boot/reconciler.ts`                                     | Catch-up al boot e a ogni reconnect.                                                                                                                                      |
-| `ManualJobsCron`         | `src/scheduler/manual-jobs-cron.ts`                          | Scansione giornaliera per `re_engage`, fire `date_anchored`/`revive`/`re_engage`.                                                                                         |
-| `EscalationNotifier`     | `src/escalation/notifier.ts`                                 | Invio notifica out-of-band quando l'AI dichiara `escalate_to_human`. Gestisce canali multipli (WhatsApp self-chat, Telegram), retry, rate limit. Vedi `18-escalation.md`. |
-| `EscalationChannel`      | `src/escalation/channels/*.ts`                               | Implementazioni canale: `WhatsAppSelfChannel`, `TelegramChannel`. Interfaccia comune.                                                                                     |
-| `Config`                 | `src/config/index.ts`                                        | Carica `config/index.ts`, valida zod, espone tipato + hot reload.                                                                                                         |
-| `Logger`                 | `src/log.ts`                                                 | Istanza pino condivisa.                                                                                                                                                   |
+| `VecStore`               | `src/kb/vec.ts`                                              | Abstract interface + impl `SqliteVecStore`.                                                                                                                               |
+| `EmbeddingService`       | `src/kb/embedding.ts`                                        | `@xenova/transformers` lazy-load, LRU cache.                                                                                                                              |
+| `EphemeralPruner`        | `src/kb/pruner.ts`                                           | Daily ephemeral TTL cron.                                                                                                                                                 |
+| `PersonProfileStore`     | `src/persona/profile.ts`                                     | CRUD `person_profile`, languages, tone_summary.                                                                                                                           |
+| `AIClient`               | `src/ai/turn.ts` + `src/ai/router.ts` + `src/ai/opencode.ts` | OpenCode wrapper, prompt builder, parse + zod validation.                                                                                                                 |
+| `Repo`                   | `src/db/repo.ts`                                             | All semantic DB access functions. No inline SQL outside of here.                                                                                                          |
+| `BootReconciler`         | `src/boot/reconciler.ts`                                     | Catch-up at boot and on every reconnect.                                                                                                                                  |
+| `ManualJobsCron`         | `src/scheduler/manual-jobs-cron.ts`                          | Daily scan for `re_engage`, fire `date_anchored`/`revive`/`re_engage`.                                                                                                    |
+| `EscalationNotifier`     | `src/escalation/notifier.ts`                                 | Send out-of-band notification when the AI declares `escalate_to_human`. Handles multiple channels (WhatsApp self-chat, Telegram), retry, rate limit. See `18-escalation.md`. |
+| `EscalationChannel`      | `src/escalation/channels/*.ts`                               | Channel implementations: `WhatsAppSelfChannel`, `TelegramChannel`. Common interface.                                                                                      |
+| `Config`                 | `src/config/index.ts`                                        | Loads `config/index.ts`, zod validates, exposes typed + hot reload.                                                                                                       |
+| `Logger`                 | `src/log.ts`                                                 | Shared pino instance.                                                                                                                                                     |
 
-## Confini di responsabilità
+## Responsibility boundaries
 
-- `MessageDispatcher` non sa di scheduler. Riceve eventi, decide il routing.
-- `ChatStateMachine` non sa di AI. Gestisce solo state + timing.
-- `ReplyOrchestrator` è l'unico che chiama l'AI e parla con WhatsApp `sendMessage`. Quando l'AI dichiara `escalate_to_human`, delega a `EscalationNotifier` invece di mandare la reply.
-- `EscalationNotifier` non sa di AI o di stato chat. Riceve un payload (escalation row), formatta, dispatch sui canali. Gestisce rate limit e retry.
-- `Repo` è l'unica via per parlare col DB. Tutto il resto consuma Repo.
-- `VecStore` è l'unico che conosce il layout sqlite-vec. Sostituibile.
+- `MessageDispatcher` knows nothing about scheduler. Receives events, decides routing.
+- `ChatStateMachine` knows nothing about AI. Manages only state + timing.
+- `ReplyOrchestrator` is the only one calling the AI and talking to WhatsApp `sendMessage`. When the AI declares `escalate_to_human`, it delegates to `EscalationNotifier` instead of sending the reply.
+- `EscalationNotifier` knows nothing about AI or chat state. Receives a payload (escalation row), formats, dispatches on channels. Handles rate limit and retry.
+- `Repo` is the only path to talk to the DB. Everything else consumes Repo.
+- `VecStore` is the only one knowing the sqlite-vec layout. Replaceable.
 
-## Concorrenza
+## Concurrency
 
-L'app è single-threaded (event loop Node). Non c'è concorrenza reale, ma ci sono race tra:
+The app is single-threaded (Node event loop). There is no real concurrency, but there are races between:
 
-- Eventi push da `whatsapp-web.js` (asincroni).
-- TickerLoop ogni 10s.
-- Cron giornalieri.
+- Push events from `whatsapp-web.js` (asynchronous).
+- TickerLoop every 10s.
+- Daily cron jobs.
 
-Tutte le transizioni di stato sono protette da query `UPDATE ... WHERE state=expected`, atomiche in SQLite. Vedi `04-scheduler-state-machine.md` per i dettagli sulla protezione delle race.
+All state transitions are protected by `UPDATE ... WHERE state=expected` queries, atomic in SQLite. See `04-scheduler-state-machine.md` for details on race protection.
 
-`InflightRegistry` è in-memory, non persistito: vive il tempo di una `SENDING`. Un crash mid-sending viene gestito da boot recovery (vedi `09-boot-reconciler.md`).
+`InflightRegistry` is in-memory, not persisted: lives for the duration of a `SENDING`. A mid-sending crash is handled by boot recovery (see `09-boot-reconciler.md`).

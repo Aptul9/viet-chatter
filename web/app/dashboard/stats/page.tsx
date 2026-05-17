@@ -77,8 +77,8 @@ export default async function StatsPage({
       <section>
         <h2 className="text-lg font-semibold mb-3">Escalations</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <Card label="Pending" value={stats.escalations.pending} />
-          <Card label="User replied" value={stats.escalations.user_replied} />
+          <Card label="Awaiting reply" value={stats.escalations.pending} />
+          <Card label="Replied" value={stats.escalations.user_replied} />
           <Card label="Superseded" value={stats.escalations.superseded} />
           <Card label="Dismissed" value={stats.escalations.dismissed} />
         </div>

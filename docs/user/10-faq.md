@@ -1,99 +1,99 @@
-# Domande frequenti
+# FAQ
 
-## Il bot mi sostituisce davvero?
+## Does the bot really replace me?
 
-Non ti sostituisce. Risponde "come te" su un sottoinsieme di chat, ma:
+It does not replace you. It replies "like you" on a subset of chats, but:
 
-- Tu puoi sempre rispondere prima e lui si ferma.
-- Tu vedi tutti i messaggi normalmente sul telefono.
-- Tu controlli a chi risponde via la regola di filtro.
+- You can always reply first and it stops.
+- You see all messages normally on the phone.
+- You control who it replies to via the filter rule.
 
-## Le persone si accorgono che è un bot?
+## Do people notice it is a bot?
 
-Difficile, ma non impossibile. Tre cose lo fanno sembrare umano:
+Hard, but not impossible. Three things make it look human:
 
-- Tempi di risposta realistici (non 2 secondi).
-- Niente notte.
-- Memoria del passato e tono adattivo.
+- Realistic response times (not 2 seconds).
+- No night.
+- Memory of the past and adaptive tone.
 
-Se le risposte sono troppo perfette o troppo generiche, qualcuno potrebbe sospettare. Dipende dal modello AI scelto e dalla qualità del prompt.
+If replies are too perfect or too generic, someone might suspect. Depends on the AI model chosen and the prompt quality.
 
-## Posso configurare un tono "flirty" o "sarcastico"?
+## Can I configure a "flirty" or "sarcastic" tone?
 
-Sì, ma indirettamente. Non c'è un selettore "tono = flirty". L'AI mantiene una nota di tono per persona che evolve dalla conversazione. Se le tue prime conversazioni sono flirty, lui imparerà a mantenere quel registro.
+Yes, but indirectly. There is no "tone = flirty" selector. The AI keeps a tone note per person that evolves from the conversation. If your first conversations are flirty, it will learn to keep that register.
 
-Più controllabile: nella regola di filtro o nel prompt iniziale puoi inserire indicazioni generali ("rispondi sempre in modo casuale e amichevole"). Ma la personalizzazione fine è automatica.
+More controllable: in the filter rule or in the initial prompt you can insert general guidance ("always reply in a casual and friendly way"). But fine personalization is automatic.
 
-## Posso fargli usare il mio modo di scrivere (errori di battitura, slang)?
+## Can I make it use my way of writing (typos, slang)?
 
-In parte. L'AI cerca di adattarsi al registro che vede nei tuoi messaggi precedenti (lui legge tutta la cronologia). Se scrivi in maniera molto particolare (errori sistematici, abbreviazioni tue), col tempo lui imita.
+Partially. The AI tries to adapt to the register it sees in your previous messages (it reads the whole history). If you write in a very particular way (systematic mistakes, your own abbreviations), over time it imitates.
 
-Per imitazione perfetta servirebbe fine-tuning, fuori scope di questa versione.
+For perfect imitation, fine-tuning would be needed, out of scope for this version.
 
-## Quanti soldi spende?
+## How much does it cost?
 
-Dipende dal provider AI scelto.
+Depends on the chosen AI provider.
 
-- Modelli locali (via OpenCode con backend locale): zero costo.
-- Modelli cloud (Anthropic, Gemini, Groq tier paid): pochi centesimi a giornata, dipendente dal volume di chat.
+- Local models (via OpenCode with local backend): zero cost.
+- Cloud models (Anthropic, Gemini, Groq paid tier): a few cents a day, depending on chat volume.
 
-Per un volume tipico (10-30 risposte al giorno totali), si parla di costi inferiori a un caffè a settimana. Se vuoi zero costo, vai locale.
+For a typical volume (10-30 replies per day total), the cost is less than a coffee per week. If you want zero cost, go local.
 
-## Risponde anche quando il PC è in stand-by?
+## Does it reply even when the PC is on stand-by?
 
-No. Se il PC dorme, anche il bot dorme. WhatsApp accumula i messaggi, lui li gestisce al risveglio.
+No. If the PC sleeps, the bot sleeps too. WhatsApp accumulates messages, it handles them on wake.
 
-## Posso farlo girare su un Raspberry Pi / VPS / cloud?
+## Can I run it on a Raspberry Pi / VPS / cloud?
 
-Tecnicamente sì, ma:
+Technically yes, but:
 
-- Servono risorse per il Chromium di whatsapp-web.js (Raspberry Pi 4 8GB ce la fa, sotto è teso).
-- Su un VPS cloud diventa un servizio always-on, costo mensile.
-- WhatsApp può segnalare l'uso prolungato di sessioni Web da IP datacenter come "uso non personale" e bloccare. Rischio reale.
+- Resources are needed for the Chromium inside whatsapp-web.js (Raspberry Pi 4 8GB makes it, below it is tight).
+- On a cloud VPS it becomes an always-on service, monthly cost.
+- WhatsApp can flag prolonged use of Web sessions from datacenter IPs as "non-personal use" and block. Real risk.
 
-Setup tipico raccomandato: il tuo PC personale acceso, oppure un mini-PC casalingo.
+Typical recommended setup: your personal PC on, or a home mini-PC.
 
-## E se mi bloccano l'account WhatsApp?
+## What if WhatsApp blocks my account?
 
-WhatsApp Web non è un'API ufficiale per bot. L'uso massiccio o "non umano" può portare a sospensione dell'account. Mitigazioni che il bot adotta:
+WhatsApp Web is not an official API for bots. Massive or "non-human" use can lead to account suspension. Mitigations the bot adopts:
 
-- Tempi di risposta umani (non istantanei).
-- Niente notte.
-- Solo chat 1:1, niente broadcast.
-- Niente automazione su gruppi.
+- Human response times (not instant).
+- No night.
+- Only 1:1 chats, no broadcast.
+- No automation on groups.
 
-Rischio residuo non zero. Usalo con criterio.
+Residual risk is not zero. Use it with judgment.
 
-## Posso vedere cosa ha risposto?
+## Can I see what it replied?
 
-Sì, semplicemente aprendo le chat su WhatsApp. Le risposte del bot appaiono come messaggi tuoi normali. Per dettagli su quando è partita ogni risposta e perché, ci sono i log nella cartella `logs/`.
+Yes, simply by opening the chats on WhatsApp. The bot's replies appear as normal messages from you. For details on when each reply went out and why, there are the logs in the `logs/` folder.
 
-## Posso disabilitare temporaneamente il bot per una persona?
+## Can I temporarily disable the bot for a person?
 
-Modifichi la regola di filtro per escluderla, salvi. Da quel momento la chat torna sotto controllo manuale completo.
+You edit the filter rule to exclude them, save. From that moment the chat goes back to full manual control.
 
-## Cancellando un fatto dal diario, lo dimentica davvero?
+## If I delete a fact from the journal, does it really forget it?
 
-Sì. Modifichi/cancelli la riga nel file `.db` (richiede strumento DB tipo DB Browser for SQLite), e il bot non lo userà mai più. È irreversibile a meno di backup.
+Yes. You edit/delete the row in the `.db` file (requires a DB tool like DB Browser for SQLite), and the bot will never use it again. It is irreversible unless you have a backup.
 
-## Cosa succede se l'AI sbaglia e dice qualcosa di imbarazzante?
+## What if the AI gets it wrong and says something embarrassing?
 
-Può succedere. Il bot non ha controlli umani su ogni risposta (è "fully autonomous"). Per ridurre il rischio:
+It can happen. The bot does not have human checks on every reply (it is "fully autonomous"). To reduce the risk:
 
-- Inizia con poche persone, contatti meno critici.
-- Controlla periodicamente le chat per vedere come sta andando.
-- Se vedi un messaggio sbagliato, scrivi tu un messaggio di "scusa, non volevo".
+- Start with few people, less critical contacts.
+- Check the chats periodically to see how it is going.
+- If you see a wrong message, write a "sorry, did not mean that" yourself.
 
-Per ridurre la probabilità che inventi informazioni che non sa, è attivata di default la **escalation a umano** (vedi `12-quando-ti-chiama.md`): l'AI ti notifica fuori da WhatsApp quando una richiesta richiede informazioni che non ha (appuntamenti futuri, scelte personali, argomenti delicati). Tu rispondi a mano in quei casi.
+To reduce the probability that it makes up information it does not know, **escalation to human** is enabled by default (see `12-when-it-calls-you.md`): the AI notifies you outside WhatsApp when a request requires information it does not have (future appointments, personal choices, delicate topics). You reply by hand in those cases.
 
-## Il bot mi avvisa quando non sa rispondere?
+## Does the bot warn me when it cannot reply?
 
-Sì. Quando il messaggio chiede informazioni o decisioni che il bot non può conoscere o sostituire (appuntamenti, prestiti, argomenti delicati), invece di inventare manda una notifica fuori da WhatsApp (Telegram o WhatsApp self-chat). Vedi `12-quando-ti-chiama.md` per il dettaglio.
+Yes. When the message asks for information or decisions the bot cannot know or substitute (appointments, loans, delicate topics), instead of making things up it sends a notification outside WhatsApp (Telegram or WhatsApp self-chat). See `12-when-it-calls-you.md` for the detail.
 
-## Posso configurare via Telegram?
+## Can I configure via Telegram?
 
-In v1 no. Il setup di Telegram serve solo come canale di notifica per le escalations. In futuro potrebbe essere esteso per ricevere comandi dal bot Telegram (es. snooze), ma in v1 è solo una direzione: bot -> tu.
+In v1 no. The Telegram setup is only a notification channel for escalations. In the future it could be extended to receive commands from the Telegram bot (e.g. snooze), but in v1 it is only a direction: bot -> you.
 
-## Funziona con WhatsApp Business?
+## Does it work with WhatsApp Business?
 
-Probabilmente sì come account collegabile, ma non è stato testato e WhatsApp Business ha politiche diverse. Usalo a tuo rischio.
+Probably yes as a linkable account, but it has not been tested and WhatsApp Business has different policies. Use it at your own risk.

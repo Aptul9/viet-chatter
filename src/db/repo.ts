@@ -382,7 +382,7 @@ export function deleteFact(sqlite: Sqlite, id: number): void {
 export function insertManualJob(sqlite: Sqlite, insert: ManualJobInsert): number {
   const r = sqlite
     .prepare(
-      'INSERT INTO `manual_jobs` (`chat_id`, `kind`, `fire_at`, `payload`, `status`, `created_at`) VALUES (?, ?, ?, ?, ?, ?)'
+      'INSERT INTO `manual_jobs` (`chat_id`, `kind`, `fire_at`, `payload`, `status`, `created_at`, `attempt_count`) VALUES (?, ?, ?, ?, ?, ?, ?)'
     )
     .run(
       insert.chatId,
@@ -390,7 +390,8 @@ export function insertManualJob(sqlite: Sqlite, insert: ManualJobInsert): number
       insert.fireAt,
       insert.payload,
       insert.status ?? 'pending',
-      insert.createdAt
+      insert.createdAt,
+      insert.attemptCount ?? null
     )
   return Number(r.lastInsertRowid)
 }
@@ -398,7 +399,7 @@ export function insertManualJob(sqlite: Sqlite, insert: ManualJobInsert): number
 export function pendingManualJobs(sqlite: Sqlite, now: TimestampMs): ManualJobRow[] {
   const rows = sqlite
     .prepare(
-      "SELECT `id`, `chat_id`, `kind`, `fire_at`, `payload`, `status`, `fired_at`, `created_at` FROM `manual_jobs` WHERE `status` = 'pending' AND `fire_at` <= ? ORDER BY `fire_at` ASC"
+      "SELECT `id`, `chat_id`, `kind`, `fire_at`, `payload`, `status`, `fired_at`, `created_at`, `attempt_count` FROM `manual_jobs` WHERE `status` = 'pending' AND `fire_at` <= ? ORDER BY `fire_at` ASC"
     )
     .all(now) as Array<Record<string, unknown>>
   return rows.map(mapManualJob)
@@ -466,7 +467,7 @@ export function recentReEngagesWithoutReply(sqlite: Sqlite, olderThanDays: numbe
   const cutoff = Date.now() - olderThanDays * 86_400_000
   const rows = sqlite
     .prepare(
-      `SELECT mj.\`id\`, mj.\`chat_id\`, mj.\`kind\`, mj.\`fire_at\`, mj.\`payload\`, mj.\`status\`, mj.\`fired_at\`, mj.\`created_at\`
+      `SELECT mj.\`id\`, mj.\`chat_id\`, mj.\`kind\`, mj.\`fire_at\`, mj.\`payload\`, mj.\`status\`, mj.\`fired_at\`, mj.\`created_at\`, mj.\`attempt_count\`
        FROM \`manual_jobs\` mj
        WHERE mj.\`kind\` = 're_engage'
          AND mj.\`status\` = 'fired'
@@ -707,6 +708,7 @@ function mapManualJob(r: Record<string, unknown>): ManualJobRow {
     status: r.status as ManualJobStatus,
     firedAt: (r.fired_at as number | null) ?? null,
     createdAt: r.created_at as number,
+    attemptCount: (r.attempt_count as number | null) ?? null,
   }
 }
 
@@ -835,7 +837,7 @@ export function getScheduleOverview(sqlite: Sqlite): ScheduleOverview {
   const manualJobs = (
     sqlite
       .prepare(
-        "SELECT `id`, `chat_id`, `kind`, `fire_at`, `payload`, `status`, `fired_at`, `created_at` FROM `manual_jobs` WHERE `status` = 'pending' ORDER BY `fire_at` ASC LIMIT 100"
+        "SELECT `id`, `chat_id`, `kind`, `fire_at`, `payload`, `status`, `fired_at`, `created_at`, `attempt_count` FROM `manual_jobs` WHERE `status` = 'pending' ORDER BY `fire_at` ASC LIMIT 100"
       )
       .all() as Array<Record<string, unknown>>
   ).map(mapManualJob)

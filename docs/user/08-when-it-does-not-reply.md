@@ -1,71 +1,71 @@
-# Quando NON risponde
+# When it does NOT reply
 
-Lista delle situazioni in cui il bot, di proposito, non manda nulla.
+List of situations in which the bot, on purpose, sends nothing.
 
-## Casi normali
+## Normal cases
 
-### Tu hai risposto prima
+### You replied first
 
-Se tu rispondi manualmente a un messaggio (da telefono o da WhatsApp Web di un altro PC) prima che il bot abbia inviato la sua risposta, il bot annulla. Vince sempre l'azione umana.
+If you reply manually to a message (from phone or from another PC's WhatsApp Web) before the bot has sent its reply, the bot cancels. The human action always wins.
 
-### Persona non in lista
+### Person not on the list
 
-Se il numero non passa la regola di filtro che hai configurato, il bot ignora completamente la chat. Vedi il messaggio sul telefono come al solito, e lo gestisci tu.
+If the number does not pass the filter rule you configured, the bot ignores the chat completely. You see the message on the phone as usual, and you handle it.
 
-### Chat di gruppo
+### Group chats
 
-Sempre ignorate, indipendentemente dalla regola.
+Always ignored, regardless of the rule.
 
-### Notte (22:00 - 06:00)
+### Night (22:00 - 06:00)
 
-In questo intervallo il bot non manda nulla. I messaggi ricevuti vengono accumulati e gestiti dalla mattina.
+In this interval the bot sends nothing. Received messages are accumulated and handled from the morning.
 
-### Messaggio non testuale
+### Non-text message
 
-Se la persona manda solo uno sticker, una foto, un audio, un video, un file: il bot vede arrivare un placeholder ("[sticker]" o simile). L'AI può comunque decidere di rispondere brevemente (es. a un cuore con un cuore), oppure di stare zitto. La decisione è dell'AI in base al contesto.
+If the person sends only a sticker, a photo, an audio, a video, a file: the bot sees a placeholder arrive ("[sticker]" or similar). The AI can still decide to reply briefly (e.g. to a heart with a heart), or to stay silent. The decision is the AI's based on the context.
 
-### L'AI decide "skip"
+### The AI decides "skip"
 
-In ogni turno, l'AI può decidere che non c'è motivo di rispondere. Esempi:
+In every turn, the AI can decide that there is no reason to reply. Examples:
 
-- Lei ha mandato solo un emoji di chiusura conversazione.
-- Il messaggio non richiede risposta (es. "ok grazie").
-- Il contenuto è ambiguo e una risposta forzata sembrerebbe strana.
+- She sent only a conversation-closing emoji.
+- The message does not require a reply (e.g. "ok thanks").
+- The content is ambiguous and a forced reply would look strange.
 
-In questi casi non parte nulla. Il bot resta in attesa del prossimo messaggio.
+In these cases nothing fires. The bot stays waiting for the next message.
 
-### L'AI decide "escalation a umano"
+### The AI decides "escalation to human"
 
-Il bot capisce che il messaggio richiede informazioni o decisioni che non può sapere/sostituire (appuntamenti futuri, favori, argomenti delicati). In questo caso non manda una risposta automatica e ti notifica su Telegram (o WhatsApp self-chat).
+The bot understands that the message requires information or decisions it cannot know/substitute (future appointments, favors, delicate topics). In this case it does not send an automatic reply and notifies you on Telegram (or WhatsApp self-chat).
 
-Esempi tipici: "ci vediamo sabato?", "mi presti X?", argomenti emotivamente delicati.
+Typical examples: "see you Saturday?", "can you lend me X?", emotionally delicate topics.
 
-Il bot può inviare un breve "ti faccio sapere" alla persona per non lasciarla in silenzio, ma poi sta a te rispondere a mano.
+The bot can send a brief "I'll get back to you" to the person to avoid leaving them in silence, but then it is up to you to reply by hand.
 
-Vedi `12-quando-ti-chiama.md` per il dettaglio.
+See `12-when-it-calls-you.md` for the detail.
 
-### Errore tecnico
+### Technical error
 
-Se l'AI fallisce nel generare una risposta valida (errore di rete, output non parsabile, retry esauriti), il bot non manda niente piuttosto che mandare qualcosa di sbagliato. L'errore va nei log per analisi.
+If the AI fails to generate a valid reply (network error, unparseable output, retries exhausted), the bot sends nothing rather than sending something wrong. The error goes in the logs for analysis.
 
 ### Bot offline
 
-Se il computer è spento, il bot non gira e non risponde. Quando torna online, recupera i messaggi e gestisce con i delay normali.
+If the computer is off, the bot is not running and does not reply. When it comes back online, it recovers messages and handles them with the normal delays.
 
-## Casi limite
+## Edge cases
 
-### Race "tu rispondi nel millisecondo esatto"
+### Race "you reply in the exact millisecond"
 
-Se invii un messaggio nell'esatto istante in cui il bot stava per inviare il suo, possono partire entrambi. Probabilità bassissima ma non zero. Se succede, vedi due messaggi (il tuo e quello del bot).
+If you send a message at the exact instant the bot was about to send its own, both can go out. Very low probability but not zero. If it happens, you see two messages (yours and the bot's).
 
-### Messaggi accumulati durante l'invio
+### Messages accumulated during sending
 
-Se durante i 3-10 secondi in cui il bot sta generando la risposta, la persona manda altri messaggi: la risposta corrente esce comunque (basata sui messaggi presenti al momento di iniziare). I nuovi messaggi appena arrivati saranno gestiti nel prossimo turno (parte un nuovo accumulo).
+If during the 3-10 seconds in which the bot is generating the reply, the person sends other messages: the current reply goes out anyway (based on the messages present at the moment of starting). The newly arrived messages will be handled in the next turn (a new accumulation starts).
 
-### Re-engage / revive / auguri pendenti
+### Re-engage / revive / wishes pending
 
-Se il bot aveva pianificato un messaggio automatico (auguri, revive, re-engage) e nel frattempo arriva un messaggio dalla persona o tu rispondi: il job pendente si cancella. Niente messaggio doppio.
+If the bot had scheduled an automatic message (wishes, revive, re-engage) and in the meantime a message arrives from the person or you reply: the pending job is cancelled. No duplicate message.
 
-## Cosa fare se vedi il bot rispondere quando NON volevi
+## What to do if you see the bot replying when you did NOT want it to
 
-Aggiungi quella persona alla blacklist nelle regole filtro: o via web UI (`npm run dev` → `http://localhost:3000`, tab Filter, campo "Blocked numbers"), oppure a mano editando `config/user-config.yaml` (blocco `filter.blockedNumbers`). Da quel momento il bot la ignora (hot-reload automatico).
+Add that person to the blacklist in the filter rules: either via the web UI (`npm run dev` -> `http://localhost:3000`, Filter tab, "Blocked numbers" field), or by hand editing `config/user-config.yaml` (`filter.blockedNumbers` block). From that moment the bot ignores them (automatic hot-reload).

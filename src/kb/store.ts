@@ -1,5 +1,5 @@
 // Knowledge-base store: persistence of extracted facts and 3-tier retrieval
-// for the per-turn TurnContext. See docs/dev/06-kb-e-rag.md.
+// for the per-turn TurnContext. See docs/dev/06-kb-and-rag.md.
 //
 // All DB access goes through repo.ts; this module only orchestrates the
 // fact-insert pipeline (embed secondary, supersede, create date_anchored
@@ -28,7 +28,7 @@ export interface KbDeps {
 }
 
 /**
- * Persist a batch of AI-extracted facts. Pipeline per `docs/dev/06-kb-e-rag.md`:
+ * Persist a batch of AI-extracted facts. Pipeline per `docs/dev/06-kb-and-rag.md`:
  *  - insert into `facts` with tier-correct expiry
  *  - embed + upsert into `facts_vec` when tier === 'secondary'
  *  - on supersedes_id: mark old row superseded_by new id
@@ -75,6 +75,7 @@ export async function persistExtractedFacts(
         payload: JSON.stringify({ action: f.anchor_action ?? null, fact_id: id }),
         status: 'pending',
         createdAt: now,
+        attemptCount: null,
       })
     }
   }

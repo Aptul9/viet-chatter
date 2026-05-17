@@ -45,6 +45,7 @@ export async function executeCreateManualJob(
     payload: payloadJson,
     status: 'pending',
     createdAt: Date.now(),
+    attemptCount: null,
   })
   return {
     success: true,

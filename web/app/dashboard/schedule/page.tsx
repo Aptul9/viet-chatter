@@ -1,6 +1,6 @@
 import { getReadOnlyDb } from '@/lib/db-ro'
 import { getScheduleOverview } from '@/lib/repo-bridge'
-import { formatRelative, formatTs, shortChatId } from '@/lib/format'
+import { escalationStatusLabel, formatRelative, formatTs, shortChatId } from '@/lib/format'
 import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
@@ -117,7 +117,7 @@ export default async function SchedulePage() {
 
       <section>
         <h2 className="text-lg font-semibold mb-3">
-          Pending escalations ({overview.escalations.length})
+          Open escalations ({overview.escalations.length})
         </h2>
         {overview.escalations.length === 0 ? (
           <p className="text-sm text-muted-foreground">None.</p>
@@ -125,16 +125,21 @@ export default async function SchedulePage() {
           <ul className="space-y-2 text-sm">
             {overview.escalations.map((e) => (
               <li key={e.id} className="rounded border bg-card p-3">
-                <div className="flex items-center justify-between mb-1 text-xs font-mono">
+                <div className="flex items-center justify-between mb-1 text-xs font-mono gap-2">
                   <span>
                     #{e.id} {e.reason}/{e.urgency}
                   </span>
-                  <Link
-                    href={`/dashboard/chats/${encodeURIComponent(e.chatId)}`}
-                    className="hover:underline"
-                  >
-                    {shortChatId(e.chatId)}
-                  </Link>
+                  <span className="flex items-center gap-2">
+                    <span className="rounded bg-amber-100 text-amber-900 px-2 py-0.5">
+                      {escalationStatusLabel(e)}
+                    </span>
+                    <Link
+                      href={`/dashboard/chats/${encodeURIComponent(e.chatId)}`}
+                      className="hover:underline"
+                    >
+                      {shortChatId(e.chatId)}
+                    </Link>
+                  </span>
                 </div>
                 <div>{e.summary}</div>
                 <div className="mt-1 text-xs text-muted-foreground">

@@ -1,6 +1,6 @@
 // EmbeddingService: lazy-load @xenova/transformers feature-extraction pipeline,
 // bounded LRU cache on raw text -> Float32Array embeddings.
-// See docs/dev/06-kb-e-rag.md "Embedding service" section.
+// See docs/dev/06-kb-and-rag.md "Embedding service" section.
 
 import { log } from '../log.js'
 import { EMBEDDING_CACHE_SIZE } from '../config/constants.js'

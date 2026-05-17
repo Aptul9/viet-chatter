@@ -1,63 +1,63 @@
-# Privacy e dati
+# Data privacy
 
-## Dove vivono i dati
+## Where the data lives
 
-Tutto sul tuo computer. Niente cloud, niente servizi terzi, niente backup automatico.
+Everything on your computer. No cloud, no third-party services, no automatic backup.
 
-Concretamente:
+Concretely:
 
-- **Messaggi WhatsApp**: restano dove sono già, in WhatsApp. Il bot non li copia in un suo database.
-- **Diario delle persone (importanti, secondari, effimeri)**: in un singolo file `viet-chatter.db` nella cartella del progetto.
-- **Stato dei job e dello scheduler**: stesso file `.db`.
-- **Log di funzionamento**: nella sottocartella `logs/`.
-- **Sessione WhatsApp Web**: nella sottocartella `.wwebjs_auth/`.
+- **WhatsApp messages**: they stay where they already are, in WhatsApp. The bot does not copy them into its own database.
+- **People journal (important, secondary, ephemeral)**: in a single `viet-chatter.db` file in the project folder.
+- **Job and scheduler state**: same `.db` file.
+- **Operation logs**: in the `logs/` subfolder.
+- **WhatsApp Web session**: in the `.wwebjs_auth/` subfolder.
 
-## Cosa NON viene salvato
+## What is NOT saved
 
-- Il testo completo dei messaggi non viene mai duplicato in un nostro database. Il bot lo legge live da WhatsApp quando serve, e basta.
-- Niente trascrizioni di audio, niente OCR di immagini.
-- Niente analisi statistica esterna.
+- The full text of messages is never duplicated in our database. The bot reads it live from WhatsApp when needed, and that is it.
+- No audio transcriptions, no image OCR.
+- No external statistical analysis.
 
-## Cosa va all'AI
+## What goes to the AI
 
-Quando il bot deve generare una risposta, manda all'AI (gestita tramite il modulo OpenCode):
+When the bot needs to generate a reply, it sends to the AI (handled through the OpenCode module):
 
-- Gli ultimi 30 messaggi della chat (testo).
-- Il diario di quella persona (i 3 livelli).
-- Profilo persona (lingua, nota di tono).
-- Il contesto temporale (giorno, ora).
+- The last 30 chat messages (text).
+- That person's journal (the 3 levels).
+- Person profile (language, tone note).
+- The time context (day, hour).
 
-Questo viene mandato al provider AI che hai configurato dietro OpenCode (Claude, Gemini, ecc.). I provider AI vedono questo contenuto.
+This is sent to the AI provider you configured behind OpenCode (Claude, Gemini, etc.). AI providers see this content.
 
-**Conseguenza**: i dati personali delle persone con cui chatti passano dal provider AI scelto. Sceglilo con coscienza. Se vuoi privacy massima, configura un modello locale dietro OpenCode (Llama, Qwen self-hosted, ecc.).
+**Consequence**: personal data of the people you chat with passes through the chosen AI provider. Pick it consciously. If you want maximum privacy, configure a local model behind OpenCode (Llama, self-hosted Qwen, etc.).
 
-## Cosa NON va all'AI
+## What does NOT go to the AI
 
-- Numeri di telefono: vengono mandati come identificativo opaco, non come metadata "questo è il numero della Maria".
-- Body di messaggi non testuali (sticker, foto, audio): mandati come placeholder generico ("[sticker]").
+- Phone numbers: they are sent as an opaque identifier, not as metadata "this is Maria's number".
+- Body of non-text messages (stickers, photos, audio): sent as a generic placeholder ("[sticker]").
 
-## Cifratura dei dati locali
+## Encryption of local data
 
-Il file `.db` è in chiaro. Se vuoi cifratura at-rest, accendi BitLocker (Windows) o FileVault (macOS) o LUKS (Linux) sul tuo disco. Il bot non aggiunge un layer di cifratura applicativo.
+The `.db` file is in cleartext. If you want at-rest encryption, turn on BitLocker (Windows) or FileVault (macOS) or LUKS (Linux) on your disk. The bot does not add an application-level encryption layer.
 
 ## Backup
 
-Il bot non fa backup automatici. Se il file `.db` si corrompe o viene cancellato, perdi il diario delle persone e lo stato dello scheduler. La sessione WhatsApp continua a funzionare, ma il bot ricomincia "da zero" sui contesti.
+The bot does not perform automatic backups. If the `.db` file corrupts or gets deleted, you lose the people journal and the scheduler state. The WhatsApp session keeps working, but the bot starts "from zero" on the contexts.
 
-Se vuoi backup, copia tu il file `.db` in un posto sicuro periodicamente. Manualmente.
+If you want backups, copy the `.db` file to a safe place periodically yourself. Manually.
 
-## Sync multi-macchina
+## Multi-machine sync
 
-Non supportato. Il bot gira su una sola macchina alla volta. Se sposti la cartella su un altro PC, anche il diario va con lei (basta copiare).
+Not supported. The bot runs on a single machine at a time. If you move the folder to another PC, the journal goes with it (just copy).
 
-Non collegare il file `.db` a OneDrive, Dropbox, Syncthing, git: rischio di corruzione (sono accessi concorrenti su un DB attivo).
+Do not link the `.db` file to OneDrive, Dropbox, Syncthing, git: risk of corruption (concurrent access on a live DB).
 
-## Cancellazione totale
+## Total deletion
 
-Per cancellare tutto:
+To delete everything:
 
-1. Spegni il bot.
-2. Cancella la cartella `viet-chatter/` interamente, oppure i singoli file `viet-chatter.db`, `logs/`, `.wwebjs_auth/`.
-3. Sul telefono, vai in `WhatsApp > Impostazioni > Dispositivi collegati` e rimuovi la sessione del bot.
+1. Stop the bot.
+2. Delete the `viet-chatter/` folder entirely, or the individual files `viet-chatter.db`, `logs/`, `.wwebjs_auth/`.
+3. On the phone, go to `WhatsApp > Settings > Linked devices` and remove the bot session.
 
-Tutto sparisce. Niente residui da pulire altrove.
+Everything disappears. No residue to clean up elsewhere.

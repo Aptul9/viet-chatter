@@ -128,7 +128,7 @@ export interface ExtractedFact {
 // Manual jobs
 // ---------------------------------------------------------------------------
 
-export type ManualJobKind = 'date_anchored' | 'revive' | 're_engage'
+export type ManualJobKind = 'date_anchored' | 'revive' | 're_engage' | 'retry'
 
 export type ManualJobStatus = 'pending' | 'firing' | 'fired' | 'superseded' | 'cancelled'
 
@@ -142,6 +142,9 @@ export interface ManualJobRow {
   status: ManualJobStatus
   firedAt: TimestampMs | null
   createdAt: TimestampMs
+  /** 1-indexed attempt counter. NULL for original try; bumped on each retry
+   * requeue. Drives backoff schedule + per-op alert threshold. */
+  attemptCount: number | null
 }
 
 export type ManualJobInsert = Omit<ManualJobRow, 'id' | 'firedAt' | 'status'> & {
@@ -170,6 +173,15 @@ export interface ReEngagePayload {
 export interface ManualJobContext {
   kind: ManualJobKind
   hint: string
+}
+
+/** Carried by retry-fired turns so the orchestrator can schedule the next
+ * attempt with the correct counter on continued failure. */
+export interface RetryContextDTO {
+  trigger: 'reactive' | 'manual_job' | 'escalation_notify'
+  /** 1-indexed attempt number of THIS turn. */
+  attempt: number
+  manualJobContext?: ManualJobContext
 }
 
 // ---------------------------------------------------------------------------

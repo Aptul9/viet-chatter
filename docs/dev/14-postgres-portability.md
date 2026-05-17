@@ -1,40 +1,40 @@
-# Portabilità a Postgres
+# Postgres portability
 
 > Status: speculative / forward-looking. Not implemented in v1.
 
-In v1 lo stack DB è SQLite + `sqlite-vec`. La progettazione lascia aperta la porta a una migrazione futura a Postgres + `pgvector`. Questo documento elenca le astrazioni che la rendono fattibile e i punti che vanno toccati.
+In v1 the DB stack is SQLite + `sqlite-vec`. The design leaves open the door to a future migration to Postgres + `pgvector`. This document lists the abstractions that make it feasible and the points that need to be touched.
 
-## Quando ha senso migrare
+## When it makes sense to migrate
 
-Tutti i seguenti devono essere veri:
+All of the following must be true:
 
-- Volume facts vettoriali oltre 1M (improbabile nel caso d'uso single-user).
-- Necessità di accesso multi-machine o multi-process al DB.
-- Concorrenza alta di scrittura (decine di scrittori paralleli).
-- Disponibilità di un Postgres affidabile dove far girare il bot.
+- Vector facts volume over 1M (unlikely in the single-user use case).
+- Need for multi-machine or multi-process DB access.
+- High write concurrency (dozens of parallel writers).
+- Availability of a reliable Postgres where to run the bot.
 
-In ogni altro caso, SQLite è la scelta migliore. Vedi `01-stack.md` per il razionale.
+In any other case, SQLite is the best choice. See `01-stack.md` for the rationale.
 
-## Astrazioni che rendono il porting accessibile
+## Abstractions that make porting accessible
 
 ### 1. Drizzle ORM
 
-Lo stesso schema TypeScript funziona (con minime variazioni) sia per `drizzle-orm/better-sqlite3` che per `drizzle-orm/postgres-js`.
+The same TypeScript schema works (with minor variations) for both `drizzle-orm/better-sqlite3` and `drizzle-orm/postgres-js`.
 
-Differenze tipiche:
+Typical differences:
 
 - `sqliteTable` -> `pgTable`.
-- `text(...)` con `enum: [...]` resta uguale (entrambi i dialetti supportano enum literali).
-- `integer('ts').notNull()` -> in pg potrebbe servire `bigint('ts').notNull()` per timestamp ms.
-- `primaryKey({ autoIncrement: true })` -> in pg `.primaryKey()` con tipo `serial` o `identity`.
+- `text(...)` with `enum: [...]` stays the same (both dialects support literal enums).
+- `integer('ts').notNull()` -> in pg might need `bigint('ts').notNull()` for ms timestamps.
+- `primaryKey({ autoIncrement: true })` -> in pg `.primaryKey()` with `serial` or `identity` type.
 
-Il migrate path concreto: definisci `src/db/schema.pg.ts` con le piccole differenze, e cambi import in `client.ts`.
+Concrete migrate path: define `src/db/schema.pg.ts` with the small differences, and change import in `client.ts`.
 
-### 2. Repo come unico accesso al DB
+### 2. Repo as the only DB access
 
-Tutto il codice business chiama `repo.getChatState`, `repo.insertFact`, ecc. Niente SQL inline sparso (eccetto in `VecStore`, vedi sotto). Il porting di `repo.ts` è meccanico: stessa logica, query Drizzle.
+All business code calls `repo.getChatState`, `repo.insertFact`, etc. No inline SQL scattered around (except in `VecStore`, see below). Porting `repo.ts` is mechanical: same logic, Drizzle queries.
 
-### 3. VecStore astratto
+### 3. Abstract VecStore
 
 ```ts
 export interface VecStore {
@@ -44,37 +44,37 @@ export interface VecStore {
 }
 ```
 
-Implementazione v1: `SqliteVecStore`. Per Postgres si scrive `PgvectorStore` con la stessa interfaccia. Swap di una linea (la factory all'apertura DB).
+v1 implementation: `SqliteVecStore`. For Postgres, write `PgvectorStore` with the same interface. One-line swap (the factory at DB opening).
 
-### 4. Apertura DB isolata
+### 4. Isolated DB opening
 
-Pragmas e load extension stanno solo in `src/db/client.ts`. Per Postgres quel file diventa apertura connection pool, niente pragmas.
+Pragmas and load extension are only in `src/db/client.ts`. For Postgres that file becomes connection pool opening, no pragmas.
 
-## Punti che richiedono modifica
+## Points that require modification
 
-| File                                                                                                       | Cosa cambia                                                                                                                                                                                                                         |
+| File                                                                                                       | What changes                                                                                                                                                                                                                        |
 | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/db/client.ts`                                                                                         | Apertura: `better-sqlite3` -> `postgres-js`. Niente `loadExtension`, niente pragmas.                                                                                                                                                |
-| `src/db/schema.ts`                                                                                         | `sqliteTable` -> `pgTable`. Adeguare tipi `integer/bigint`, `serial`.                                                                                                                                                               |
-| `src/kb/vec.ts`                                                                                            | Aggiungere `PgvectorStore implements VecStore`. Switchare la factory.                                                                                                                                                               |
-| `drizzle/0000_init.sql` (e simili)                                                                         | Rigenerare con `drizzle-kit` per il nuovo dialect. La virtual table sqlite-vec viene sostituita da `CREATE EXTENSION vector` + colonna `vector(384)` su `facts` direttamente (pgvector permette colonne typed senza virtual table). |
-| `drizzle.config.ts`                                                                                        | `dialect: 'sqlite'` -> `dialect: 'postgresql'`.                                                                                                                                                                                     |
-| `package.json`                                                                                             | Sostituire `better-sqlite3` + `sqlite-vec` con `postgres` (o `pg`).                                                                                                                                                                 |
-| Tutte le query in `repo.ts` con time arithmetic (`expires_at < strftime('%s', 'now') * 1000` se mai usato) | Cambiano in `expires_at < extract(epoch from now()) * 1000`. Ma se usiamo `Date.now()` lato app, niente cambia.                                                                                                                     |
-| `src/db/migrate.ts`                                                                                        | Cambia il migrator client.                                                                                                                                                                                                          |
+| `src/db/client.ts`                                                                                         | Opening: `better-sqlite3` -> `postgres-js`. No `loadExtension`, no pragmas.                                                                                                                                                          |
+| `src/db/schema.ts`                                                                                         | `sqliteTable` -> `pgTable`. Adapt types `integer/bigint`, `serial`.                                                                                                                                                                  |
+| `src/kb/vec.ts`                                                                                            | Add `PgvectorStore implements VecStore`. Switch the factory.                                                                                                                                                                         |
+| `drizzle/0000_init.sql` (and similar)                                                                      | Regenerate with `drizzle-kit` for the new dialect. The sqlite-vec virtual table is replaced by `CREATE EXTENSION vector` + `vector(384)` column on `facts` directly (pgvector allows typed columns without virtual table).         |
+| `drizzle.config.ts`                                                                                        | `dialect: 'sqlite'` -> `dialect: 'postgresql'`.                                                                                                                                                                                      |
+| `package.json`                                                                                             | Replace `better-sqlite3` + `sqlite-vec` with `postgres` (or `pg`).                                                                                                                                                                   |
+| All queries in `repo.ts` with time arithmetic (`expires_at < strftime('%s', 'now') * 1000` if ever used)   | Change to `expires_at < extract(epoch from now()) * 1000`. But if we use `Date.now()` on the app side, nothing changes.                                                                                                              |
+| `src/db/migrate.ts`                                                                                        | Migrator client changes.                                                                                                                                                                                                             |
 
-## Punti che NON cambiano
+## Points that DO NOT change
 
-- Tutta la logica di scheduler / state machine / orchestrator / dispatcher / boot reconciler / manual jobs.
-- Tutti i prompt AI.
-- Tutta la config.
+- All logic of scheduler / state machine / orchestrator / dispatcher / boot reconciler / manual jobs.
+- All AI prompts.
+- All config.
 - Logging.
 - whatsapp-web.js integration.
 - Embedding service.
 
-In termini di linee toccate: stimato 5-10% del codebase.
+In terms of lines touched: estimated 5-10% of the codebase.
 
-## Esempio: SqliteVecStore vs PgvectorStore
+## Example: SqliteVecStore vs PgvectorStore
 
 Sqlite (v1):
 
@@ -91,7 +91,7 @@ search(personId, qEmb, k): number[] {
 }
 ```
 
-Postgres (futuro):
+Postgres (future):
 
 ```ts
 async search(personId, qEmb, k): Promise<number[]> {
@@ -108,44 +108,44 @@ async search(personId, qEmb, k): Promise<number[]> {
 }
 ```
 
-Differenze:
+Differences:
 
-- pgvector non richiede tabella separata per i vettori, basta una colonna `vector(384)`.
-- Operatore `<=>` per cosine distance (gli altri sono `<->` L2 e `<#>` inner product).
-- Indice HNSW su `embedding` per velocizzare:
+- pgvector doesn't require a separate table for vectors, a `vector(384)` column is enough.
+- `<=>` operator for cosine distance (others are `<->` L2 and `<#>` inner product).
+- HNSW index on `embedding` for speedup:
 
 ```sql
 CREATE INDEX ON facts USING hnsw (embedding vector_cosine_ops);
 ```
 
-## Migrazione dei dati
+## Data migration
 
-Tool: `pgloader` (open source) o script TS custom che legge tutto da SQLite e fa INSERT su Postgres in batch.
+Tool: `pgloader` (open source) or custom TS script that reads everything from SQLite and does batch INSERT into Postgres.
 
-Sequenza tipica:
+Typical sequence:
 
-1. Spegni il bot.
+1. Stop the bot.
 2. Backup `viet-chatter.db`.
-3. Crea schema Postgres con `drizzle-kit migrate`.
-4. Esegui pgloader o script migration.
-5. Validare conteggi (`SELECT COUNT(*)` su entrambi).
-6. Switch del codice (PR con i 5-10% di cambi, deploy).
-7. Avvia bot puntato a Postgres.
+3. Create Postgres schema with `drizzle-kit migrate`.
+4. Run pgloader or migration script.
+5. Validate counts (`SELECT COUNT(*)` on both).
+6. Switch code (PR with the 5-10% changes, deploy).
+7. Start bot pointed at Postgres.
 
-Stima di sforzo realistica: 1-2 giorni di lavoro inclusi test.
+Realistic effort estimate: 1-2 days of work including tests.
 
-## Vincolo di disciplina (per non perdere portabilità)
+## Discipline constraint (to not lose portability)
 
-In v1, evitare:
+In v1, avoid:
 
-- Triggers SQLite (logica via app code).
-- `PRAGMA` letti dal codice business (solo in `client.ts`).
-- Funzioni SQL non standard (`json_extract`, `random()`, `strftime` direttamente in query): preferire computazione TS lato app.
-- FTS5 con tokenizer custom.
-- Ricorso a `RETURNING` in modi non portabili.
+- SQLite triggers (logic via app code).
+- `PRAGMA` read from business code (only in `client.ts`).
+- Non-standard SQL functions (`json_extract`, `random()`, `strftime` directly in queries): prefer TS computation on app side.
+- FTS5 with custom tokenizer.
+- Reliance on `RETURNING` in non-portable ways.
 
-Drizzle nasconde gran parte di queste differenze finché si usano query builder standard. La discrezionalità resta su `VecStore` e su eventuali raw query.
+Drizzle hides most of these differences as long as standard query builders are used. Discretion remains on `VecStore` and any raw query.
 
-## Note finali
+## Final notes
 
-Il porting non è un obiettivo. È un'opzione di sicurezza. Stack v1 (SQLite + sqlite-vec) è progettato per restare quello produttivo per anni di uso single-user.
+Porting is not a goal. It's a safety option. Stack v1 (SQLite + sqlite-vec) is designed to remain the production one for years of single-user use.

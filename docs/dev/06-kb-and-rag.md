@@ -1,14 +1,14 @@
-# KB e RAG
+# KB and RAG
 
-> Status: design; behavior implemented. See `19-implementation-notes.md` for shipped deltas.
+> Status: design; behavior implemented.
 
-## Modello a 3 tier
+## 3-tier model
 
-| Tier        | Descrizione                                                                                                                   | Embedding | Caricamento prompt | TTL                     |
+| Tier        | Description                                                                                                                   | Embedding | Prompt loading     | TTL                     |
 | ----------- | ----------------------------------------------------------------------------------------------------------------------------- | --------- | ------------------ | ----------------------- |
-| `important` | Eventi che ridefiniscono la persona (lutti, malattie, separazioni, traguardi). Pochi per persona (5-20 stabili).              | NO        | Sempre tutti       | Mai                     |
-| `secondary` | Dettagli interessanti (lavoro, hobby, gusti, dettagli ricorrenti). Crescono nel tempo (potenzialmente centinaia per persona). | SÌ        | Top-K via RAG      | Mai (se non superseded) |
-| `ephemeral` | Fatti time-limited (piani, appuntamenti, stati temporanei).                                                                   | NO        | Sempre tutti       | 7 giorni default        |
+| `important` | Events that redefine the person (bereavements, illnesses, separations, milestones). Few per person (5-20 stable).             | NO        | Always all          | Never                   |
+| `secondary` | Interesting details (work, hobbies, tastes, recurring details). Grow over time (potentially hundreds per person).             | YES       | Top-K via RAG       | Never (unless superseded) |
+| `ephemeral` | Time-limited facts (plans, appointments, temporary states).                                                                   | NO        | Always all          | 7 days default          |
 
 ## Schema (Drizzle)
 
@@ -33,7 +33,7 @@ export const facts = sqliteTable(
 )
 ```
 
-Virtual table sqlite-vec (manuale in migration `0000_init.sql`):
+Virtual table sqlite-vec (manual in migration `0000_init.sql`):
 
 ```sql
 CREATE VIRTUAL TABLE facts_vec USING vec0(
@@ -42,24 +42,24 @@ CREATE VIRTUAL TABLE facts_vec USING vec0(
 );
 ```
 
-## Estrazione (output AI)
+## Extraction (AI output)
 
-L'AI nel `TurnOutput` produce `extracted_facts: ExtractedFact[]`:
+The AI in the `TurnOutput` produces `extracted_facts: ExtractedFact[]`:
 
 ```ts
 type ExtractedFact = {
   tier: 'important' | 'secondary' | 'ephemeral'
-  content: string // 1-2 frasi inglese
+  content: string // 1-2 sentences English
   confidence: number // 0..1
-  ttl_days?: number // solo per ephemeral, default 7
-  supersedes_id?: number // sostituisce fatto esistente
-  anchor_date?: string // YYYY-MM-DD per data fissa, MM-DD per ricorrente annuale
+  ttl_days?: number // only for ephemeral, default 7
+  supersedes_id?: number // replaces existing fact
+  anchor_date?: string // YYYY-MM-DD for fixed date, MM-DD for yearly recurring
   anchor_recurring?: 'yearly' | null
   anchor_action?: 'wish_birthday' | 'follow_up' | string
 }
 ```
 
-## Pipeline insert
+## Insert pipeline
 
 ```ts
 async function persistExtractedFacts(personId: string, facts: ExtractedFact[]) {
@@ -91,12 +91,12 @@ async function persistExtractedFacts(personId: string, facts: ExtractedFact[]) {
 }
 ```
 
-## Retrieval per turno
+## Per-turn retrieval
 
 ```ts
 async function loadKB(personId: string, recentIncomingBody: string) {
-  const important = await repo.loadImportant(personId) // tutti
-  const ephemeral = await repo.loadActiveEphemeral(personId) // tutti non scaduti
+  const important = await repo.loadImportant(personId) // all
+  const ephemeral = await repo.loadActiveEphemeral(personId) // all non-expired
   const qEmb = await embedding.embed(recentIncomingBody)
   const secondaryIds = await vecStore.search(personId, qEmb, config.ragTopK)
   const secondary = await repo.loadFactsByIds(secondaryIds)
@@ -104,7 +104,7 @@ async function loadKB(personId: string, recentIncomingBody: string) {
 }
 ```
 
-## VecStore (interfaccia)
+## VecStore (interface)
 
 ```ts
 export interface VecStore {
@@ -114,7 +114,7 @@ export interface VecStore {
 }
 ```
 
-Implementazione concreta `SqliteVecStore`:
+Concrete implementation `SqliteVecStore`:
 
 ```ts
 export class SqliteVecStore implements VecStore {
@@ -175,31 +175,31 @@ export class EmbeddingService {
 }
 ```
 
-Lazy-load: il modello (~80MB) viene scaricato in `.cache/transformers/` al primo `embed()`. Avvii successivi riusano la cache.
+Lazy-load: the model (~80MB) is downloaded to `.cache/transformers/` on the first `embed()`. Later runs reuse the cache.
 
-Modello consigliato: `Xenova/bge-small-en-v1.5` (384 dim, EN-focused, alta qualita per semantic similarity di testi corti come fatti KB).
+Recommended model: `Xenova/bge-small-en-v1.5` (384 dim, EN-focused, high quality for semantic similarity of short texts like KB facts).
 
-## Supersede e soft delete
+## Supersede and soft delete
 
-`supersedes_id` indica che un fatto vecchio è stato aggiornato. Nuovo fatto inserito, vecchio marcato:
+`supersedes_id` indicates that an old fact has been updated. New fact inserted, old marked:
 
 ```sql
 UPDATE facts SET superseded_by = ? WHERE id = ?
 ```
 
-Le query di lettura escludono `superseded_by IS NOT NULL`.
+Read queries exclude `superseded_by IS NOT NULL`.
 
-Soft delete: niente eliminazione fisica per `important` e `secondary`. Per `ephemeral`, eliminazione fisica al pruning quotidiano.
+Soft delete: no physical deletion for `important` and `secondary`. For `ephemeral`, physical deletion at daily pruning.
 
-## Pruner ephemeral
+## Ephemeral pruner
 
-Cron giornaliero (es. ogni 24h da boot, oppure ogni mattina alle 04:00):
+Daily cron (e.g. every 24h since boot, or every morning at 04:00):
 
 ```ts
 async function pruneEphemeral() {
   const expiredIds = await repo.expiredEphemeralIds() // SELECT id FROM facts WHERE expires_at < NOW
   for (const id of expiredIds) {
-    await vecStore.delete(id) // facts_vec è nullo per ephemeral, ma chiamata idempotente
+    await vecStore.delete(id) // facts_vec is null for ephemeral, but idempotent call
     await repo.deleteFact(id)
   }
   log.info({ deleted: expiredIds.length }, 'ephemeral pruner done')
@@ -208,15 +208,15 @@ async function pruneEphemeral() {
 
 ## Anti-bloat
 
-Strategie per evitare crescita incontrollata di `secondary`:
+Strategies to avoid uncontrolled growth of `secondary`:
 
-1. **Prompt instruction**: l'AI ha istruzione di non emettere fatti già presenti, e di preferire `supersedes_id` quando aggiorna.
-2. **Confidence threshold**: si potrebbe scartare auto fatti con `confidence < 0.5`. Non implementato in v1, future enhancement.
-3. **Periodic compaction**: non in v1. Possibile future enhancement: scan dei `secondary` e merge di duplicati semantici.
+1. **Prompt instruction**: the AI is instructed not to emit already-present facts, and to prefer `supersedes_id` when updating.
+2. **Confidence threshold**: facts with `confidence < 0.5` could be auto-discarded. Not implemented in v1, future enhancement.
+3. **Periodic compaction**: not in v1. Possible future enhancement: scan of `secondary` and merge of semantic duplicates.
 
-## Cancellazione manuale di un fatto
+## Manual fact deletion
 
-Non c'è interfaccia ufficiale (out of scope v1). Vie possibili:
+There is no official interface (out of scope v1). Possible paths:
 
-- Modifica diretta del `.db` con `sqlite3` CLI o DB Browser.
-- In conversazione, far emettere un fact con `supersedes_id` che annulla quello vecchio (richiede l'AI cooperante).
+- Direct edit of the `.db` with `sqlite3` CLI or DB Browser.
+- In conversation, have the AI emit a fact with `supersedes_id` that cancels the old one (requires the AI to cooperate).

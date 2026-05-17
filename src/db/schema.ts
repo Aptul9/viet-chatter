@@ -71,7 +71,11 @@ export const manualJobs = sqliteTable(
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
     chatId: text('chat_id').notNull(),
-    kind: text('kind', { enum: ['date_anchored', 'revive', 're_engage'] }).notNull(),
+    // 'retry' is the persistent re-attempt of a previously failed turn,
+    // scheduled by src/utils/retry.ts. Same row shape as the other kinds;
+    // payload carries the original trigger info (reactive vs manual_job +
+    // any context) so the cron can re-fire the right code path.
+    kind: text('kind', { enum: ['date_anchored', 'revive', 're_engage', 'retry'] }).notNull(),
     fireAt: integer('fire_at').notNull(),
     payload: text('payload'),
     status: text('status', {
@@ -81,6 +85,11 @@ export const manualJobs = sqliteTable(
       .default('pending'),
     firedAt: integer('fired_at'),
     createdAt: integer('created_at').notNull(),
+    // Attempt counter (1-indexed). NULL/0 for the original try; bumped each
+    // time the retry queue requeues the same logical operation. Used to
+    // pick the next backoff interval and to drive the per-op alert
+    // threshold in src/utils/failure-tracker.ts.
+    attemptCount: integer('attempt_count'),
   },
   (t) => ({
     chatStatusFireIdx: index('idx_mj_chat_status_fire').on(t.chatId, t.status, t.fireAt),

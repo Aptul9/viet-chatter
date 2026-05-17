@@ -1,140 +1,140 @@
-# Workflow e casi d'uso
+# Workflows and use cases
 
-Esempi concreti di cosa succede in scenari reali.
+Concrete examples of what happens in real scenarios.
 
-## Caso 1: prima persona aggiunta alla regola
+## Case 1: first person added to the rule
 
-**Situazione**: hai appena configurato il bot. La regola dice "rispondi a numeri vietnamiti". Hoa (numero +84...) ti scrive per la prima volta.
+**Situation**: you have just configured the bot. The rule says "reply to Vietnamese numbers". Hoa (number +84...) writes to you for the first time.
 
-**Cronologia**:
+**Timeline**:
 
-- 14:00 Hoa scrive "Hi! How are you?".
-- 14:00 il bot vede, controlla la regola: numero +84, passa.
-- 14:00 il bot inizia il timer di silenzio (2 minuti). Lei sta scrivendo? Aspetta.
-- 14:02 due minuti di silenzio, raffica chiusa.
-- 14:02 calcolo del delay: con Hoa non hai cronologia di risposte, default 30 minuti.
-- 14:02 con casualita +/-20%: per esempio 27 minuti. Risposta programmata per le 14:29.
-- 14:29 il bot manda: "Hey Hoa, all good. You?".
-- 14:29 l'AI nota che Hoa scrive in inglese, salva nel profilo `languages: [en]`.
+- 14:00 Hoa writes "Hi! How are you?".
+- 14:00 the bot sees, checks the rule: number +84, passes.
+- 14:00 the bot starts the silence timer (2 minutes). Is she writing? Wait.
+- 14:02 two minutes of silence, burst closed.
+- 14:02 delay calc: with Hoa there is no reply history, default 30 minutes.
+- 14:02 with randomness +/-20%: say 27 minutes. Reply scheduled for 14:29.
+- 14:29 the bot sends: "Hey Hoa, all good. You?".
+- 14:29 the AI notes that Hoa writes in English, saves to the profile `languages: [en]`.
 
-**Diario aggiornato**: niente di importante o secondario ancora estratto (la conversazione è troppo iniziale).
+**Journal updated**: nothing important or secondary extracted yet (the conversation is too early-stage).
 
-## Caso 2: raffica di 4 messaggi
+## Case 2: burst of 4 messages
 
-**Situazione**: Lan (in lista) ti manda 4 messaggi in fila.
+**Situation**: Lan (on the list) sends you 4 messages in a row.
 
-**Cronologia**:
+**Timeline**:
 
-- 09:30 Lan: "Ciao".
-- 09:30 timer parte (2 min).
-- 09:30:15 Lan: "Come stai?" -> timer reset.
-- 09:30:35 Lan: "Ho una cosa da dirti..." -> timer reset.
-- 09:31:10 Lan: "Hai 5 minuti?" -> timer reset.
-- 09:33:10 due minuti di silenzio totale, raffica chiusa.
-- 09:33:10 calcolo delay: ultime 5 risposte a Lan in media 45 minuti, +/-20% -> per esempio 41 min.
-- 09:33:10 risposta programmata per le 10:14.
-- 10:14 il bot manda UNA risposta che indirizza tutti e 4 i messaggi: "Ciao Lan, sto bene, dimmi pure".
+- 09:30 Lan: "Hi".
+- 09:30 timer starts (2 min).
+- 09:30:15 Lan: "How are you?" -> timer reset.
+- 09:30:35 Lan: "I have something to tell you..." -> timer reset.
+- 09:31:10 Lan: "Got 5 minutes?" -> timer reset.
+- 09:33:10 two minutes of total silence, burst closed.
+- 09:33:10 delay calc: last 5 replies to Lan on average 45 minutes, +/-20% -> say 41 min.
+- 09:33:10 reply scheduled for 10:14.
+- 10:14 the bot sends ONE reply that addresses all 4 messages: "Hi Lan, I'm well, tell me".
 
-## Caso 3: tu rispondi prima del bot
+## Case 3: you reply before the bot
 
-**Situazione**: come Caso 2, ma alle 10:00 (prima delle 10:14 programmate) tu rispondi a mano.
+**Situation**: like Case 2, but at 10:00 (before the scheduled 10:14) you reply by hand.
 
-**Cronologia**:
+**Timeline**:
 
-- 10:00 tu scrivi: "tutto ok, dimmi" da telefono.
-- 10:00 il bot vede l'evento `out_manual`, annulla il job programmato per le 10:14.
-- 10:00 chat torna in stato `IDLE`.
-- 10:14 niente parte (job era stato cancellato).
+- 10:00 you write: "all good, tell me" from the phone.
+- 10:00 the bot sees the `out_manual` event, cancels the job scheduled for 10:14.
+- 10:00 chat returns to `IDLE` state.
+- 10:14 nothing fires (job had been cancelled).
 
-**Latency**: 30 minuti dal terzo messaggio di Lan. Questa entra nella media rolling per i prossimi calcoli.
+**Latency**: 30 minutes from Lan's third message. This enters the rolling average for the next calculations.
 
-## Caso 4: bot offline e poi torna
+## Case 4: bot offline, then comes back
 
-**Situazione**: spegni il PC alle 18:00. Lan ti scrive alle 19:00, alle 20:30, alle 21:45. Riaccendi il PC alle 22:30 (ma siamo in night window, 22-06).
+**Situation**: you shut down the PC at 18:00. Lan writes at 19:00, at 20:30, at 21:45. You turn the PC back on at 22:30 (but we are in the night window, 22-06).
 
-**Cronologia**:
+**Timeline**:
 
-- 22:30 lanci il bot, parte il boot.
-- 22:30 reconciliation: il bot vede che Lan ha 3 messaggi nuovi rispetto all'ultimo che aveva visto (15:00). Li carica.
-- 22:30 normalmente farebbe partire l'accumulazione e il calcolo delay. Ma calcolando il delay, il fire cadrebbe in night window -> shift al mattino.
-- 22:30 risposta programmata per le 06:05 circa (06:00 + jitter casuale).
-- 06:05 risposta parte.
+- 22:30 you launch the bot, boot starts.
+- 22:30 reconciliation: the bot sees Lan has 3 new messages since the last one it had seen (15:00). Loads them.
+- 22:30 normally it would start accumulation and the delay calc. But computing the delay, the fire would fall in the night window -> shift to the morning.
+- 22:30 reply scheduled for around 06:05 (06:00 + random jitter).
+- 06:05 reply fires.
 
-## Caso 5: compleanno
+## Case 5: birthday
 
-**Situazione**: durante una conversazione 3 settimane fa, Hoa ha detto "il mio compleanno è il 22 febbraio". L'AI ha estratto e salvato come fatto importante, con data ricorrente.
+**Situation**: during a conversation 3 weeks ago, Hoa said "my birthday is February 22". The AI extracted and saved it as an important fact, with recurring date.
 
-**Cronologia**:
+**Timeline**:
 
-- 22 febbraio, 09:00 (orario "buona ora del mattino" + jitter): scatta il job auguri.
-- 09:00 il bot controlla: nelle ultime 12 ore avete scambiato messaggi? No.
-- 09:00 il bot manda automaticamente: "Hey Hoa, tanti auguri!".
+- February 22, 09:00 ("good time of morning" + jitter): the wishes job fires.
+- 09:00 the bot checks: in the last 12 hours have you exchanged messages? No.
+- 09:00 the bot automatically sends: "Hey Hoa, happy birthday!".
 
-**Variante**: voi avete chattato alle 23:50 della sera prima. Alle 09:00 il bot vede gli scambi recenti, NON manda gli auguri come messaggio separato. Aspetta che Hoa risponda al messaggio precedente: quando lei risponde, l'AI durante la generazione vede "oggi è il compleanno" nel diario e include l'augurio nella risposta normale.
+**Variant**: you chatted at 23:50 the night before. At 09:00 the bot sees the recent exchanges, does NOT send the wishes as a separate message. It waits for Hoa to reply to the previous message: when she replies, the AI during generation sees "today is the birthday" in the journal and includes the wishes in the normal reply.
 
-## Caso 6: cuore secco dopo conversazione lunga
+## Case 6: dry heart after a long conversation
 
-**Situazione**: con Lan avete chattato per 2 ore di seguito (15 messaggi a testa). Il tuo ultimo messaggio era una battuta. Lei risponde solo con un cuore.
+**Situation**: with Lan you chatted for 2 straight hours (15 messages each). Your last message was a joke. She replies only with a heart.
 
-**Cronologia**:
+**Timeline**:
 
-- 17:00 il tuo ultimo messaggio (via bot).
-- 17:02 Lan: "❤️" -> arriva al bot come messaggio.
-- 17:04 raffica chiusa (silenzio 2 min).
-- 17:04 il bot calcola la risposta. L'AI valuta:
-  - Conversazione molto attiva oggi: si.
-  - Lei ha mandato solo un cuore: chiusura ambigua.
-  - Suggerisce `revive_hint = { attempt_in_minutes: 50 }`.
-- 17:04 il bot decide: skip risposta immediata (l'AI ha detto skip per l'❤️ singolo). Ma crea un job revive per le 17:54.
-- 17:54 scatta il revive. AI genera follow-up leggero: "Per la cronaca, era una battuta ;)". Manda.
-- 18:30 Lan non ha risposto. Il job è già stato fatto, non si ripete.
+- 17:00 your last message (via bot).
+- 17:02 Lan: "heart emoji" -> arrives at the bot as a message.
+- 17:04 burst closed (silence 2 min).
+- 17:04 the bot computes the reply. The AI evaluates:
+  - Very active conversation today: yes.
+  - She sent only a heart: ambiguous closure.
+  - Suggests `revive_hint = { attempt_in_minutes: 50 }`.
+- 17:04 the bot decides: skip immediate reply (the AI said skip for the single heart). But creates a revive job for 17:54.
+- 17:54 the revive fires. AI generates a light follow-up: "For the record, it was a joke ;)". Sends.
+- 18:30 Lan has not replied. The job is already done, does not repeat.
 
-## Caso 7: re-engage dopo 2 settimane
+## Case 7: re-engage after 2 weeks
 
-**Situazione**: con Mai non parli da 14 giorni. La regola di filtro la include.
+**Situation**: you have not talked to Mai for 14 days. The filter rule includes her.
 
-**Cronologia**:
+**Timeline**:
 
-- giorno 14, ore 09:00: cron giornaliero scansiona le chat.
-- 09:00 trova Mai: ultimo scambio 14 giorni fa, soglia 14 giorni superata, nessun job pendente, non in stato `cold`.
-- 09:00 crea un job re-engage per le 10:30 (orario sensato + jitter).
-- 10:30 scatta. AI legge diario di Mai: "lavora a Hanoi", "ultima volta era stressata".
-- 10:30 AI genera: "Hey Mai, come va? Tutto ok col lavoro?". Manda.
-- giorno 21 (7 giorni dopo): Mai non ha risposto. Mai marcata come `cold`. Niente più re-engage finche lei non scrive prima.
+- day 14, 09:00: daily cron scans the chats.
+- 09:00 finds Mai: last exchange 14 days ago, 14-day threshold exceeded, no pending job, not in `cold` state.
+- 09:00 creates a re-engage job for 10:30 (sensible time + jitter).
+- 10:30 fires. AI reads Mai's journal: "works in Hanoi", "last time she was stressed".
+- 10:30 AI generates: "Hey Mai, how is it going? All good with work?". Sends.
+- day 21 (7 days later): Mai has not replied. Mai marked as `cold`. No more re-engage until she writes first.
 
-## Caso 8: tu invii a freddo (proattivo)
+## Case 8: you send cold (proactive)
 
-**Situazione**: tu apri WhatsApp e scrivi a Hoa di tua iniziativa "Hey, hai un consiglio per un ristorante?".
+**Situation**: you open WhatsApp and write to Hoa on your own "Hey, got a restaurant recommendation?".
 
-**Cronologia**:
+**Timeline**:
 
-- 12:00 il tuo `out_manual`. Il bot lo vede, lo registra in `processed_messages`. State resta `IDLE` (nessun in pendente).
-- 12:30 Hoa risponde: "Sushi place near Old Quarter".
-- 12:30 il bot vede l'incoming, applica filtro, accumulo e delay.
-- ~13:15 il bot risponde basandosi sul tuo messaggio + il suo. Gestisce normalmente.
+- 12:00 your `out_manual`. The bot sees it, records it in `processed_messages`. State stays `IDLE` (no pending incoming).
+- 12:30 Hoa replies: "Sushi place near Old Quarter".
+- 12:30 the bot sees the incoming, applies filter, accumulation and delay.
+- ~13:15 the bot replies based on your message + hers. Handles it normally.
 
-Niente di speciale: i tuoi messaggi proattivi entrano nello storico, tutto il resto come al solito.
+Nothing special: your proactive messages enter the history, everything else as usual.
 
-## Caso 9: cambio di tono nel tempo
+## Case 9: tone change over time
 
-**Situazione**: con Phuong il tono iniziale era "casual scherzoso". Da una settimana lei sta passando un brutto periodo (lavoro, famiglia).
+**Situation**: with Phuong the initial tone was "casual, joking". For a week she has been going through a bad time (work, family).
 
-**Cronologia evolutiva**:
+**Evolutionary timeline**:
 
-- giorno 1-7: nota tono "casual, ironico, battute".
-- giorno 8: lei dice "sono molto stressata". L'AI estrae fatto effimero, e nel `tone_update` propone "supportivo, attento, meno battute".
-- giorno 8 in poi: il bot genera risposte più caring. Il diario contiene il fatto effimero "stressata dal lavoro" che scade tra 7 giorni.
-- giorno 15: il fatto effimero scade. La nota di tono resta finche l'AI non rileva un cambio nei suoi messaggi (lei torna allegra).
-- giorno 20: lei dice "tutto risolto, finalmente respiro!". L'AI aggiorna `tone_update = "casual, scherzoso"`.
+- days 1-7: tone note "casual, ironic, jokes".
+- day 8: she says "I'm very stressed". The AI extracts an ephemeral fact, and in the `tone_update` proposes "supportive, attentive, fewer jokes".
+- day 8 onwards: the bot generates more caring replies. The journal contains the ephemeral fact "stressed by work" expiring in 7 days.
+- day 15: the ephemeral fact expires. The tone note stays until the AI detects a change in her messages (she goes back to cheerful).
+- day 20: she says "all sorted, finally I can breathe!". The AI updates `tone_update = "casual, joking"`.
 
-## Caso 10: regola di filtro modificata in corsa
+## Case 10: filter rule modified on the fly
 
-**Situazione**: il bot gira da 3 giorni. Vuoi escludere il numero di Linh.
+**Situation**: the bot has been running for 3 days. You want to exclude Linh's number.
 
-**Cronologia**:
+**Timeline**:
 
-- 16:00 apri la web UI (`http://localhost:3000`, tab Filter) e aggiungi `+84LinhNumber` a "Blocked numbers", Save. Oppure equivalentemente edit `config/user-config.yaml` blocco `filter.blockedNumbers` e salva.
-- 16:00 il bot rileva il file modificato, ricarica la regola, valida con zod, swap atomico.
-- 16:01 Linh ti scrive. Il bot legge, controlla la NUOVA regola: numero in blacklist -> non passa. Ignora.
+- 16:00 you open the web UI (`http://localhost:3000`, Filter tab) and add `+84LinhNumber` to "Blocked numbers", Save. Or equivalently edit `config/user-config.yaml` `filter.blockedNumbers` block and save.
+- 16:00 the bot detects the modified file, reloads the rule, validates with zod, atomic swap.
+- 16:01 Linh writes to you. The bot reads, checks the NEW rule: number in blacklist -> does not pass. Ignores.
 
-Niente downtime, niente restart.
+No downtime, no restart.

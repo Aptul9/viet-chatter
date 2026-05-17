@@ -56,7 +56,7 @@ export const TurnOutputSchema = z.object({
 export type TurnOutput = z.infer<typeof TurnOutputSchema>
 
 // Per-dir template cache. Each prompt directory (turn, summary, agent) gets
-// its own cached concatenation. See docs/dev/specs/2026-05-16-spec-c-dashboard.md.
+// its own cached concatenation.
 const templateCache = new Map<string, string>()
 
 export async function loadAndCombinePrompts(dir: string): Promise<string> {

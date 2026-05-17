@@ -1,7 +1,7 @@
 // VecStore: abstract interface + sqlite-vec implementation.
 // Confines all knowledge of `facts_vec` virtual table to this module so a
 // future swap to PgvectorStore is a single point of change.
-// See docs/dev/06-kb-e-rag.md "VecStore" + docs/dev/14-portabilita-postgres.md.
+// See docs/dev/06-kb-and-rag.md "VecStore" + docs/dev/14-postgres-portability.md.
 
 import type { Sqlite } from '../db/client.js'
 

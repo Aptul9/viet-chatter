@@ -1,35 +1,35 @@
-# Cosa fa il bot
+# What the bot does
 
-Risponde alle chat WhatsApp al posto tuo. Solo certe chat, scelte da te. Lo fa girando sul tuo computer e usando il tuo numero (esattamente come quando sei tu davanti al telefono).
+It replies to WhatsApp chats on your behalf. Only certain chats, chosen by you. It runs on your computer and uses your number (exactly like when you are in front of the phone yourself).
 
-## Esempio concreto
+## Concrete example
 
-Hai 30 chat aperte, ma vuoi che il bot risponda solo alle persone con prefisso vietnamita, escluse 2-3 specifiche. Tutte le altre chat (parenti, lavoro, gruppi) restano intoccate. Tu le vedi e rispondi a mano come al solito.
+You have 30 open chats, but you want the bot to reply only to people with a Vietnamese prefix, excluding 2-3 specific ones. All other chats (relatives, work, groups) stay untouched. You see them and reply by hand as usual.
 
-Quando una persona "in lista" ti scrive:
+When a person "on the list" writes to you:
 
-1. Il bot legge il messaggio.
-2. Aspetta un po' (per non sembrare un bot che risponde all'istante).
-3. Costruisce una risposta sensata, basata su quello che sa di lei.
-4. Manda la risposta come se fossi tu.
+1. The bot reads the message.
+2. Waits a bit (so it does not look like a bot replying instantly).
+3. Builds a sensible reply, based on what it knows about her.
+4. Sends the reply as if it were you.
 
-## Cosa lo rende diverso da un risponditore automatico
+## What makes it different from an auto-responder
 
-- **Sembra umano**: aspetta minuti o ore, non secondi. Imita il tuo tempo medio di risposta a quella persona.
-- **Non risponde di notte**: dalle 22:00 alle 06:00 sta zitto. Le risposte arrivano la mattina.
-- **Si adatta**: tono, lingua e contenuto cambiano in base alla persona.
-- **Si ricorda**: la prossima volta che quella persona ti scrive, il bot si ricorda cosa avevi detto la settimana scorsa.
-- **Sa quando non sa**: quando la persona chiede una cosa che il bot non può sapere o decidere al posto tuo (un appuntamento futuro, un favore importante, un argomento delicato), invece di inventare ti notifica fuori da WhatsApp e tu vai a rispondere a mano. Vedi `12-quando-ti-chiama.md`.
+- **Looks human**: waits minutes or hours, not seconds. Mimics your average response time to that person.
+- **Does not reply at night**: from 22:00 to 06:00 it stays silent. Replies arrive in the morning.
+- **Adapts**: tone, language, and content change based on the person.
+- **Remembers**: the next time that person writes to you, the bot remembers what you said last week.
+- **Knows when it does not know**: when the person asks something the bot cannot know or decide on your behalf (a future appointment, an important favor, a delicate topic), instead of making things up it notifies you outside WhatsApp and you go reply by hand. See `12-when-it-calls-you.md`.
 
-## Cosa non sa fare
+## What it cannot do
 
-- Non legge sticker, immagini, audio, video. Vede solo che sono arrivati e decide se ignorarli o rispondere brevemente.
-- Non chiama, non videochiamate.
-- Non manda file o foto.
-- Non gestisce gruppi.
+- Does not read stickers, images, audio, video. It only sees that they arrived and decides whether to ignore them or reply briefly.
+- Does not make calls or video calls.
+- Does not send files or photos.
+- Does not handle groups.
 
-## Quando il bot capisce che ti rifai vivo tu
+## When the bot notices you stepping in
 
-Se mentre il bot stava per rispondere, rispondi tu da telefono o PC, il bot se ne accorge e cancella la sua risposta. Non manda doppio.
+If, while the bot was about to reply, you reply from phone or PC, the bot notices and cancels its reply. It does not send a duplicate.
 
-In rari casi (millisecondi di sovrapposizione) potrebbero partire entrambi. Niente di grave, ma è possibile in teoria.
+In rare cases (millisecond overlap), both could go out. Nothing serious, but theoretically possible.

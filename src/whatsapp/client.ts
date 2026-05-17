@@ -11,7 +11,7 @@
  * reconciler, or `client.info.wid._serialized` in the escalation self-chat).
  *
  * Spec references:
- *   - docs/dev/02-architettura.md  (WhatsAppClient module table row)
+ *   - docs/dev/02-architecture.md  (WhatsAppClient module table row)
  *   - docs/dev/03-data-flow.md     (Flow A: incoming; Flow D: out_manual
  *                                   distinction via id-tracker; Flow E/F: boot)
  *   - docs/dev/09-boot-reconciler.md (uses `client.getChats()`,

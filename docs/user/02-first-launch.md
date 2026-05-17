@@ -1,52 +1,52 @@
-# Primo avvio
+# First launch
 
-## Cosa serve
+## What you need
 
-- Un computer (Windows, Linux o Mac) sempre acceso quando vuoi che il bot risponda.
-- Connessione internet.
-- Il tuo telefono con WhatsApp installato e funzionante (per la prima sincronizzazione).
-- (Opzionale ma consigliato) Un bot Telegram personale per ricevere le notifiche di "escalation a umano". Vedi `12-quando-ti-chiama.md` per cos'è e perchè serve, e `dev/15-runbook.md` per il setup tecnico (5 minuti).
+- A computer (Windows, Linux, or Mac) that is always on when you want the bot to reply.
+- Internet connection.
+- Your phone with WhatsApp installed and working (for the first sync).
+- (Optional but recommended) A personal Telegram bot to receive "escalation to human" notifications. See `12-when-it-calls-you.md` for what it is and why it helps, and `dev/15-runbook.md` for the technical setup (5 minutes).
 
-## Procedura
+## Procedure
 
-1. Apri il terminale nella cartella del progetto.
-2. Lanci il comando di avvio (`npm run dev` per partire con bot + web UI insieme, oppure `npm start` per solo bot).
-3. Compare un QR code nel terminale.
-4. Apri WhatsApp sul telefono, vai in `Impostazioni > Dispositivi collegati > Collega un dispositivo`.
-5. Inquadra il QR code.
-6. Il bot si collega alla tua sessione WhatsApp Web e inizia a osservare i messaggi.
+1. Open the terminal in the project folder.
+2. Run the start command (`npm run dev` to start bot + web UI together, or `npm start` for the bot only).
+3. A QR code appears in the terminal.
+4. Open WhatsApp on your phone, go to `Settings > Linked devices > Link a device`.
+5. Scan the QR code.
+6. The bot connects to your WhatsApp Web session and starts observing messages.
 
-## Configurazione (chi gestire, tempi, lingua, ecc.)
+## Configuration (who to handle, timing, language, etc.)
 
-Due vie equivalenti per configurare il bot:
+Two equivalent paths to configure the bot:
 
-- **Web UI** (più semplice): se hai lanciato `npm run dev`, apri `http://localhost:3000`. Trovi 8 tab (Scheduler, KB, AI, Logging, Escalation, Filter, Manual jobs, Boot) con tooltip che spiegano ogni campo. Salva → il bot ricarica automaticamente.
-- **A mano**: edita il file `config/user-config.yaml` con un editor di testo. Commenti inline spiegano ogni campo. Salva → stesso hot-reload automatico.
+- **Web UI** (simpler): if you ran `npm run dev`, open `http://localhost:3000`. You find 8 tabs (Scheduler, KB, AI, Logging, Escalation, Filter, Manual jobs, Boot) with tooltips that explain every field. Save -> the bot reloads automatically.
+- **By hand**: edit the file `config/user-config.yaml` with a text editor. Inline comments explain every field. Save -> same automatic hot-reload.
 
-Alcuni campi richiedono restart del bot per avere effetto (sono marcati `RESTART REQUIRED` sia nella UI che nel YAML): path del DB, modello AI, sessione WhatsApp.
+Some fields require a bot restart to take effect (marked `RESTART REQUIRED` in both the UI and the YAML): DB path, AI model, WhatsApp session.
 
-## Dopo il primo avvio
+## After the first launch
 
-La sessione viene salvata localmente. Le volte successive non serve più scansionare il QR (a meno che tu non stacchi il dispositivo da WhatsApp manualmente, o passino mesi di inattività).
+The session is saved locally. Subsequent times you do not need to scan the QR again (unless you manually unlink the device from WhatsApp, or months of inactivity pass).
 
-Se tieni il computer acceso, il bot continua a girare. Se lo spegni, il bot si ferma. Quando lo riaccendi e rilanci, il bot:
+If you keep the computer on, the bot keeps running. If you turn it off, the bot stops. When you turn it back on and relaunch, the bot:
 
-- Recupera i messaggi arrivati mentre era spento.
-- Decide se erano nelle chat da gestire.
-- Pianifica le risposte come se fosse stato online dall'inizio (rispetta i delay, non spara tutto in faccia).
+- Recovers messages that arrived while it was off.
+- Decides whether they were in the chats to be handled.
+- Schedules the replies as if it had been online from the start (respects the delays, does not blast everything at once).
 
-## Cosa vedi mentre gira
+## What you see while it runs
 
-Il terminale resta aperto e mostra log di base: chi ha scritto, cosa il bot sta facendo, eventuali errori. Niente di drammatico: serve solo a sapere se è vivo.
+The terminal stays open and shows basic logs: who wrote, what the bot is doing, any errors. Nothing dramatic: it just helps you know whether it is alive.
 
-I log dettagliati vengono salvati nella cartella `logs/` per poter capire eventualmente cosa è successo.
+Detailed logs are saved in the `logs/` folder so you can figure out what happened later if needed.
 
-## Quando il computer si spegne
+## When the computer shuts down
 
-Se il PC si spegne (chiusura, riavvio, crash), il bot smette di rispondere. Le persone scrivono lo stesso, i loro messaggi restano in WhatsApp. Quando riaccendi e rilanci il bot, lui li trova e li gestisce.
+If the PC shuts down (close, reboot, crash), the bot stops replying. People still write, their messages stay in WhatsApp. When you power it back on and relaunch the bot, it finds them and handles them.
 
-Non c'è perdita di messaggi, solo ritardo finché non torna online.
+No message loss, only delay until it is back online.
 
-## Quando WhatsApp ti chiede di riconnettere
+## When WhatsApp asks you to reconnect
 
-Può capitare che WhatsApp scolleghi i dispositivi (succede se non usi WhatsApp Web da molto tempo, o per motivi di sicurezza). In quel caso al riavvio del bot ricomparirà il QR code: lo riscansioni e tutto riprende.
+WhatsApp may unlink devices (happens if you have not used WhatsApp Web for a long time, or for security reasons). In that case, at bot startup the QR code reappears: scan it again and everything resumes.

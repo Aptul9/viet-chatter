@@ -33,7 +33,7 @@ export default async function DashboardHome() {
             <Card label="Messages in" value={stats.totalMessages.in} />
             <Card label="Bot replies" value={stats.totalMessages.out_bot} />
             <Card label="Manual replies" value={stats.totalMessages.out_manual} />
-            <Card label="Escalations pending" value={stats.escalations.pending} />
+            <Card label="Awaiting reply" value={stats.escalations.pending} />
           </div>
         </section>
       )}
