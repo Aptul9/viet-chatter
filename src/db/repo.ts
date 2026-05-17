@@ -258,6 +258,29 @@ export function updateToneSummary(
     .run(toneSummary, Date.now(), chatId)
 }
 
+/**
+ * Persist a humanized identifier (typically an E.164 phone resolved from an
+ * `@lid` chatId via `wa.resolveLidPhone`) into `person_profile.display_name`,
+ * **only** if the row's current display_name is NULL or empty. Idempotent;
+ * never overwrites an existing name. Creates a minimal profile row if absent.
+ * Used by the dispatcher so the dashboard can show real phones instead of
+ * the opaque wweb LID digits.
+ */
+export function setDisplayNameIfEmpty(sqlite: Sqlite, chatId: ChatId, name: string): void {
+  const now = Date.now()
+  sqlite
+    .prepare(
+      `INSERT INTO \`person_profile\` (\`chat_id\`, \`display_name\`, \`languages\`, \`tone_summary\`, \`re_engage_threshold_days\`, \`engagement_state\`, \`created_at\`, \`updated_at\`)
+       VALUES (?, ?, '["en"]', NULL, 14, 'active', ?, ?)
+       ON CONFLICT(\`chat_id\`) DO UPDATE SET
+         \`display_name\` = excluded.\`display_name\`,
+         \`updated_at\` = excluded.\`updated_at\`
+       WHERE \`person_profile\`.\`display_name\` IS NULL
+          OR \`person_profile\`.\`display_name\` = ''`
+    )
+    .run(chatId, name, now, now)
+}
+
 export function updateLanguages(sqlite: Sqlite, chatId: ChatId, languages: string[]): void {
   sqlite
     .prepare('UPDATE `person_profile` SET `languages` = ?, `updated_at` = ? WHERE `chat_id` = ?')

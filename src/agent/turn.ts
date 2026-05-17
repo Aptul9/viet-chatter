@@ -28,28 +28,45 @@ export async function generateAgentTurn(
 ): Promise<AgentOutput | null> {
   const template = await loadAndCombinePrompts(PROMPT_DIR)
   const serialized = JSON.stringify(ctx, null, 2)
-  let finalPrompt = template
-  finalPrompt = finalPrompt.includes(CONTEXT_TOKEN)
-    ? finalPrompt.replace(CONTEXT_TOKEN, serialized)
-    : `${finalPrompt}\n\n${serialized}`
-  finalPrompt = finalPrompt.includes(PROMPT_TOKEN)
-    ? finalPrompt.replace(PROMPT_TOKEN, userPrompt)
-    : `${finalPrompt}\n\nUser request:\n${userPrompt}`
+  let basePrompt = template
+  basePrompt = basePrompt.includes(CONTEXT_TOKEN)
+    ? basePrompt.replace(CONTEXT_TOKEN, serialized)
+    : `${basePrompt}\n\n${serialized}`
+  basePrompt = basePrompt.includes(PROMPT_TOKEN)
+    ? basePrompt.replace(PROMPT_TOKEN, userPrompt)
+    : `${basePrompt}\n\nUser request:\n${userPrompt}`
 
+  let correction: string | null = null
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     if (signal?.aborted) return null
+    const finalPrompt = correction
+      ? `${basePrompt}\n\n=== CORRECTION REQUIRED ===\n${correction}\n\nEmit the corrected JSON only.`
+      : basePrompt
     const raw = await callAiApi(finalPrompt, 'agent', signal)
-    if (!raw) continue
+    if (!raw) {
+      correction = 'Your previous response was empty. Re-read the schema and emit a single valid JSON object.'
+      continue
+    }
     let parsed: unknown
     try {
       parsed = JSON.parse(extractJson(raw))
     } catch (err) {
-      log.warn({ attempt, err: (err as Error).message }, 'agent JSON parse failed')
+      const msg = (err as Error).message
+      log.warn({ attempt, err: msg }, 'agent JSON parse failed')
+      correction = `Your previous response was not valid JSON. Parser error: ${msg}\nYour raw output was:\n${raw.slice(0, 1200)}`
       continue
     }
     const validated = AgentOutputSchema.safeParse(parsed)
     if (validated.success) return validated.data
-    log.warn({ attempt, errors: validated.error.flatten() }, 'agent schema invalid, retrying')
+    const errors = validated.error.flatten()
+    log.warn({ attempt, errors }, 'agent schema invalid, retrying')
+    // Feed the structured zod errors back so the model can self-correct
+    // (e.g. fireAtIso missing a timezone offset, payload missing a field).
+    correction = `Your previous JSON did not match the required schema. Errors:\n${JSON.stringify(
+      errors,
+      null,
+      2
+    )}\nYour raw output was:\n${raw.slice(0, 1200)}`
   }
   return null
 }

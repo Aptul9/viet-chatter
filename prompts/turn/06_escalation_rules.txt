@@ -37,6 +37,7 @@ Emit `escalate_to_human` non-null when answering autonomously would risk committ
 - Examples: `"Aspetta che controllo, ti faccio sapere"`, `"Let me check and get back to you"`, `"Để mình kiểm tra đã, mình báo lại sau"`.
 - Set to `null` if no holding message is appropriate (e.g. very casual chat where silence is fine, or the user clearly prefers to respond from scratch).
 - Keep it brief, in character with the established tone.
+- **MUST be `null` when `reason` is `scheduling`.** Any acknowledgement of a date/time question (even a vague "let me check") can be read as soft commitment. The chat stays on read until the owner replies in person. The bot enforces this by discarding the field for `scheduling`, but emitting `null` keeps the AI's intent and the user-facing notification ("Holding reply: nessuna.") aligned.
 
 ### CONFLICT RULE (critical)
 

@@ -8,10 +8,15 @@ import { log } from '../log.js'
 import { formatEscalation } from './format.js'
 import type { EscalationChannel } from './channels/index.js'
 import type { EscalationChannelName } from '../types.js'
+import type { WhatsAppHandle } from '../whatsapp/client.js'
 
 export interface NotifierDeps {
   sqlite: Sqlite
   channels: EscalationChannel[]
+  /** Optional: used to resolve `@lid` chatIds to real E.164 phones in the
+   * notification header. When absent (test scenarios), the formatter falls
+   * back to the raw lid digits. */
+  wa?: Pick<WhatsAppHandle, 'resolveLidPhone'>
 }
 
 export class EscalationNotifier {
@@ -35,8 +40,23 @@ export class EscalationNotifier {
       return
     }
 
+    let displayPhone: string | null = null
+    if (this.deps.wa && esc.chatId.endsWith('@lid')) {
+      try {
+        displayPhone = await this.deps.wa.resolveLidPhone(esc.chatId)
+        if (!displayPhone) {
+          log.info({ escId, chatId: esc.chatId }, 'lid not resolvable for escalation header')
+        }
+      } catch (err) {
+        log.warn(
+          { escId, chatId: esc.chatId, err: (err as Error).message },
+          'resolveLidPhone failed in notifier'
+        )
+      }
+    }
+
     const results = await Promise.allSettled(
-      channels.map((c) => c.send(formatEscalation(c.name, esc)))
+      channels.map((c) => c.send(formatEscalation(c.name, esc, displayPhone)))
     )
 
     const ok: EscalationChannelName[] = []

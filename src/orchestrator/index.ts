@@ -181,7 +181,15 @@ export class ReplyOrchestrator {
     const triggerMsgId = await this.findLastIncomingMsgId(chatId)
 
     let holdingReplySent = false
-    if (esc.suggested_holding_reply && esc.suggested_holding_reply.trim().length > 0) {
+    // Scheduling escalations must stay silent: any auto-reply (even a soft
+    // "let me check") risks committing the owner to a slot they have not
+    // confirmed. The chat is simply left on read until the owner replies.
+    const suppressHolding = esc.reason === 'scheduling'
+    if (
+      !suppressHolding &&
+      esc.suggested_holding_reply &&
+      esc.suggested_holding_reply.trim().length > 0
+    ) {
       try {
         const sent = await this.deps.wa.sendMessage(chatId, esc.suggested_holding_reply)
         insertProcessedMessage(this.deps.sqlite, {
@@ -195,6 +203,11 @@ export class ReplyOrchestrator {
       } catch (err) {
         log.error({ err, chatId }, 'holding reply send failed')
       }
+    } else if (suppressHolding && esc.suggested_holding_reply) {
+      log.info(
+        { chatId, reason: esc.reason },
+        'holding reply suppressed (scheduling: stay on read)'
+      )
     }
 
     const now = Date.now()

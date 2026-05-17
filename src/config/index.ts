@@ -140,22 +140,31 @@ export async function initConfig(): Promise<void> {
   watcher.on('unlink', (path) => reload(path))
 }
 
+// Lazy synchronous initialization used by callers that did not run
+// `initConfig()` (the Next.js web process, scripts that only need the YAML
+// snapshot, etc.). The bot still calls `initConfig()` explicitly to also
+// start the chokidar watcher for hot-reload.
+function ensureLoadedSync(): void {
+  if (_config) return
+  const next = loadFromYaml()
+  _config = next.config
+  _shouldReply = next.shouldReply
+  setLogLevel(next.config.logLevel)
+}
+
 // Proxy: every access reads the live value so hot-reload propagates without
-// callers needing to re-resolve references.
+// callers needing to re-resolve references. Auto-loads from YAML on first
+// access if no `initConfig()` was called (web/dashboard path).
 export const config = new Proxy({} as ConfigRuntime, {
   get: (_target, key: string | symbol) => {
-    if (!_config) {
-      throw new Error('config accessed before initConfig() resolved')
-    }
+    if (!_config) ensureLoadedSync()
     return (_config as unknown as Record<string | symbol, unknown>)[key as string]
   },
 })
 
 export function shouldReply(c: ChatContext): boolean {
-  if (!_shouldReply) {
-    throw new Error('shouldReply accessed before initConfig() resolved')
-  }
-  return _shouldReply(c)
+  if (!_shouldReply) ensureLoadedSync()
+  return _shouldReply!(c)
 }
 
 /**

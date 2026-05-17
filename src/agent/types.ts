@@ -17,7 +17,11 @@ export const CreateManualJobActionSchema = z.object({
   payload: z.object({
     chatId: z.string().min(1),
     kind: z.enum(['date_anchored', 'revive']),
-    fireAtIso: z.string().datetime(),
+    // `offset: true` lets the model emit either UTC `Z` form or an explicit
+    // offset like `+02:00`. The prompt asks for offset form, and the default
+    // `.datetime()` (UTC-only) was silently rejecting every valid output
+    // until both retries exhausted → "AI returned no usable plan".
+    fireAtIso: z.string().datetime({ offset: true }),
     action: z.string().min(1).max(200),
     recurring: z.literal('yearly').nullable().optional(),
   }),

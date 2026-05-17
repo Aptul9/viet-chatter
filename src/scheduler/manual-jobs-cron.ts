@@ -154,11 +154,16 @@ function buildHint(job: ManualJobRow): string {
     return `Today's the trigger date for action "${action}" (linked fact_id=${String(payload['fact_id'] ?? 'unknown')}). Open the conversation in a way that fits the action and your established tone.`
   }
   if (job.kind === 'revive') {
-    const context =
-      typeof payload['context'] === 'string'
-        ? payload['context']
-        : 'previous conversation ended on an inconclusive note'
-    return `Revive context: ${context}. Send one light, brief follow-up. Do NOT be needy. Single attempt only.`
+    // `action` is what the D2 agent emits via createManualJob; `context` is
+    // the older field name kept for backward-compat with any pre-D2 rows.
+    // Either provides the per-job instruction we pass to the orchestrator.
+    const instr =
+      typeof payload['action'] === 'string'
+        ? payload['action']
+        : typeof payload['context'] === 'string'
+          ? payload['context']
+          : 'previous conversation ended on an inconclusive note'
+    return `Revive instruction: ${instr}. Send one light, brief follow-up. Do NOT be needy. Single attempt only. If the instruction quotes a literal message in double quotes, send exactly that text — do not paraphrase or add greetings.`
   }
   if (job.kind === 're_engage') {
     const daysSilent = typeof payload['days_silent'] === 'number' ? payload['days_silent'] : null

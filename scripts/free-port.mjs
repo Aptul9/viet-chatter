@@ -15,8 +15,13 @@ if (!Number.isInteger(port) || port <= 0 || port > 65535) {
   process.exit(0)
 }
 
-// Check BOTH IPv4 and IPv6 (Next binds ::, on Windows that's a separate slot
-// from 0.0.0.0 — so a 0.0.0.0 bind succeeding doesn't mean the port is free).
+// Probe every interface a Next.js bind could land on. On Windows the bind
+// table is asymmetric: a process listening on `127.0.0.1:p` does NOT block
+// `0.0.0.0:p` — so a 0.0.0.0 success means nothing about whether `next dev
+// --hostname 127.0.0.1` will be able to claim the port. Test 127.0.0.1
+// (and ::1) explicitly since that's the actual target hostname our dev
+// script uses; the wildcard checks stay as a belt-and-braces signal for
+// anyone running without `--hostname`.
 async function isPortFree(p) {
   const tryBind = (host) =>
     new Promise((resolve) => {
@@ -25,9 +30,12 @@ async function isPortFree(p) {
       srv.once('listening', () => srv.close(() => resolve(true)))
       srv.listen(p, host)
     })
-  const v4 = await tryBind('0.0.0.0')
-  const v6 = await tryBind('::')
-  return v4 && v6
+  const hosts = ['127.0.0.1', '::1', '0.0.0.0', '::']
+  for (const h of hosts) {
+    // eslint-disable-next-line no-await-in-loop
+    if (!(await tryBind(h))) return false
+  }
+  return true
 }
 
 function killWindows(p) {

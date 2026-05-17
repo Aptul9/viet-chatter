@@ -7,7 +7,7 @@ const TABS = [
   { href: '/dashboard/stats', label: 'Stats' },
   { href: '/dashboard/summary', label: 'Summary' },
   { href: '/dashboard/agent', label: 'Agent' },
-  { href: '/', label: 'Config' },
+  { href: '/dashboard/config', label: 'Config' },
 ]
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

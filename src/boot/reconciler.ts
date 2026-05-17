@@ -13,6 +13,7 @@ import {
   recentProcessedMessages,
   scheduledOverdue,
   setChatState,
+  setDisplayNameIfEmpty,
   transitionChatState,
 } from '../db/repo.js'
 import { config } from '../config/index.js'
@@ -74,7 +75,17 @@ export async function runReconciler(deps: ReconcilerDeps): Promise<void> {
       const chatId = c.chat.id._serialized
       if (chatId.endsWith('@lid')) {
         const realPhone = await deps.wa.resolveLidPhone(chatId)
-        if (realPhone) ctx = { ...ctx, phone: realPhone }
+        if (realPhone) {
+          ctx = { ...ctx, phone: realPhone }
+          try {
+            setDisplayNameIfEmpty(deps.sqlite, chatId, realPhone)
+          } catch (err) {
+            log.warn(
+              { err, chatId },
+              'reconcile: failed to persist resolved lid phone to display_name'
+            )
+          }
+        }
       }
       if (applyFilter(ctx)) filtered.push(c)
       else log.debug({ chatId, phone: ctx.phone }, 'reconcile: filter rejected')

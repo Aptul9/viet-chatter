@@ -17,6 +17,7 @@ import {
   cancelPendingManualJobsForChat,
   insertProcessedMessage,
   markEscalationsResolved,
+  setDisplayNameIfEmpty,
 } from '../db/repo.js'
 import { applyFilter } from './filter.js'
 import { classifyMediaType, resolveMediaPolicy } from './media-policy.js'
@@ -141,6 +142,14 @@ export class MessageDispatcher {
       if (realPhone) {
         log.info({ chatId, lidPhone: ctx.phone, realPhone }, 'resolved lid -> phone')
         ctx = { ...ctx, phone: realPhone }
+        // Persist the resolved phone into person_profile.display_name so the
+        // dashboard can show a real number instead of the opaque LID digits.
+        // No-op if a real name was already set.
+        try {
+          setDisplayNameIfEmpty(this.deps.sqlite, chatId, realPhone)
+        } catch (err) {
+          log.warn({ err, chatId }, 'failed to persist resolved lid phone to display_name')
+        }
       } else {
         log.info({ chatId }, 'lid not resolvable to phone (unsaved contact)')
       }

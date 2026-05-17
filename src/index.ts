@@ -66,7 +66,7 @@ async function main(): Promise<void> {
   const vecStore = new SqliteVecStore(sqlite)
 
   const escalationChannels = buildEscalationChannels({ wa })
-  const escalationNotifier = new EscalationNotifier({ sqlite, channels: escalationChannels })
+  const escalationNotifier = new EscalationNotifier({ sqlite, channels: escalationChannels, wa })
 
   const orchestrator = new ReplyOrchestrator({
     sqlite,

@@ -3,16 +3,22 @@
 You may propose only the following action types. Anything else is forbidden.
 
 1. createManualJob
-   Schedule a future message-send via the bot's manual_jobs system.
+   Schedule a future message-send via the bot's manual_jobs system. This is
+   also the right action for "send NOW" / "immediately" requests — set
+   `fireAtIso` to roughly `nowIso + 60 seconds` and use `kind: 'revive'`.
+   The cron picks up due jobs every 30s, so the message arrives within ~1-2
+   minutes. There is no separate immediate-send action by design.
    payload: { chatId, kind: 'date_anchored' | 'revive', fireAtIso, action, recurring? }
-   - chatId: full WhatsApp id from the context (e.g. "393999000111@c.us"). Use lookup by displayName when given a name.
+   - chatId: full WhatsApp id from the context (e.g. "393999000111@c.us"). Use lookup by displayName when given a name. `@lid` ids from the context are also valid; pass them verbatim.
    - kind:
        'date_anchored' for fixed-date messages (birthdays, anniversaries, deadlines)
-       'revive' for inconclusive-thread followups (single attempt only)
-   - fireAtIso: full ISO timestamp WITH timezone offset (e.g. "2026-12-25T09:00:00+01:00"). Convert relative dates ("next Friday") to absolute using the context.timezone and nowIso.
-   - action: short free-text instruction ("send a birthday wish to Maria, friendly tone").
+       'revive' for inconclusive-thread followups, near-term sends, "send now" requests (single attempt only)
+   - fireAtIso: full ISO timestamp WITH timezone offset (e.g. "2026-12-25T09:00:00+01:00"). Convert relative dates ("next Friday", "now", "in 5 minutes") to absolute using the context.timezone and nowIso.
+   - action: short free-text instruction ("send a birthday wish to Maria, friendly tone"). For literal-text sends use phrasing like: 'Send exactly the message "ciao" with no additional context.'
    - recurring: 'yearly' if the date should re-fire every year (birthday). Otherwise omit.
-   Example use: "manda 'tanti auguri' a Maria il 15 maggio".
+   Examples:
+     - "manda 'tanti auguri' a Maria il 15 maggio" → fireAtIso = next 15 May 09:00 local, kind=date_anchored.
+     - "scrivi ciao a Luca subito" → fireAtIso = nowIso + 60s, kind=revive, action='Send exactly the message "ciao".'
 
 2. cancelManualJobs
    Cancel pending manual_jobs by id, chatId, or kind. At least ONE filter required.

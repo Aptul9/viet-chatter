@@ -11,21 +11,24 @@ function urgencyMarker(urgency: EscalationRow['urgency']): string {
   return ''
 }
 
-function personHeader(esc: EscalationRow): string {
-  // chatId is the WhatsApp `_serialized` id (e.g. "84xxxx@c.us").
-  // We strip the suffix for readability. The summary will give name context.
-  const phone = esc.chatId.replace(/@c\.us$/, '').replace(/^/, '+')
-  return phone
+function personHeader(esc: EscalationRow, displayPhone: string | null): string {
+  // Prefer the resolved E.164 phone (passed by the notifier after a
+  // `wa.resolveLidPhone` lookup). Otherwise fall back to the chatId with the
+  // wweb suffix (`@c.us` / `@lid`) stripped and a `+` prepended. The `@lid`
+  // case still leaks the raw lid digits, but at least no longer the suffix.
+  if (displayPhone) return displayPhone
+  const stripped = esc.chatId.replace(/@(c\.us|lid)$/, '')
+  return '+' + stripped
 }
 
 function holdingLine(esc: EscalationRow): string {
   return esc.holdingReplySent ? 'Holding reply: inviata.' : 'Holding reply: nessuna.'
 }
 
-function formatPlain(esc: EscalationRow): string {
+function formatPlain(esc: EscalationRow, displayPhone: string | null): string {
   return [
     `[viet-chatter] ${urgencyMarker(esc.urgency)}${esc.reason.toUpperCase()}`,
-    `Da: ${personHeader(esc)}`,
+    `Da: ${personHeader(esc, displayPhone)}`,
     `Riassunto: ${esc.summary}`,
     holdingLine(esc),
     '',
@@ -37,10 +40,10 @@ function escapeMarkdown(s: string): string {
   return s.replace(/([_*`\[\]])/g, '\\$1')
 }
 
-function formatMarkdown(esc: EscalationRow): string {
+function formatMarkdown(esc: EscalationRow, displayPhone: string | null): string {
   return [
     `*[viet-chatter] ${urgencyMarker(esc.urgency)}${esc.reason.toUpperCase()}*`,
-    `*Da:* ${escapeMarkdown(personHeader(esc))}`,
+    `*Da:* ${escapeMarkdown(personHeader(esc, displayPhone))}`,
     `*Riassunto:* ${escapeMarkdown(esc.summary)}`,
     `*${holdingLine(esc)}*`,
     '',
@@ -50,8 +53,10 @@ function formatMarkdown(esc: EscalationRow): string {
 
 export function formatEscalation(
   channel: EscalationChannelName,
-  esc: EscalationRow
+  esc: EscalationRow,
+  displayPhone: string | null = null
 ): EscalationPayload {
-  const text = channel === 'telegram' ? formatMarkdown(esc) : formatPlain(esc)
+  const text =
+    channel === 'telegram' ? formatMarkdown(esc, displayPhone) : formatPlain(esc, displayPhone)
   return { esc, text }
 }
