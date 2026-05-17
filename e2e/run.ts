@@ -4,14 +4,23 @@
 // Usage:
 //   npx tsx e2e/run.ts <scenario> [--ai stub|real] [--keep]
 //
-// Env:
+// Env (loaded from ./.env via dotenv, can also be exported in the shell):
 //   BOT_TARGET_NUMBER  E.164 of the bot's WhatsApp account (e.g. 393334445566)
 //
 // Exit: 0 = pass, 1 = fail, 2 = setup/timeout error.
 
+import 'dotenv/config'
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process'
-import { mkdirSync, existsSync, copyFileSync, readFileSync, renameSync, unlinkSync } from 'node:fs'
-import { resolve } from 'node:path'
+import {
+  mkdirSync,
+  existsSync,
+  copyFileSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  unlinkSync,
+} from 'node:fs'
+import { resolve, dirname, basename } from 'node:path'
 
 const PROJECT_ROOT = process.cwd()
 const E2E_DIR = resolve(PROJECT_ROOT, 'e2e')
@@ -69,6 +78,22 @@ function restoreConfig(backedUp: boolean): void {
   }
 }
 
+// Per-scenario DBs are deleted before each run, so the file is either missing
+// or a freshly-created empty SQLite. Either way, schema must be applied before
+// the bot opens it (the bot calls `openDb` directly with no migration step).
+function migrateScenarioDb(dbPath: string): void {
+  console.log(`[run] migrating scenario DB at ${dbPath}`)
+  const result = spawnSync('npx', ['tsx', 'src/db/migrate.ts'], {
+    cwd: PROJECT_ROOT,
+    env: { ...process.env, DB_PATH: dbPath },
+    stdio: 'inherit',
+    shell: process.platform === 'win32',
+  })
+  if (result.status !== 0) {
+    throw new Error(`migration failed for ${dbPath} (exit=${result.status})`)
+  }
+}
+
 function spawnBot(
   scenario: string,
   ai: 'stub' | 'real',
@@ -94,6 +119,27 @@ function spawnBot(
   })
 }
 
+// pino-roll appends a rotation index (`.1`, `.2`, ...) to the configured
+// `file` option, so the actual log file is e.g. `send-text.log.1`, not
+// `send-text.log`. Collect every file in the parent dir whose name starts
+// with the configured basename — covers the rotated suffix and the bare name
+// (if pino-roll ever stops appending one).
+function readAllLogContents(logPath: string): string {
+  const dir = dirname(logPath)
+  if (!existsSync(dir)) return ''
+  const base = basename(logPath)
+  const matches = readdirSync(dir).filter((f) => f === base || f.startsWith(`${base}.`))
+  let combined = ''
+  for (const f of matches) {
+    try {
+      combined += readFileSync(resolve(dir, f), 'utf8')
+    } catch {
+      /* race with rotation, skip */
+    }
+  }
+  return combined
+}
+
 // Tail the bot log until both "whatsapp ready" and "boot done" appear. We
 // match both because "whatsapp ready" alone is emitted before reconciler +
 // ticker start; "boot done" alone could (in principle) precede a reconnect
@@ -103,8 +149,8 @@ async function waitForBotReady(logPath: string, timeoutMs: number): Promise<void
   let sawWhatsapp = false
   let sawBoot = false
   while (Date.now() - start < timeoutMs) {
-    if (existsSync(logPath)) {
-      const raw = readFileSync(logPath, 'utf8')
+    const raw = readAllLogContents(logPath)
+    if (raw) {
       if (raw.includes('whatsapp ready')) sawWhatsapp = true
       if (raw.includes('boot done')) sawBoot = true
       if (sawWhatsapp && sawBoot) return
@@ -126,17 +172,38 @@ function runDriver(scenario: string, botNumber: string): { ok: boolean } {
   return { ok: result.status === 0 }
 }
 
+// Scenario name -> validator check name. The validator's checks live under
+// `e2e/validator/src/checks/<name>.ts` and are reusable across scenarios (one
+// check can validate multiple driver inputs). Per `e2e/README.md` table:
+//   send-text   -> basic-reply
+//   burst-text  -> basic-reply (debounce coalesces to one turn)
+//   send-image  -> image-vision (vision-capable AI assumed by default)
+//   send-audio  -> audio-escalation
+//   send-document/send-location -> no validator check, manual DB inspection
+//   reconnect   -> reconnect
+const SCENARIO_CHECK_MAP: Record<string, string> = {
+  'send-text': 'basic-reply',
+  'burst-text': 'basic-reply',
+  'send-image': 'image-vision',
+  'send-audio': 'audio-escalation',
+  reconnect: 'reconnect',
+}
+
 async function pollValidator(
   scenario: string,
   dbPath: string,
   logPath: string,
   timeoutMs: number
 ): Promise<{ ok: boolean }> {
+  const check = SCENARIO_CHECK_MAP[scenario] ?? scenario
+  if (check !== scenario) {
+    console.log(`[run] scenario=${scenario} -> validator check=${check}`)
+  }
   const start = Date.now()
   while (Date.now() - start < timeoutMs) {
     const result = spawnSync(
       'npm',
-      ['run', 'check', '--silent', '--', scenario, '--db', dbPath, '--logs', logPath],
+      ['run', 'check', '--silent', '--', check, '--db', dbPath, '--logs', logPath],
       {
         cwd: resolve(E2E_DIR, 'validator'),
         stdio: 'inherit',
@@ -151,15 +218,28 @@ async function pollValidator(
 
 async function killBot(bot: ChildProcess): Promise<void> {
   if (bot.exitCode !== null || bot.signalCode !== null) return
-  bot.kill('SIGTERM')
+
+  // On Windows, SIGTERM to a `npx tsx` chain only kills the npx wrapper; the
+  // actual node child (the bot) survives as an orphan. taskkill /F /T walks
+  // the process tree by PID and force-kills every descendant.
+  if (process.platform === 'win32' && bot.pid !== undefined) {
+    spawnSync('taskkill', ['/PID', String(bot.pid), '/F', '/T'], { stdio: 'ignore' })
+  } else {
+    bot.kill('SIGTERM')
+  }
+
   const start = Date.now()
   while (Date.now() - start < BOT_KILL_GRACE_MS) {
     if (bot.exitCode !== null || bot.signalCode !== null) return
     await sleep(200)
   }
   if (bot.exitCode === null && bot.signalCode === null) {
-    console.warn('[run] bot did not exit on SIGTERM, sending SIGKILL')
-    bot.kill('SIGKILL')
+    console.warn('[run] bot did not exit after kill, escalating')
+    if (process.platform === 'win32' && bot.pid !== undefined) {
+      spawnSync('taskkill', ['/PID', String(bot.pid), '/F', '/T'], { stdio: 'ignore' })
+    } else {
+      bot.kill('SIGKILL')
+    }
   }
 }
 
@@ -194,12 +274,28 @@ async function main(): Promise<void> {
   for (const p of [logPath, dbPath, `${dbPath}-shm`, `${dbPath}-wal`]) {
     if (existsSync(p)) unlinkSync(p)
   }
+  // pino-roll writes to `${logPath}.1`, `${logPath}.2`, ... — purge them too
+  // so stale lines from prior runs don't satisfy readiness markers.
+  const logDir = dirname(logPath)
+  const logBase = basename(logPath)
+  if (existsSync(logDir)) {
+    for (const f of readdirSync(logDir)) {
+      if (f.startsWith(`${logBase}.`)) {
+        try {
+          unlinkSync(resolve(logDir, f))
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  }
 
   const { backedUp } = swapConfig()
   let bot: ChildProcess | null = null
   let exitCode = 0
 
   try {
+    migrateScenarioDb(dbPath)
     bot = spawnBot(args.scenario, args.ai, logPath, dbPath)
     bot.on('exit', (code, sig) => {
       console.log(`[run] bot exited code=${code} sig=${sig}`)

@@ -138,6 +138,9 @@ export function makeFakeWa(opts: {
     async resolveLidPhone(_id: string) {
       return null
     },
+    async resolveContactName(_phone: string) {
+      return null
+    },
     async downloadMedia(_msg: unknown) {
       return opts.downloadMediaResult ?? null
     },

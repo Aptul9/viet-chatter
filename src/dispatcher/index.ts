@@ -18,6 +18,7 @@ import {
   insertProcessedMessage,
   markEscalationsResolved,
   setDisplayNameIfEmpty,
+  upgradeDisplayNameFromPhone,
 } from '../db/repo.js'
 import { applyFilter } from './filter.js'
 import { classifyMediaType, resolveMediaPolicy } from './media-policy.js'
@@ -149,6 +150,22 @@ export class MessageDispatcher {
           setDisplayNameIfEmpty(this.deps.sqlite, chatId, realPhone)
         } catch (err) {
           log.warn({ err, chatId }, 'failed to persist resolved lid phone to display_name')
+        }
+        // Best-effort upgrade: if the paired device has this number saved
+        // in the address book, replace the E.164 fallback with the saved
+        // contact name. Idempotent and only overwrites when current value
+        // looks like an E.164 phone (starts with '+' followed by digits).
+        try {
+          const realName = await this.deps.wa.resolveContactName(realPhone)
+          if (realName) {
+            upgradeDisplayNameFromPhone(this.deps.sqlite, chatId, realName)
+            log.info(
+              { chatId, realPhone, realName },
+              'upgraded display_name from phone to contact name'
+            )
+          }
+        } catch (err) {
+          log.warn({ err, chatId }, 'failed to upgrade display_name to contact name')
         }
       } else {
         log.info({ chatId }, 'lid not resolvable to phone (unsaved contact)')

@@ -34,15 +34,25 @@ B-side, owned by the parent session) can't exercise.
 3. **Save the bot phone in the driver phone's contacts.** Some scenarios
    work without it, but `filter.savedContactsOnly` future tests will need it.
 
-4. **Set environment**: export `BOT_TARGET_NUMBER` to the bot's E.164 number,
-   digits only (e.g. `393334445566`, no `+`).
+4. **Set `BOT_TARGET_NUMBER`**: bot's E.164 number, digits only (e.g.
+   `393334445566`, no `+`). Either:
+   - put it in the project-root `.env` (recommended; `e2e/run.ts` auto-loads
+     it via dotenv), or
+   - export it in the shell each time.
 
 ## Running a scenario
 
 From the project root:
 
 ```bash
-BOT_TARGET_NUMBER=393334445566 npx tsx e2e/run.ts <scenario> [--ai stub|real] [--keep]
+npx tsx e2e/run.ts <scenario> [--ai stub|real] [--keep]
+```
+
+If `BOT_TARGET_NUMBER` is in `.env`, no extra shell export needed. To override
+ad-hoc:
+
+```bash
+BOT_TARGET_NUMBER=393334445566 npx tsx e2e/run.ts <scenario>
 ```
 
 `run.ts` will:

@@ -14,6 +14,7 @@ import {
   scheduledOverdue,
   setChatState,
   setDisplayNameIfEmpty,
+  upgradeDisplayNameFromPhone,
   transitionChatState,
 } from '../db/repo.js'
 import { config } from '../config/index.js'
@@ -84,6 +85,20 @@ export async function runReconciler(deps: ReconcilerDeps): Promise<void> {
               { err, chatId },
               'reconcile: failed to persist resolved lid phone to display_name'
             )
+          }
+          // Same upgrade path as dispatcher: replace the E.164 fallback with
+          // the address-book name if the paired device has it saved.
+          try {
+            const realName = await deps.wa.resolveContactName(realPhone)
+            if (realName) {
+              upgradeDisplayNameFromPhone(deps.sqlite, chatId, realName)
+              log.info(
+                { chatId, realPhone, realName },
+                'reconcile: upgraded display_name to contact name'
+              )
+            }
+          } catch (err) {
+            log.warn({ err, chatId }, 'reconcile: failed to upgrade display_name')
           }
         }
       }

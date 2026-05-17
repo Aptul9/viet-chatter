@@ -93,6 +93,13 @@ export interface WhatsAppHandle {
    */
   resolveLidPhone(serializedId: string): Promise<string | null>
   /**
+   * Look up the address-book name for a given E.164 phone (with leading '+').
+   * Returns the saved contact's display name (or pushname fallback) if the
+   * paired device has it stored; `null` otherwise. Used after lid->phone
+   * resolution so the dashboard shows real names instead of raw E.164.
+   */
+  resolveContactName(e164Phone: string): Promise<string | null>
+  /**
    * Download the media attached to an incoming message (image / audio / video
    * / document / sticker). Returns `null` if the media is missing, expired,
    * or the download fails. Bytes are returned in memory; the caller is
@@ -345,6 +352,31 @@ export async function initWhatsApp(sessionDir: string): Promise<WhatsAppHandle> 
         return m && m[1] ? '+' + m[1] : null
       } catch (err) {
         log.warn({ err: (err as Error).message, id: serializedId }, 'resolveLidPhone failed')
+        return null
+      }
+    },
+
+    async resolveContactName(e164Phone) {
+      try {
+        const digits = e164Phone.startsWith('+') ? e164Phone.slice(1) : e164Phone
+        if (!/^\d{5,}$/.test(digits)) return null
+        const jid = `${digits}@c.us`
+        const contact = (await client.getContactById(jid)) as unknown as {
+          name?: string | null
+          shortName?: string | null
+          pushname?: string | null
+          isMyContact?: boolean
+        }
+        // `name` is the address-book entry (only set when the contact is saved
+        // on the paired device). `pushname` is the WhatsApp profile name the
+        // user picked themselves, which exists even for unsaved contacts but
+        // is less stable. Prefer `name` when it's there.
+        const name = contact.name?.trim() || contact.shortName?.trim() || null
+        if (name) return name
+        const pushname = contact.pushname?.trim()
+        return pushname && pushname.length > 0 ? pushname : null
+      } catch (err) {
+        log.warn({ err: (err as Error).message, phone: e164Phone }, 'resolveContactName failed')
         return null
       }
     },

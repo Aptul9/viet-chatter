@@ -281,6 +281,34 @@ export function setDisplayNameIfEmpty(sqlite: Sqlite, chatId: ChatId, name: stri
     .run(chatId, name, now, now)
 }
 
+/**
+ * Upgrade `display_name` from an E.164 fallback (e.g. `+393518347869`) to a
+ * proper address-book name. Skips when the current value already looks like a
+ * real name (no leading `+` followed by digits-only). Used after a contact
+ * name lookup succeeds on a chat that was previously stamped with just the
+ * resolved phone.
+ */
+export function upgradeDisplayNameFromPhone(
+  sqlite: Sqlite,
+  chatId: ChatId,
+  realName: string
+): void {
+  const now = Date.now()
+  sqlite
+    .prepare(
+      `UPDATE \`person_profile\`
+         SET \`display_name\` = ?, \`updated_at\` = ?
+       WHERE \`chat_id\` = ?
+         AND (
+           \`display_name\` IS NULL
+           OR \`display_name\` = ''
+           OR \`display_name\` GLOB '+[0-9]*'
+         )
+         AND \`display_name\` IS NOT ?`
+    )
+    .run(realName, now, chatId, realName)
+}
+
 export function updateLanguages(sqlite: Sqlite, chatId: ChatId, languages: string[]): void {
   sqlite
     .prepare('UPDATE `person_profile` SET `languages` = ?, `updated_at` = ? WHERE `chat_id` = ?')

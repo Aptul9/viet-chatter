@@ -69,9 +69,13 @@ escalation:
 # Overridden at boot via BOT_E2E_DB_PATH env var.
 dbPath: './e2e/db/default.db'
 
-# -- Filter (allow all for testing) --
+# -- Filter (driver number only) --
+# Bot under test = 31685785228 (NL real). Driver = 393518347869 (IT test).
+# Locked to driver E.164 so the bot never replies to real chats during e2e runs,
+# even though wweb syncs all chats from the server.
 filter:
-  allowedPrefixes: []
+  allowedPrefixes:
+    - '+393518347869'
   blockedNumbers: []
   savedContactsOnly: false
   unreadOnly: false
